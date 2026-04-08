@@ -3,10 +3,6 @@
 .env
 *.env
 
-# Strategic docs — kept on iCloud only
-SPEC.md
-docs/IRP-Roadmap.md
-
 # Python
 __pycache__/
 *.py[cod]
