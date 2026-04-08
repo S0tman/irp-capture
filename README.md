@@ -324,7 +324,7 @@ IRP focuses on the second.
 | Slack sensor | Available |
 | Figma plugin | In progress |
 | Git hook | In progress |
-| pip package | In progress |
+| pip package | Live — v0.1.1 |
 | SDK / API | Planned |
 
 ---
