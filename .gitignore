@@ -1,0 +1,41 @@
+# IRP — never commit these
+.irp/
+.env
+*.env
+
+# Strategic docs — kept on iCloud only
+SPEC.md
+docs/IRP-Roadmap.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+pip-wheel-metadata/
+.installed.cfg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+/tmp/
