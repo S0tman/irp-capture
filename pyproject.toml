@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "irp-capture"
+version = "0.1.0"
+description = "An append-only ledger that records why decisions were made."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+keywords = ["decision-log", "local-first", "append-only", "devtools", "ai", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Utilities",
+]
+
+[project.scripts]
+irp = "irp.core.irp:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["irp*"]
