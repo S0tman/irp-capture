@@ -323,7 +323,7 @@ IRP focuses on the second.
 | Claude Code skill | Available |
 | Slack sensor | Available |
 | Figma plugin | In progress |
-| Git hook | In progress |
+| Git hook | Live — warn mode (enforce coming) |
 | pip package | Live — v0.1.1 |
 | SDK / API | Planned |
 
