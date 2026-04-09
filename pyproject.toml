@@ -22,8 +22,12 @@ classifiers = [
     "Topic :: Utilities",
 ]
 
+[project.optional-dependencies]
+api = ["fastapi>=0.100", "uvicorn>=0.20"]
+
 [project.scripts]
 irp = "irp.core.irp:main"
+irp-api = "irp.api.server:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
