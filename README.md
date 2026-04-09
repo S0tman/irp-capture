@@ -355,7 +355,7 @@ IRP focuses on the second.
 | Git hook | Live — warn mode (enforce coming) |
 | PR bot | Live — warn-only |
 | pip package | Live — v0.1.1 |
-| SDK / API | Planned |
+| REST API | Live — v0 (`pip install irp-capture[api]`) |
 
 ---
 
