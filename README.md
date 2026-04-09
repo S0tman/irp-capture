@@ -203,7 +203,8 @@ Nothing changes about how you work.
 | **Figma** | Resolve a design comment. The plugin captures the decision. Start the bridge with `--project-root /path/to/project` — see `irp/figma_plugin/README.md`. |
 | **Git hook** | Capture architecture decisions at commit time |
 | **PR bot** | Add to any GitHub repo — warns on PRs that conflict with active decisions. See setup below. |
-| **More coming** | VS Code, SDK for custom integrations |
+| **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]` — see `irp/api/README.md`. |
+| **More coming** | VS Code, Python SDK |
 
 No tool talks to another. Everything talks to the ledger.
 
