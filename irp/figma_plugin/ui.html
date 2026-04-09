@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, sans-serif;
+      font-size: 13px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 20px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .header-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.2px;
+    }
+
+    .header-sub {
+      font-size: 11px;
+      color: #555;
+    }
+
+    .context-bar {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #666;
+      min-height: 36px;
+    }
+
+    .context-bar span {
+      color: #888;
+    }
+
+    label {
+      font-size: 11px;
+      color: #666;
+      display: block;
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    textarea {
+      width: 100%;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 10px 12px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+    }
+
+    textarea:focus {
+      border-color: #444;
+    }
+
+    textarea::placeholder {
+      color: #3a3a3a;
+    }
+
+    .field { display: flex; flex-direction: column; }
+
+    button {
+      background: #4f9eff;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: auto;
+    }
+
+    button:hover { background: #3d8ef0; }
+    button:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+
+    .status {
+      font-size: 11px;
+      color: #555;
+      text-align: center;
+      min-height: 16px;
+    }
+
+    .status.ok { color: #4fd175; }
+    .status.err { color: #ff6b6b; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-title">IRP Capture</div>
+    <div class="header-sub">Append a decision to .irp/</div>
+  </div>
+
+  <div class="context-bar" id="context-bar">
+    <span id="context-text">Loading context…</span>
+  </div>
+
+  <div class="field">
+    <label>Decision</label>
+    <textarea id="decision" rows="4" placeholder="What was decided?"></textarea>
+  </div>
+
+  <div class="field">
+    <label>Why</label>
+    <textarea id="why" rows="4" placeholder="Why did this win over alternatives?"></textarea>
+  </div>
+
+  <button id="capture-btn" disabled>Capture</button>
+  <div class="status" id="status"></div>
+
+<script>
+  const BRIDGE = "http://localhost:3002";
+  let context = {};
+
+  // Request context from plugin sandbox
+  parent.postMessage({ pluginMessage: { type: "get-context" } }, "*");
+
+  // Receive context back
+  window.onmessage = (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === "context") {
+      context = msg;
+      const parts = [msg.page, msg.selection].filter(Boolean);
+      document.getElementById("context-text").textContent = parts.join(" · ") || "No selection";
+      document.getElementById("capture-btn").disabled = false;
+    }
+  };
+
+  // Enable button when decision is filled
+  document.getElementById("decision").addEventListener("input", () => {
+    const hasDecision = document.getElementById("decision").value.trim().length > 0;
+    document.getElementById("capture-btn").disabled = !hasDecision;
+  });
+
+  document.getElementById("capture-btn").addEventListener("click", async () => {
+    const decision = document.getElementById("decision").value.trim();
+    const why = document.getElementById("why").value.trim();
+    const status = document.getElementById("status");
+
+    if (!decision) return;
+
+    const payload = {
+      decision,
+      why: why || null,
+      source: "figma",
+      context: {
+        page: context.page || null,
+        selection: context.selection || null
+      }
+    };
+
+    try {
+      const res = await fetch(`${BRIDGE}/capture`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        parent.postMessage({ pluginMessage: { type: "captured" } }, "*");
+        status.textContent = "Captured ✓";
+        status.className = "status ok";
+        document.getElementById("decision").value = "";
+        document.getElementById("why").value = "";
+        document.getElementById("capture-btn").disabled = true;
+        setTimeout(() => { status.textContent = ""; status.className = "status"; }, 3000);
+      } else {
+        throw new Error(`Bridge returned ${res.status}`);
+      }
+    } catch (e) {
+      parent.postMessage({ pluginMessage: { type: "error" } }, "*");
+      status.textContent = "Bridge not reachable";
+      status.className = "status err";
+    }
+  });
+</script>
+</body>
+</html>
