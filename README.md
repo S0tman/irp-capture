@@ -200,7 +200,7 @@ Nothing changes about how you work.
 | **Claude Code skill** | Type `capture` inside any Claude session. Captures the decision the moment it is made, without leaving your workflow. |
 | **CLI** | `irp capture` — capture any decision directly from the terminal |
 | **Slack** | Resolve a thread with a decision. The bot writes it to the ledger. |
-| **Figma** | Resolve a design comment. The plugin captures the decision. |
+| **Figma** | Resolve a design comment. The plugin captures the decision. Start the bridge with `--project-root /path/to/project` — see `irp/figma_plugin/README.md`. |
 | **Git hook** | Capture architecture decisions at commit time |
 | **More coming** | VS Code, PR bot, SDK for custom integrations |
 
