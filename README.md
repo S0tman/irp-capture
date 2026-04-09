@@ -91,7 +91,7 @@ IRP is an append-only decision ledger that lives alongside your work.
 
 Think of it as a ship's log.
 Every course correction. Every judgment call. Every hard decision.
-Not because the ocean would remember — but because the next watch
+Not because the ocean would remember but because the next watch
 needs to know why the ship is where it is.
 
 When a human confirms a decision, IRP records it.
