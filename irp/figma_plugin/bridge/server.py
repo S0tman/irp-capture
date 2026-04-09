@@ -7,10 +7,19 @@ Figma plugin and writes them to the IRP ledger via irp capture.
 import json
 import sys
 import os
+import argparse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # Ensure IRP package is importable regardless of how bridge was launched
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+
+# Parse --project-root argument
+parser = argparse.ArgumentParser()
+parser.add_argument("--project-root", default=os.getcwd(),
+                    help="Path to the project root containing .irp/ (default: cwd)")
+args_global, _ = parser.parse_known_args()
+PROJECT_ROOT = os.path.abspath(args_global.project_root)
+print(f"[bridge] Project root: {PROJECT_ROOT}")
 
 PORT = 3002
 
@@ -70,7 +79,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 append_ledger_entry, rebuild_current, write_current
             )
 
-            project_root = Path.cwd()
+            project_root = Path(PROJECT_ROOT)
             irp_dir = ensure_irp_dir(project_root)
             ledger = read_ledger(irp_dir)
 
