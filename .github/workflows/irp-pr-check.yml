@@ -1,0 +1,23 @@
+name: IRP PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  irp-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check PR against IRP decision ledger
+        uses: S0tman/irp-capture/.github/actions/irp-check@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -202,7 +202,8 @@ Nothing changes about how you work.
 | **Slack** | Resolve a thread with a decision. The bot writes it to the ledger. |
 | **Figma** | Resolve a design comment. The plugin captures the decision. Start the bridge with `--project-root /path/to/project` — see `irp/figma_plugin/README.md`. |
 | **Git hook** | Capture architecture decisions at commit time |
-| **More coming** | VS Code, PR bot, SDK for custom integrations |
+| **PR bot** | Add to any GitHub repo — warns on PRs that conflict with active decisions. See setup below. |
+| **More coming** | VS Code, SDK for custom integrations |
 
 No tool talks to another. Everything talks to the ledger.
 
@@ -294,6 +295,34 @@ Start capturing from day one, even if the entries are simple.
 
 ---
 
+## Add the PR bot to your project
+
+Copy `.github/workflows/irp-pr-check.yml` to your repo:
+
+```yaml
+name: IRP PR Check
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  pull-requests: write
+jobs:
+  irp-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: S0tman/irp-capture/.github/actions/irp-check@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The bot posts a warning comment when a PR title or description overlaps with an active decision in `.irp/`. Silently passes if no `.irp/` is found. Warn-only — never blocks a merge.
+
+---
+
 ## Why not a memory tool?
 
 Memory stores what happened.
@@ -324,6 +353,7 @@ IRP focuses on the second.
 | Slack sensor | Available |
 | Figma plugin | Live — v0 |
 | Git hook | Live — warn mode (enforce coming) |
+| PR bot | Live — warn-only |
 | pip package | Live — v0.1.1 |
 | SDK / API | Planned |
 

@@ -1,0 +1,124 @@
+name: IRP Decision Check
+description: >
+  Check a pull request against the project's .irp/ decision ledger.
+  Posts a warning comment if the PR title or description conflicts with
+  an active decision. Silently passes if no .irp/ substrate is found.
+
+inputs:
+  github-token:
+    description: GitHub token for posting PR comments
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install irp-capture
+      run: pip install irp-capture --quiet
+      shell: bash
+
+    - name: Run IRP check
+      id: irp
+      run: |
+        if [ ! -f ".irp/current.json" ]; then
+          echo "status=skip" >> "$GITHUB_OUTPUT"
+          echo "No .irp/current.json found — IRP check skipped."
+          exit 0
+        fi
+
+        TITLE="${{ github.event.pull_request.title }}"
+        BODY="${{ github.event.pull_request.body }}"
+        PROPOSAL="$TITLE ${BODY:0:500}"
+
+        irp check --json "$PROPOSAL" > /tmp/irp_result.json 2>&1 || true
+
+        STATUS=$(python3 -c "
+        import json, sys
+        try:
+            d = json.load(open('/tmp/irp_result.json'))
+            print(d.get('status', 'clear'))
+        except Exception:
+            print('clear')
+        ")
+
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        echo "json_result<<IRPEOF" >> "$GITHUB_OUTPUT"
+        cat /tmp/irp_result.json >> "$GITHUB_OUTPUT"
+        echo "IRPEOF" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Post or update conflict comment
+      if: steps.irp.outputs.status == 'conflict'
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const result = JSON.parse(process.env.IRP_RESULT);
+          const body = [
+            '## ⚠️ IRP Decision Conflict',
+            '',
+            `This PR overlaps with an active decision in \`.irp/\``,
+            '',
+            `| | |`,
+            `|---|---|`,
+            `| **Decision** | \`${result.match_id}\` |`,
+            `| **What** | ${result.match_id ? '' : ''} |`,
+            `| **Matched on** | \`${(result.matched_on || []).join(', ')}\` |`,
+            '',
+            '> Review the active decision before merging. Run `irp why` locally for full context.',
+            '',
+            '<sub>Posted by [IRP](https://github.com/S0tman/irp-capture) · `irp check` · warn-only</sub>'
+          ].join('\n');
+
+          // Parse what/why from the text output for the comment
+          const text = result.text || '';
+          const whatMatch = text.match(/What:\s+(.+)/);
+          const whyMatch = text.match(/Why:\s+(.+)/);
+          const what = whatMatch ? whatMatch[1].trim() : '(see .irp/current.json)';
+          const why = whyMatch ? whyMatch[1].trim() : '';
+
+          const comment = [
+            '## ⚠️ IRP Decision Conflict',
+            '',
+            'This PR overlaps with an active decision in `.irp/`',
+            '',
+            `| | |`,
+            `|---|---|`,
+            `| **Decision** | \`${result.match_id}\` |`,
+            `| **What** | ${what} |`,
+            `| **Why** | ${why} |`,
+            `| **Matched on** | \`${(result.matched_on || []).join(', ')}\` |`,
+            '',
+            '> Review the active decision before merging. Run `irp why` locally for full context.',
+            '',
+            '<sub>Posted by [IRP](https://github.com/S0tman/irp-capture) · warn-only</sub>'
+          ].join('\n');
+
+          const marker = '<!-- irp-check -->';
+
+          // Find existing IRP comment to update rather than spam
+          const comments = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existing = comments.data.find(c => c.body.includes(marker));
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body: marker + '\n' + comment,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: marker + '\n' + comment,
+            });
+          }
+      env:
+        IRP_RESULT: ${{ steps.irp.outputs.json_result }}
