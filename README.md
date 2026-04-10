@@ -241,6 +241,31 @@ No tool talks to another. Everything talks to the ledger.
 
 ---
 
+## Use with Claude Code
+
+If you clone this repo or have `SKILL.md` in your project root,
+Claude Code discovers the IRP skill automatically.
+
+**Option A — Clone the repo (skill is included):**
+
+```bash
+git clone https://github.com/S0tman/irp-capture.git
+cd irp-capture
+# Claude Code now has the IRP skill
+```
+
+**Option B — Add the skill to an existing project:**
+
+```bash
+pip install irp-capture
+curl -O https://raw.githubusercontent.com/S0tman/irp-capture/main/SKILL.md
+# Claude Code now has the IRP skill
+```
+
+Once active, type `capture` inside any Claude session to record a decision.
+
+---
+
 ## Daily workflow
 
 **The highest-signal moment**
