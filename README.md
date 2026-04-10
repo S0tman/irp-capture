@@ -141,6 +141,37 @@ in a way that ambient memory systems cannot be.
 
 ---
 
+## What survives
+
+When systems change, most context is lost.
+
+You move to a new tool.
+A team member leaves.
+The platform updates.
+Infrastructure changes.
+An AI service goes down.
+
+Most knowledge disappears with it.
+
+IRP ensures one thing survives:
+
+- What was decided
+- Why it was decided
+
+The `.irp/` directory travels with your work. It is not trapped in a tool or a service.
+It is a plain text file. It lives where your code lives.
+
+New team member joins?
+They run `irp why` and see what was already decided.
+
+New system, new tool, new team?
+The ledger travels.
+The reasoning survives.
+
+This is not about memory. It is about meaning traveling across time, tools, and teams.
+
+---
+
 ## Under the hood
 
 | Component | Choice | Why |
