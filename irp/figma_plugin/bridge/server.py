@@ -9,6 +9,10 @@ import sys
 import os
 import argparse
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.request import Request, urlopen
+from urllib.parse import urlparse, parse_qs
+from urllib.error import URLError
+import ssl
 
 # Ensure IRP package is importable regardless of how bridge was launched
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -21,11 +25,90 @@ args_global, _ = parser.parse_known_args()
 PROJECT_ROOT = os.path.abspath(args_global.project_root)
 print(f"[bridge] Project root: {PROJECT_ROOT}")
 
+# Figma PAT for comment fetching (optional — auto-populate feature)
+FIGMA_PAT = os.environ.get("FIGMA_PAT", "")
+if FIGMA_PAT:
+    print(f"[bridge] Figma PAT loaded — comment auto-populate enabled")
+else:
+    print(f"[bridge] No FIGMA_PAT set — comment auto-populate disabled (manual entry only)")
+
 PORT = 3002
+
+def fetch_figma_comments(file_key):
+    """Fetch resolved comments from a Figma file via REST API."""
+    url = f"https://api.figma.com/v1/files/{file_key}/comments"
+    req = Request(url, headers={
+        "X-Figma-Token": FIGMA_PAT,
+    })
+    # macOS Python often lacks system CA certs — skip verification for local bridge
+    ssl_ctx = ssl.create_default_context()
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+    try:
+        with urlopen(req, timeout=10, context=ssl_ctx) as resp:
+            data = json.loads(resp.read())
+    except URLError as e:
+        print(f"[bridge] Figma API error: {e}")
+        return []
+
+    # Filter to resolved comments, most recent first
+    resolved = [
+        {
+            "id": c["id"],
+            "message": c.get("message", ""),
+            "resolved_at": c.get("resolved_at"),
+            "created_at": c.get("created_at"),
+            "user": c.get("user", {}).get("handle", "unknown"),
+        }
+        for c in data.get("comments", [])
+        if c.get("resolved_at")
+    ]
+    resolved.sort(key=lambda c: c["resolved_at"], reverse=True)
+    return resolved[:10]
 
 class BridgeHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[bridge] {args[0]} {args[1]} {args[2]}")
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path != "/comments":
+            self.send_response(404)
+            self.end_headers()
+            return
+
+        if not FIGMA_PAT:
+            self.send_response(200)
+            self._cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"comments": [], "reason": "no FIGMA_PAT configured"}).encode())
+            return
+
+        params = parse_qs(parsed.query)
+        file_key = params.get("file_key", [None])[0]
+        if not file_key:
+            self.send_response(400)
+            self._cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "file_key required"}).encode())
+            return
+
+        try:
+            comments = fetch_figma_comments(file_key)
+            print(f"[bridge] fetched {len(comments)} resolved comments for file {file_key[:12]}…")
+            self.send_response(200)
+            self._cors_headers()
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"comments": comments}).encode())
+        except Exception as e:
+            print(f"[bridge] comment fetch error: {e}")
+            self.send_response(500)
+            self._cors_headers()
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
 
     def do_OPTIONS(self):
         # CORS preflight — Figma plugin iframe needs this
@@ -114,7 +197,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def _cors_headers(self):
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
 if __name__ == "__main__":

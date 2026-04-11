@@ -18,6 +18,8 @@ Bridge server (bridge/server.py)
 
 The plugin sidebar has two fields: **Decision** (what was decided) and **Why** (why it won over alternatives). The current Figma page is captured automatically as context.
 
+**Auto-populate (optional):** If you set a `FIGMA_PAT` environment variable, the plugin fetches recently resolved comments from the file and shows them as clickable items. Click one to pre-fill the Decision field. The Why field stays manual — that's the valuable part.
+
 ---
 
 ## Setup
@@ -28,7 +30,19 @@ Figma → Plugins → Development → **Import plugin from manifest**
 
 Point it at: `irp/figma_plugin/manifest.json`
 
-### 2. Start the bridge
+### 2. (Optional) Enable comment auto-populate
+
+Generate a Figma Personal Access Token at https://www.figma.com/developers/api#access-tokens
+
+Set it before starting the bridge:
+
+```bash
+export FIGMA_PAT="figd_your-token-here"
+```
+
+Without this, the plugin works normally — you just type decisions manually.
+
+### 3. Start the bridge
 
 **Critical:** you must pass `--project-root` pointing at the project whose `.irp/` you want to write to. If you omit it, the bridge defaults to wherever it was launched from — which is almost certainly not what you want.
 
@@ -56,7 +70,7 @@ The bridge logs the resolved project root on startup:
 
 **Always verify this line before using the plugin.**
 
-### 3. Run the plugin in Figma
+### 4. Run the plugin in Figma
 
 Plugins → Development → IRP Capture → Open
 
@@ -88,6 +102,8 @@ cat /path/to/your/project/.irp/ledger.jsonl | tail -5
 | "Bridge not reachable" in plugin | Bridge not running | Start `bridge/server.py` |
 | Capture succeeds but `irp check` can't see it | Wrong `--project-root` | Restart bridge with correct `--project-root` |
 | Bridge starts but writes to wrong `.irp/` | `--project-root` omitted, defaulted to cwd | Always pass `--project-root` explicitly |
+| No resolved comments shown | `FIGMA_PAT` not set | Set `export FIGMA_PAT="figd_..."` before starting bridge |
+| No resolved comments shown | No comments resolved in file | Resolve a comment in Figma, reopen plugin |
 | Manifest error on import | Figma version mismatch | Check `manifest.json` networkAccess format |
 
 ---

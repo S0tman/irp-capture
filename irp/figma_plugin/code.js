@@ -6,7 +6,7 @@ figma.showUI(__html__, { width: 360, height: 480, title: "IRP Capture" });
 // Receive messages from ui.html
 figma.ui.onmessage = async (msg) => {
   if (msg.type === "get-context") {
-    // Send current page and selection context to the UI
+    // Send current page, selection, and file key to the UI
     const page = figma.currentPage.name;
     const selection = figma.currentPage.selection;
     const selectionLabel = selection.length > 0
@@ -16,7 +16,8 @@ figma.ui.onmessage = async (msg) => {
     figma.ui.postMessage({
       type: "context",
       page,
-      selection: selectionLabel
+      selection: selectionLabel,
+      fileKey: figma.fileKey
     });
   }
 

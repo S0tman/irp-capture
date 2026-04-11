@@ -107,6 +107,76 @@
 
     .status.ok { color: #4fd175; }
     .status.err { color: #ff6b6b; }
+
+    .resolved-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .resolved-label {
+      font-size: 11px;
+      color: #666;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .resolved-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .resolved-item {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #aaa;
+      cursor: pointer;
+      line-height: 1.4;
+      transition: border-color 0.15s;
+    }
+
+    .resolved-item:hover {
+      border-color: #4f9eff;
+      color: #e0e0e0;
+    }
+
+    .resolved-item .resolved-user {
+      font-size: 10px;
+      color: #555;
+      margin-top: 2px;
+    }
+
+    .resolved-empty {
+      font-size: 11px;
+      color: #333;
+      font-style: italic;
+    }
+
+    .filekey-fallback input {
+      flex: 1;
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      color: #e0e0e0;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    .filekey-fallback input:focus {
+      border-color: #444;
+    }
+
+    .filekey-fallback input::placeholder {
+      color: #3a3a3a;
+    }
   </style>
 </head>
 <body>
@@ -118,6 +188,19 @@
 
   <div class="context-bar" id="context-bar">
     <span id="context-text">Loading context…</span>
+  </div>
+
+  <div class="filekey-fallback" id="filekey-fallback" style="display:none;">
+    <label>File key <span style="text-transform:none;color:#444;">(from Figma URL: figma.com/design/<b>FILE_KEY</b>/…)</span></label>
+    <div style="display:flex;gap:6px;">
+      <input type="text" id="filekey-input" placeholder="Paste file key here" />
+      <button id="filekey-btn" style="width:auto;margin-top:0;padding:8px 12px;font-size:11px;">Load</button>
+    </div>
+  </div>
+
+  <div class="resolved-section" id="resolved-section" style="display:none;">
+    <div class="resolved-label">Resolved comments</div>
+    <div class="resolved-list" id="resolved-list"></div>
   </div>
 
   <div class="field">
@@ -135,10 +218,86 @@
 
 <script>
   const BRIDGE = "http://localhost:3002";
+  const POLL_INTERVAL = 30000; // 30s live refresh
   let context = {};
+  let activeFileKey = null;
+  let pollTimer = null;
+  let lastCommentIds = ""; // dedup: skip re-render if nothing changed
 
   // Request context from plugin sandbox
   parent.postMessage({ pluginMessage: { type: "get-context" } }, "*");
+
+  // Fetch resolved comments from bridge
+  async function loadResolvedComments(fileKey, silent) {
+    if (!fileKey) return;
+    try {
+      const res = await fetch(`${BRIDGE}/comments?file_key=${encodeURIComponent(fileKey)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const comments = data.comments || [];
+
+      // Dedup — don't re-render if the comment list hasn't changed
+      const ids = comments.map(c => c.id).join(",");
+      if (ids === lastCommentIds && silent) return;
+      lastCommentIds = ids;
+
+      const section = document.getElementById("resolved-section");
+      const list = document.getElementById("resolved-list");
+
+      if (comments.length === 0) {
+        section.style.display = "none";
+        if (!silent) {
+          document.getElementById("status").textContent = "No resolved comments yet";
+          document.getElementById("status").className = "status";
+        }
+        return;
+      }
+
+      if (!silent) {
+        document.getElementById("status").textContent = `${comments.length} resolved comment${comments.length > 1 ? 's' : ''}`;
+        document.getElementById("status").className = "status ok";
+        setTimeout(() => { document.getElementById("status").textContent = ""; document.getElementById("status").className = "status"; }, 3000);
+      }
+
+      section.style.display = "flex";
+      list.innerHTML = "";
+
+      comments.forEach(c => {
+        const item = document.createElement("div");
+        item.className = "resolved-item";
+        const text = c.message || "(no text)";
+        const user = c.user || "unknown";
+        item.innerHTML = `${escapeHtml(text)}<div class="resolved-user">${escapeHtml(user)}</div>`;
+        item.addEventListener("click", () => {
+          document.getElementById("decision").value = text;
+          document.getElementById("why").focus();
+          document.getElementById("capture-btn").disabled = false;
+        });
+        list.appendChild(item);
+      });
+    } catch (e) {
+      if (!silent) {
+        document.getElementById("status").textContent = "Could not reach bridge — is it running?";
+        document.getElementById("status").className = "status err";
+      }
+      console.log("Could not load resolved comments:", e);
+    }
+  }
+
+  function startPolling(fileKey) {
+    if (pollTimer) clearInterval(pollTimer);
+    activeFileKey = fileKey;
+    // Initial fetch (not silent — show status)
+    loadResolvedComments(fileKey, false);
+    // Poll silently every 30s for new resolved comments
+    pollTimer = setInterval(() => loadResolvedComments(fileKey, true), POLL_INTERVAL);
+  }
+
+  function escapeHtml(text) {
+    const d = document.createElement("div");
+    d.textContent = text;
+    return d.innerHTML;
+  }
 
   // Receive context back
   window.onmessage = (event) => {
@@ -150,8 +309,36 @@
       const parts = [msg.page, msg.selection].filter(Boolean);
       document.getElementById("context-text").textContent = parts.join(" · ") || "No selection";
       document.getElementById("capture-btn").disabled = false;
+
+      // Start polling if file key available (only once — ignore duplicate context messages)
+      if (msg.fileKey && !activeFileKey) {
+        startPolling(msg.fileKey);
+      } else if (!msg.fileKey) {
+        // Show manual file key input as fallback
+        document.getElementById("filekey-fallback").style.display = "block";
+        document.getElementById("status").textContent = "Paste file key to load resolved comments";
+        document.getElementById("status").className = "status";
+      }
     }
   };
+
+  // Manual file key input handler
+  document.getElementById("filekey-btn").addEventListener("click", () => {
+    const raw = document.getElementById("filekey-input").value.trim();
+    if (!raw) return;
+
+    // Extract file key from full URL or accept raw key
+    let fileKey = raw;
+    const urlMatch = raw.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
+    if (urlMatch) fileKey = urlMatch[1];
+
+    document.getElementById("filekey-fallback").style.display = "none";
+    startPolling(fileKey);
+  });
+
+  document.getElementById("filekey-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("filekey-btn").click();
+  });
 
   // Enable button when decision is filled
   document.getElementById("decision").addEventListener("input", () => {
@@ -190,6 +377,10 @@
         document.getElementById("decision").value = "";
         document.getElementById("why").value = "";
         document.getElementById("capture-btn").disabled = true;
+        // Refresh comments immediately — newly resolved comments may appear
+        if (activeFileKey) {
+          setTimeout(() => loadResolvedComments(activeFileKey, false), 1500);
+        }
         setTimeout(() => { status.textContent = ""; status.className = "status"; }, 3000);
       } else {
         throw new Error(`Bridge returned ${res.status}`);
