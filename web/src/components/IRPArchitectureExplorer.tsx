@@ -89,14 +89,23 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
     const width = container.clientWidth || 900;
     const height = 600;
 
+    // Only reinitialize if SVG is empty
+    const existingSVG = d3.select(svgRef.current);
+    if (existingSVG.selectAll('circle').size() > 0) {
+      return;
+    }
+
     // Clear previous content
-    d3.select(svgRef.current).selectAll('*').remove();
+    existingSVG.selectAll('*').remove();
 
     // Create SVG
     const svg = d3.select(svgRef.current)
       .attr('width', width)
       .attr('height', height)
       .style('background', 'transparent');
+
+    // Store hover state in closure, not React state
+    let hoveredNodeId: string | null = null;
 
     // Create nodes array with proper typing
     const nodes: Node[] = nodesData.map(d => ({ ...d })) as Node[];
@@ -153,6 +162,44 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       .attr('dy', -5)
       .text((d: any) => d.label);
 
+    // Update visualization based on hover state
+    const updateVisualization = (target: string | null) => {
+      node.attr('opacity', (d: any) => {
+        if (!target && !selectedNode) return 1;
+        const activeTarget = selectedNode || target;
+        if (d.id === activeTarget) return 1;
+        const isConnected = links.some(
+          (l: any) => (l.source.id === activeTarget && l.target.id === d.id) ||
+                      (l.target.id === activeTarget && l.source.id === d.id)
+        );
+        return isConnected ? 1 : 0.3;
+      })
+        .style('filter', (d: any) => {
+          if (selectedNode === d.id) {
+            return 'drop-shadow(0 0 8px rgba(217, 119, 6, 0.6))';
+          }
+          return 'none';
+        });
+
+      link.style('opacity', (d: any) => {
+        if (!target && !selectedNode) return 0.3;
+        const activeTarget = selectedNode || target;
+        return ((d.source.id === activeTarget) || (d.target.id === activeTarget)) ? 0.8 : 0.1;
+      })
+        .attr('stroke', (d: any) => {
+          const activeTarget = selectedNode || target;
+          return ((d.source.id === activeTarget) || (d.target.id === activeTarget))
+            ? 'rgba(217, 119, 6, 0.6)'
+            : 'rgba(217, 119, 6, 0.2)';
+        });
+
+      linkLabel.style('opacity', (d: any) => {
+        if (!target && !selectedNode) return 0.5;
+        const activeTarget = selectedNode || target;
+        return ((d.source.id === activeTarget) || (d.target.id === activeTarget)) ? 1 : 0.1;
+      });
+    };
+
     // Nodes
     const node = svg.append('g')
       .selectAll('circle')
@@ -164,8 +211,16 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       .attr('stroke', 'white')
       .attr('stroke-width', 2.5)
       .style('cursor', 'grab')
-      .on('mouseenter', (event, d: any) => setHoveredNode(d.id))
-      .on('mouseleave', () => setHoveredNode(null))
+      .on('mouseenter', (event, d: any) => {
+        hoveredNodeId = d.id;
+        updateVisualization(hoveredNodeId);
+        setHoveredNode(d.id);
+      })
+      .on('mouseleave', () => {
+        hoveredNodeId = null;
+        updateVisualization(null);
+        setHoveredNode(null);
+      })
       .on('click', (event, d: any) => {
         event.stopPropagation();
         setSelectedNode(selectedNode === d.id ? null : d.id);
@@ -214,47 +269,13 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
 
       node
         .attr('cx', (d: any) => Math.max(45, Math.min(width - 45, d.x)))
-        .attr('cy', (d: any) => Math.max(45, Math.min(height - 45, d.y)))
-        .attr('opacity', (d: any) => {
-          if (!hoveredNode && !selectedNode) return 1;
-          const target = selectedNode || hoveredNode;
-          if (d.id === target) return 1;
-          const isConnected = links.some(
-            (l: any) => (l.source.id === target && l.target.id === d.id) ||
-                        (l.target.id === target && l.source.id === d.id)
-          );
-          return isConnected ? 1 : 0.3;
-        })
-        .style('filter', (d: any) => {
-          if (selectedNode === d.id) {
-            return 'drop-shadow(0 0 8px rgba(217, 119, 6, 0.6))';
-          }
-          return 'none';
-        });
-
-      link.style('opacity', (d: any) => {
-        if (!hoveredNode && !selectedNode) return 0.3;
-        const target = selectedNode || hoveredNode;
-        return ((d.source.id === target) || (d.target.id === target)) ? 0.8 : 0.1;
-      })
-        .attr('stroke', (d: any) => {
-          const target = selectedNode || hoveredNode;
-          return ((d.source.id === target) || (d.target.id === target))
-            ? 'rgba(217, 119, 6, 0.6)'
-            : 'rgba(217, 119, 6, 0.2)';
-        });
-
-      linkLabel.style('opacity', (d: any) => {
-        if (!hoveredNode && !selectedNode) return 0.5;
-        const target = selectedNode || hoveredNode;
-        return ((d.source.id === target) || (d.target.id === target)) ? 1 : 0.1;
-      });
+        .attr('cy', (d: any) => Math.max(45, Math.min(height - 45, d.y)));
     });
 
     return () => {
       simulation.stop();
     };
-  }, [hoveredNode, selectedNode]);
+  }, [selectedNode]);
 
   const displayedNode = nodesData.find(n => n.id === (selectedNode || hoveredNode));
 
