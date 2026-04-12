@@ -1,9 +1,9 @@
 <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
-      .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 64px; font-weight: 700; fill: #333333; }
-      .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 48px; font-weight: 600; fill: #d97706; }
-      .description { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 28px; fill: #333333; }
+      .title { font-family: Helvetica, Arial, sans-serif; font-size: 64px; font-weight: 700; fill: #333333; }
+      .subtitle { font-family: Helvetica, Arial, sans-serif; font-size: 48px; font-weight: 600; fill: #d97706; }
+      .description { font-family: Helvetica, Arial, sans-serif; font-size: 28px; fill: #333333; }
     </style>
   </defs>
 
@@ -32,5 +32,5 @@
   <circle cx="1000" cy="520" r="28" fill="#fcd34d" stroke="white" stroke-width="3"/>
 
   <!-- Bottom text -->
-  <text x="60" y="600" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 20px; fill: #999999;">irp-book.vercel.app</text>
+  <text x="60" y="600" style="font-family: Helvetica, Arial, sans-serif; font-size: 20px; fill: #999999;">irp-book.vercel.app</text>
 </svg>
