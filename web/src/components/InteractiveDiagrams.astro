@@ -55,81 +55,11 @@ interface DiagramEntry {
 }
 
 // Maps each interactive diagram to the mermaid block index it replaces.
-// Every slot must be covered — empty slots collapse via CSS :empty.
+// For IRP book, diagrams are disabled for now (this was template code from Claude Code from Source).
+// Can be re-enabled with IRP-specific diagrams later.
 const chapterDiagrams: Record<number, DiagramEntry[]> = {
-  1: [
-    { title: 'The Six Key Abstractions', description: 'Drag nodes to rearrange, hover for details, click to read the chapter.', component: 'ArchitectureExplorer', slotIndex: 0 },
-    { title: 'The Golden Path', description: 'Watch a complete request flow from keystroke to output.', component: 'GoldenPath', slotIndex: 1 },
-    { title: 'Permission Resolution', description: 'Pick a tool and permission mode to see how access is resolved.', component: 'PermissionResolver', slotIndex: 2 },
-    { title: 'Multi-Provider Architecture', description: 'How one interface connects to four different AI providers.', component: 'MultiProviderGraph', slotIndex: 3 },
-    { title: 'How the Pieces Connect', description: 'Drag nodes to rearrange, hover for details, click to read the chapter.', component: 'ArchitectureExplorer', slotIndex: 4 },
-  ],
-  2: [
-    { title: 'The Bootstrap Pipeline', description: 'Five files executed in sequence, each narrowing scope.', component: 'BootstrapFlowchart', slotIndex: 0 },
-    { title: 'The Trust Boundary', description: 'What happens before and after the trust boundary is established.', component: 'TrustBoundarySequence', slotIndex: 1 },
-    { title: 'Setup Phase', description: 'Parallel operations during the setup phase.', component: 'SetupGantt', slotIndex: 2 },
-    { title: 'The Startup Timeline', description: 'See how Claude Code boots in ~240ms by parallelizing I/O. Click Play to animate.', component: 'BootstrapTimeline', slotIndex: 3 },
-  ],
-  3: [
-    { title: 'Sticky Latches', description: 'Explore how Bootstrap STATE and AppState work together. Try the sticky latch demo.', component: 'StateTwoTier', slotIndex: 0 },
-    { title: 'Two-Tier Architecture', description: 'See how data flows between Bootstrap STATE and AppState.', component: 'StateTwoTier', slotIndex: 1 },
-  ],
-  4: [
-    { title: 'API Request Lifecycle', description: 'Follow a full API request from query loop to streaming response.', component: 'APIRequestFlow', slotIndex: 0 },
-    { title: 'Multi-Provider Client Factory', description: 'How one interface connects to four different AI providers.', component: 'MultiProviderGraph', slotIndex: 1 },
-    { title: 'System Prompt Architecture', description: 'Explore cache-optimized prompt layout. Toggle features to see the impact.', component: 'APICallLifecycle', slotIndex: 2 },
-  ],
-  5: [
-    { title: 'The Agent Loop', description: 'Step through one iteration of the agent loop.', component: 'AgentLoopSimulator', slotIndex: 0 },
-    { title: 'Context Compression', description: 'Apply each compression layer and watch tokens shrink.', component: 'CompressionLayers', slotIndex: 1 },
-    { title: 'Error Recovery', description: 'Trigger errors and watch the escalation ladder attempt recovery.', component: 'ErrorEscalation', slotIndex: 2 },
-  ],
-  6: [
-    { title: 'Tool Execution Pipeline', description: 'Send a tool call through the 14-step pipeline.', component: 'ToolPipeline', slotIndex: 0 },
-  ],
-  7: [
-    { title: 'Sequential vs Streaming', description: 'Compare execution strategies side by side.', component: 'StreamingComparison', slotIndex: 0 },
-    { title: 'Tool Lifecycle', description: 'The four states a tool passes through during execution.', component: 'ToolLifecycle', slotIndex: 1 },
-  ],
-  8: [
-    { title: 'Sub-Agent Spawning', description: 'Spawn agent types and see how they inherit context and permissions.', component: 'SubAgentTree', slotIndex: 0 },
-  ],
-  9: [
-    { title: 'Prompt Cache Calculator', description: 'Calculate fork agent cache sharing savings.', component: 'PromptCacheCalculator', slotIndex: -1 },
-  ],
-  10: [
-    { title: 'Task State Machine', description: 'Walk through the task lifecycle and explore communication patterns.', component: 'TaskStateMachine', slotIndex: 0 },
-    { title: 'Coordinator Workflow', description: 'The four phases of coordinator mode.', component: 'CoordinatorWorkflow', slotIndex: 1 },
-    { title: 'SendMessage Routing', description: 'Type a recipient and watch the routing dispatch.', component: 'SendMessageRouter', slotIndex: 2 },
-  ],
-  11: [
-    { title: 'Memory Directory Structure', description: 'How memory files are organized per project.', component: 'MemoryDirectoryStructure', slotIndex: 0 },
-    { title: 'Memory Recall Pipeline', description: 'See how LLM-powered recall selects relevant memories.', component: 'MemoryRecall', slotIndex: 1 },
-    { title: 'Standard vs KAIROS Mode', description: 'Two different approaches to writing memories.', component: 'KairosMode', slotIndex: 2 },
-  ],
-  12: [
-    { title: 'Skills & Hooks', description: 'Explore two-phase skill loading and the hook lifecycle.', component: 'SkillsAndHooks', slotIndex: 0 },
-    { title: 'Hook Snapshot Security', description: 'How config snapshots prevent runtime injection attacks.', component: 'HookSnapshotSequence', slotIndex: 1 },
-    { title: 'Hook Execution Flow', description: 'The decision flow when a hook fires.', component: 'HookExecutionFlow', slotIndex: 2 },
-  ],
-  13: [
-    { title: 'Rendering Pipeline', description: 'Watch a frame flow through the 7-stage pipeline.', component: 'RenderingPipeline', slotIndex: 0 },
-    { title: 'REPL Component Tree', description: 'Explore the 5,000-line component hierarchy.', component: 'REPLComponentTree', slotIndex: 1 },
-  ],
-  14: [
-    { title: 'Key Parsing Pipeline', description: 'Pick a key and watch raw bytes transform into an action.', component: 'KeyParsingPipeline', slotIndex: 0 },
-    { title: 'Vim State Machine', description: 'Type vim commands and watch state transitions. Click to focus.', component: 'VimStateMachine', slotIndex: 1 },
-  ],
-  15: [
-    { title: 'MCP Transports', description: 'Explore 8 transport types with a decision tree.', component: 'MCPTransports', slotIndex: 0 },
-    { title: 'OAuth Discovery Chain', description: 'The RFC 9728 + RFC 8414 discovery flow for MCP OAuth.', component: 'OAuthDiscoveryChain', slotIndex: 1 },
-  ],
-  16: [
-    { title: 'Remote Execution Topologies', description: 'Four systems for controlling Claude Code remotely.', component: 'RemoteTopologies', slotIndex: 0 },
-  ],
-  17: [
-    { title: 'Prompt Cache Architecture', description: 'Toggle features and adjust conversation length to see cache impact.', component: 'PromptCacheArchitecture', slotIndex: 0 },
-  ],
+  // IRP chapters currently have no interactive diagrams
+  // Mermaid diagrams in markdown render directly via remark-mermaid-raw plugin
 };
 
 const diagrams = chapterDiagrams[chapterNumber] || [];
