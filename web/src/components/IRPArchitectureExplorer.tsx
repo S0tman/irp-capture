@@ -1,6 +1,41 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const styles = `
+  @keyframes nodeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.7);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(217, 119, 6, 0.1);
+    }
+  }
+
+  .node-circle {
+    animation: nodeIn 0.4s ease-out forwards;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .node-circle:hover {
+    transform: scale(1.1);
+  }
+
+  .node-circle.selected {
+    animation: pulse 1s infinite;
+  }
+`;
+
 interface Node {
   id: string;
   label: string;
@@ -90,6 +125,7 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
 
   return (
     <div className={`w-full ${className}`}>
+      <style>{styles}</style>
       <div className="relative bg-white dark:bg-[var(--color-charcoal)] rounded-lg border border-[var(--color-border)] dark:border-[#333] p-8 min-h-96">
         {/* Grid of nodes */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-8">
@@ -118,20 +154,17 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
                 }`}
               >
                 {/* Circle node */}
-                <motion.div
-                  animate={{
-                    boxShadow: isSelected
-                      ? '0 0 0 8px rgba(217, 119, 6, 0.2)'
-                      : '0 0 0 0px rgba(217, 119, 6, 0)',
-                  }}
-                  transition={{ duration: 0.3 }}
-                  className={`w-20 h-20 rounded-full flex items-center justify-center text-white font-bold transition-all ${
-                    isSelected ? 'ring-2 ring-offset-2 ring-[var(--color-terracotta)]' : ''
+                <div
+                  className={`node-circle w-20 h-20 rounded-full flex items-center justify-center text-white font-bold ${
+                    isSelected ? 'selected ring-2 ring-offset-2 ring-[var(--color-terracotta)]' : ''
                   }`}
-                  style={{ backgroundColor: node.color }}
+                  style={{
+                    backgroundColor: node.color,
+                    animationDelay: `${idx * 0.05}s`,
+                  }}
                 >
                   <span className="text-center text-sm px-1">{node.label.split(' ')[0]}</span>
-                </motion.div>
+                </div>
                 {/* Label */}
                 <motion.span
                   animate={{
