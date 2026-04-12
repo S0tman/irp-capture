@@ -230,6 +230,7 @@ Nothing changes about how you work.
 |---|---|
 | **Claude Code skill** | Type `capture` inside any Claude session. Captures the decision the moment it is made, without leaving your workflow. |
 | **CLI** | `irp capture` — capture any decision directly from the terminal |
+| **Discord** | Right-click any message → "Capture decision" → fill in what/why/tags. Modal writes directly to ledger. Community-native, emoji-friendly. Setup: see `DISCORD-SENSOR-SETUP.md`. |
 | **Slack** | Resolve a thread with a decision. The bot writes it to the ledger. |
 | **Figma** | Resolve a design comment. The plugin captures the decision. Start the bridge with `--project-root /path/to/project` — see `irp/figma_plugin/README.md`. |
 | **Git hook** | Capture architecture decisions at commit time |
@@ -408,6 +409,7 @@ IRP focuses on the second.
 | Core CLI | Available |
 | Claude Code skill | Available |
 | Slack sensor | Available |
+| Discord sensor | Live — v0 |
 | Figma plugin | Live — v0 |
 | Git hook | Live — warn mode (enforce coming) |
 | PR bot | Live — warn-only |

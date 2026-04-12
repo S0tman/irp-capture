@@ -2,6 +2,8 @@
 .irp/
 .env
 *.env
+tools/.env
+tools/.env.local
 
 # Python
 __pycache__/
