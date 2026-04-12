@@ -280,7 +280,7 @@ The architecture is designed for new sensors to be added easily.
 
 Same bridge server, same IRP core. New sensor is just a new endpoint and listener.
 
-**Real-world use case:** Amol Avasare, Head of Growth at Anthropic, built a custom AI agent that scans Slack conversations to surface cross-functional misalignment—places where teams are making conflicting decisions. His agent caught major conflicts that would have caused weeks of wasted effort. A Slack sensor for IRP automates exactly this: as teams discuss decisions in Slack threads, the sensor captures them into the ledger, runs conflict detection, and surfaces misalignment automatically. What took custom engineering becomes a built-in primitive. [Source: Lenny Rachitsky interview with Amol Avasare, "My biggest takeaways from Anthropic's Head of Growth," LinkedIn, 2024]
+**Real-world use case:** Amol Avasare, Head of Growth at Anthropic, built a custom AI agent that scans Slack conversations to surface cross-functional misalignment—places where teams are making conflicting decisions. His agent caught major conflicts that would have caused weeks of wasted effort. A Slack sensor for IRP automates exactly this: as teams discuss decisions in Slack threads, the sensor captures them into the ledger, runs conflict detection, and surfaces misalignment automatically. What took custom engineering becomes a built-in primitive. [Source: Lenny Rachitsky interview with Amol Avasare, "My biggest takeaways from Anthropic's Head of Growth," LinkedIn, April 2026 / https://www.linkedin.com/feed/update/urn:li:activity:7446932397385818112/]
 
 ### How to Add a GitHub Sensor
 
