@@ -93,81 +93,116 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       <div className="relative bg-white dark:bg-[var(--color-charcoal)] rounded-lg border border-[var(--color-border)] dark:border-[#333] p-8 min-h-96">
         {/* Grid of nodes */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-8">
-          {nodes.map((node) => {
+          {nodes.map((node, idx) => {
             const isHighlighted = displayedNodeId && connectedNodes.has(node.id);
             const isFaded = displayedNodeId && !connectedNodes.has(node.id);
+            const isSelected = selectedNode === node.id;
 
             return (
               <motion.button
                 key={node.id}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: idx * 0.05, duration: 0.3 }}
                 onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
                 onHoverStart={() => setHoveredNode(node.id)}
                 onHoverEnd={() => setHoveredNode(null)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={`flex flex-col items-center gap-3 p-4 rounded-lg transition-all ${
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.93 }}
+                className={`flex flex-col items-center gap-3 p-4 rounded-lg transition-all duration-300 ${
                   isHighlighted
                     ? 'opacity-100'
                     : isFaded
-                      ? 'opacity-40'
-                      : 'opacity-100 hover:opacity-90'
+                      ? 'opacity-30'
+                      : 'opacity-100'
                 }`}
               >
                 {/* Circle node */}
-                <div
+                <motion.div
+                  animate={{
+                    boxShadow: isSelected
+                      ? '0 0 0 8px rgba(217, 119, 6, 0.2)'
+                      : '0 0 0 0px rgba(217, 119, 6, 0)',
+                  }}
+                  transition={{ duration: 0.3 }}
                   className={`w-20 h-20 rounded-full flex items-center justify-center text-white font-bold transition-all ${
-                    selectedNode === node.id ? 'ring-2 ring-offset-2 ring-[var(--color-terracotta)]' : ''
+                    isSelected ? 'ring-2 ring-offset-2 ring-[var(--color-terracotta)]' : ''
                   }`}
                   style={{ backgroundColor: node.color }}
                 >
                   <span className="text-center text-sm px-1">{node.label.split(' ')[0]}</span>
-                </div>
+                </motion.div>
                 {/* Label */}
-                <span className="text-xs font-semibold text-center text-[var(--color-charcoal)] dark:text-[var(--color-cream)] leading-tight">
+                <motion.span
+                  animate={{
+                    color: isHighlighted
+                      ? 'var(--color-terracotta)'
+                      : 'var(--color-charcoal)',
+                  }}
+                  className="text-xs font-semibold text-center dark:text-[var(--color-cream)] leading-tight transition-colors duration-300"
+                >
                   {node.label}
-                </span>
+                </motion.span>
               </motion.button>
             );
           })}
         </div>
 
         {/* Description box */}
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {displayedNode && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className={`p-4 rounded-lg border ${
-                selectedNode ? 'border-[var(--color-terracotta)]' : 'border-[var(--color-border)]'
-              } dark:border-[#333] bg-[var(--color-beige)] dark:bg-[var(--color-dark-surface)]`}
+              key={displayedNode.id}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className={`p-4 rounded-lg border-2 transition-all duration-300 ${
+                selectedNode
+                  ? 'border-[var(--color-terracotta)] bg-[var(--color-beige)] dark:bg-[#2a2a2a]'
+                  : 'border-[var(--color-border)] bg-[var(--color-beige)]/70 dark:bg-[var(--color-dark-surface)]/70'
+              } dark:border-[#333]`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between mb-2">
-                <h4 className="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">
+                <motion.h4
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)]"
+                >
                   {displayedNode.label}
-                </h4>
+                </motion.h4>
                 {selectedNode && (
-                  <button
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileHover={{ scale: 1.1 }}
                     onClick={() => setSelectedNode(null)}
-                    className="text-[var(--color-muted)] hover:text-[var(--color-charcoal)] dark:hover:text-[var(--color-cream)] text-sm"
+                    className="text-[var(--color-muted)] hover:text-[var(--color-charcoal)] dark:hover:text-[var(--color-cream)] text-lg"
                     aria-label="Close"
                   >
                     ✕
-                  </button>
+                  </motion.button>
                 )}
               </div>
-              <p className="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] mb-3">
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] mb-3"
+              >
                 {displayedNode.description}
-              </p>
-              <a
+              </motion.p>
+              <motion.a
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                whileHover={{ x: 4 }}
                 href={`/ch${displayedNode.chapter}-${
                   displayedNode.id === 'ledger' ? 'architecture' : displayedNode.id
                 }/`}
-                className="text-sm font-medium text-[var(--color-terracotta)] hover:underline"
+                className="inline-block text-sm font-medium text-[var(--color-terracotta)] hover:underline"
               >
                 Read Chapter {displayedNode.chapter} →
-              </a>
+              </motion.a>
             </motion.div>
           )}
         </AnimatePresence>
