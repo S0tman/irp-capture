@@ -65,13 +65,16 @@ class DecisionCaptureModal(ui.Modal):
             username = interaction.user.name
 
             # Build Discord reference
+            # Handle thread_id safely (message.thread only exists if message is in a thread)
+            thread_id = None
+            if hasattr(self.message, 'thread') and self.message.thread:
+                thread_id = str(self.message.thread.id)
+
             discord_ref = self.ledger_writer.build_discord_ref(
                 guild_id=str(self.message.guild.id),
                 channel_id=str(self.message.channel.id),
                 message_id=str(self.message.id),
-                thread_id=str(self.message.thread.id)
-                if self.message.thread
-                else None,
+                thread_id=thread_id,
                 message_url=self.message.jump_url,
             )
 
