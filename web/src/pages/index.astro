@@ -40,19 +40,30 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
         What you'll learn
       </h2>
       <div class="grid md:grid-cols-2 gap-6">
-        {[
-          { title: 'Ledger as source of truth', text: 'Why JSONL instead of a database. Why append-only is the only safe design. How immutable logs make decisions portable.' },
-          { title: 'Derived state & conflict detection', text: 'Computing current.json from a ledger. Heuristic-based conflict detection without embeddings. Why non-blocking validation prevents friction.' },
-          { title: 'Multi-source capture', text: 'Interactive capture, stdin automation, sensor architecture. How Figma, Slack, and CLI all write to the same ledger without sync problems.' },
-          { title: 'The bridge pattern', text: 'Three-layer architecture for tool integration. Why sandboxed environments need a bridge. How to add new sensors without touching the core.' },
-          { title: 'REST APIs & extensibility', text: '/inherit, /why, /check endpoints. Context injection for external AI models. Cross-tool decision workflows. Sovereignty through local storage.' },
-          { title: 'Real-world scaling', text: 'Team sizing (10 vs 100 people). Multi-repository setups. Ledger maintenance, archiving, and backups. When IRP matters and when it doesn't.' },
-        ].map(({ title, text }) => (
-          <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
-            <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">{title}</h3>
-            <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">{text}</p>
-          </div>
-        ))}
+        <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
+          <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Ledger as source of truth</h3>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Why JSONL instead of a database. Why append-only is the only safe design. How immutable logs make decisions portable.</p>
+        </div>
+        <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
+          <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Derived state &amp; conflict detection</h3>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Computing current.json from a ledger. Heuristic-based conflict detection without embeddings. Why non-blocking validation prevents friction.</p>
+        </div>
+        <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
+          <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Multi-source capture</h3>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Interactive capture, stdin automation, sensor architecture. How Figma, Slack, and CLI all write to the same ledger without sync problems.</p>
+        </div>
+        <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
+          <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">The bridge pattern</h3>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Three-layer architecture for tool integration. Why sandboxed environments need a bridge. How to add new sensors without touching the core.</p>
+        </div>
+        <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
+          <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">REST APIs &amp; extensibility</h3>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">/inherit, /why, /check endpoints. Context injection for external AI models. Cross-tool decision workflows. Sovereignty through local storage.</p>
+        </div>
+        <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
+          <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Real-world scaling</h3>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Team sizing (10 vs 100 people). Multi-repository setups. Ledger maintenance, archiving, and backups. When IRP matters and when it doesn't.</p>
+        </div>
       </div>
     </section>
 
@@ -114,19 +125,30 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
           IRP is built on five core principles: <strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">immutability, portability, auditability, explainability, and team autonomy.</strong>
         </p>
         <div class="grid sm:grid-cols-2 gap-4 my-6">
-          {[
-            { principle: 'JSONL over SQL', why: 'Portability. Text survives tool death. Databases don't.' },
-            { principle: 'Keywords over embeddings', why: 'Determinism. Same proposal always produces same result.' },
-            { principle: 'Derived state', why: 'Consistency without sync. Rebuild from ledger, always correct.' },
-            { principle: 'Non-blocking checks', why: 'Autonomy. Inform teams, let them decide. Warnings not blockers.' },
-            { principle: 'Bridge pattern', why: 'Resilience. Bridges die, ledger doesn't. Decisions survive tool changes.' },
-            { principle: 'REST APIs', why: 'Sovereignty. Decisions live locally. Tools integrate, not own.' },
-          ].map(({ principle, why }) => (
-            <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
-              <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">{principle}</span>
-              <span class="text-sm">{why}</span>
-            </div>
-          ))}
+          <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
+            <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">JSONL over SQL</span>
+            <span class="text-sm">Portability. Text survives tool death. Databases don't.</span>
+          </div>
+          <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
+            <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">Keywords over embeddings</span>
+            <span class="text-sm">Determinism. Same proposal always produces same result.</span>
+          </div>
+          <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
+            <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">Derived state</span>
+            <span class="text-sm">Consistency without sync. Rebuild from ledger, always correct.</span>
+          </div>
+          <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
+            <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">Non-blocking checks</span>
+            <span class="text-sm">Autonomy. Inform teams, let them decide. Warnings not blockers.</span>
+          </div>
+          <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
+            <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">Bridge pattern</span>
+            <span class="text-sm">Resilience. Bridges die, ledger doesn't. Decisions survive tool changes.</span>
+          </div>
+          <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
+            <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">REST APIs</span>
+            <span class="text-sm">Sovereignty. Decisions live locally. Tools integrate, not own.</span>
+          </div>
         </div>
       </div>
     </section>
