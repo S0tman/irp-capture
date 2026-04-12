@@ -1,0 +1,242 @@
+---
+/**
+ * Renders interactive diagrams for specific chapters.
+ * Each diagram targets a specific mermaid slot index in the chapter prose.
+ * A client-side script teleports the rendered components into those slots.
+ */
+import AgentLoopSimulator from './AgentLoopSimulator';
+import ArchitectureExplorer from './ArchitectureExplorer';
+import APICallLifecycle from './APICallLifecycle';
+import APIRequestFlow from './APIRequestFlow';
+import BootstrapFlowchart from './BootstrapFlowchart';
+import BootstrapTimeline from './BootstrapTimeline';
+import CompressionLayers from './CompressionLayers';
+import CoordinatorWorkflow from './CoordinatorWorkflow';
+import ErrorEscalation from './ErrorEscalation';
+import GoldenPath from './GoldenPath';
+import HookExecutionFlow from './HookExecutionFlow';
+import HookSnapshotSequence from './HookSnapshotSequence';
+import KairosMode from './KairosMode';
+import KeyParsingPipeline from './KeyParsingPipeline';
+import MCPTransports from './MCPTransports';
+import MemoryDirectoryStructure from './MemoryDirectoryStructure';
+import MemoryRecall from './MemoryRecall';
+import MultiProviderGraph from './MultiProviderGraph';
+import OAuthDiscoveryChain from './OAuthDiscoveryChain';
+import PermissionResolver from './PermissionResolver';
+import PromptCacheArchitecture from './PromptCacheArchitecture';
+import PromptCacheCalculator from './PromptCacheCalculator';
+import RenderingPipeline from './RenderingPipeline';
+import REPLComponentTree from './REPLComponentTree';
+import RemoteTopologies from './RemoteTopologies';
+import SendMessageRouter from './SendMessageRouter';
+import SetupGantt from './SetupGantt';
+import SkillsAndHooks from './SkillsAndHooks';
+import StateTwoTier from './StateTwoTier';
+import StreamingComparison from './StreamingComparison';
+import SubAgentTree from './SubAgentTree';
+import TaskStateMachine from './TaskStateMachine';
+import ToolLifecycle from './ToolLifecycle';
+import ToolPipeline from './ToolPipeline';
+import TrustBoundarySequence from './TrustBoundarySequence';
+import VimStateMachine from './VimStateMachine';
+
+interface Props {
+  chapterNumber: number;
+}
+
+const { chapterNumber } = Astro.props;
+
+interface DiagramEntry {
+  title: string;
+  description: string;
+  component: string;
+  slotIndex: number; // which mermaid block index this replaces
+}
+
+// Maps each interactive diagram to the mermaid block index it replaces.
+// Every slot must be covered — empty slots collapse via CSS :empty.
+const chapterDiagrams: Record<number, DiagramEntry[]> = {
+  1: [
+    { title: 'The Six Key Abstractions', description: 'Drag nodes to rearrange, hover for details, click to read the chapter.', component: 'ArchitectureExplorer', slotIndex: 0 },
+    { title: 'The Golden Path', description: 'Watch a complete request flow from keystroke to output.', component: 'GoldenPath', slotIndex: 1 },
+    { title: 'Permission Resolution', description: 'Pick a tool and permission mode to see how access is resolved.', component: 'PermissionResolver', slotIndex: 2 },
+    { title: 'Multi-Provider Architecture', description: 'How one interface connects to four different AI providers.', component: 'MultiProviderGraph', slotIndex: 3 },
+    { title: 'How the Pieces Connect', description: 'Drag nodes to rearrange, hover for details, click to read the chapter.', component: 'ArchitectureExplorer', slotIndex: 4 },
+  ],
+  2: [
+    { title: 'The Bootstrap Pipeline', description: 'Five files executed in sequence, each narrowing scope.', component: 'BootstrapFlowchart', slotIndex: 0 },
+    { title: 'The Trust Boundary', description: 'What happens before and after the trust boundary is established.', component: 'TrustBoundarySequence', slotIndex: 1 },
+    { title: 'Setup Phase', description: 'Parallel operations during the setup phase.', component: 'SetupGantt', slotIndex: 2 },
+    { title: 'The Startup Timeline', description: 'See how Claude Code boots in ~240ms by parallelizing I/O. Click Play to animate.', component: 'BootstrapTimeline', slotIndex: 3 },
+  ],
+  3: [
+    { title: 'Sticky Latches', description: 'Explore how Bootstrap STATE and AppState work together. Try the sticky latch demo.', component: 'StateTwoTier', slotIndex: 0 },
+    { title: 'Two-Tier Architecture', description: 'See how data flows between Bootstrap STATE and AppState.', component: 'StateTwoTier', slotIndex: 1 },
+  ],
+  4: [
+    { title: 'API Request Lifecycle', description: 'Follow a full API request from query loop to streaming response.', component: 'APIRequestFlow', slotIndex: 0 },
+    { title: 'Multi-Provider Client Factory', description: 'How one interface connects to four different AI providers.', component: 'MultiProviderGraph', slotIndex: 1 },
+    { title: 'System Prompt Architecture', description: 'Explore cache-optimized prompt layout. Toggle features to see the impact.', component: 'APICallLifecycle', slotIndex: 2 },
+  ],
+  5: [
+    { title: 'The Agent Loop', description: 'Step through one iteration of the agent loop.', component: 'AgentLoopSimulator', slotIndex: 0 },
+    { title: 'Context Compression', description: 'Apply each compression layer and watch tokens shrink.', component: 'CompressionLayers', slotIndex: 1 },
+    { title: 'Error Recovery', description: 'Trigger errors and watch the escalation ladder attempt recovery.', component: 'ErrorEscalation', slotIndex: 2 },
+  ],
+  6: [
+    { title: 'Tool Execution Pipeline', description: 'Send a tool call through the 14-step pipeline.', component: 'ToolPipeline', slotIndex: 0 },
+  ],
+  7: [
+    { title: 'Sequential vs Streaming', description: 'Compare execution strategies side by side.', component: 'StreamingComparison', slotIndex: 0 },
+    { title: 'Tool Lifecycle', description: 'The four states a tool passes through during execution.', component: 'ToolLifecycle', slotIndex: 1 },
+  ],
+  8: [
+    { title: 'Sub-Agent Spawning', description: 'Spawn agent types and see how they inherit context and permissions.', component: 'SubAgentTree', slotIndex: 0 },
+  ],
+  9: [
+    { title: 'Prompt Cache Calculator', description: 'Calculate fork agent cache sharing savings.', component: 'PromptCacheCalculator', slotIndex: -1 },
+  ],
+  10: [
+    { title: 'Task State Machine', description: 'Walk through the task lifecycle and explore communication patterns.', component: 'TaskStateMachine', slotIndex: 0 },
+    { title: 'Coordinator Workflow', description: 'The four phases of coordinator mode.', component: 'CoordinatorWorkflow', slotIndex: 1 },
+    { title: 'SendMessage Routing', description: 'Type a recipient and watch the routing dispatch.', component: 'SendMessageRouter', slotIndex: 2 },
+  ],
+  11: [
+    { title: 'Memory Directory Structure', description: 'How memory files are organized per project.', component: 'MemoryDirectoryStructure', slotIndex: 0 },
+    { title: 'Memory Recall Pipeline', description: 'See how LLM-powered recall selects relevant memories.', component: 'MemoryRecall', slotIndex: 1 },
+    { title: 'Standard vs KAIROS Mode', description: 'Two different approaches to writing memories.', component: 'KairosMode', slotIndex: 2 },
+  ],
+  12: [
+    { title: 'Skills & Hooks', description: 'Explore two-phase skill loading and the hook lifecycle.', component: 'SkillsAndHooks', slotIndex: 0 },
+    { title: 'Hook Snapshot Security', description: 'How config snapshots prevent runtime injection attacks.', component: 'HookSnapshotSequence', slotIndex: 1 },
+    { title: 'Hook Execution Flow', description: 'The decision flow when a hook fires.', component: 'HookExecutionFlow', slotIndex: 2 },
+  ],
+  13: [
+    { title: 'Rendering Pipeline', description: 'Watch a frame flow through the 7-stage pipeline.', component: 'RenderingPipeline', slotIndex: 0 },
+    { title: 'REPL Component Tree', description: 'Explore the 5,000-line component hierarchy.', component: 'REPLComponentTree', slotIndex: 1 },
+  ],
+  14: [
+    { title: 'Key Parsing Pipeline', description: 'Pick a key and watch raw bytes transform into an action.', component: 'KeyParsingPipeline', slotIndex: 0 },
+    { title: 'Vim State Machine', description: 'Type vim commands and watch state transitions. Click to focus.', component: 'VimStateMachine', slotIndex: 1 },
+  ],
+  15: [
+    { title: 'MCP Transports', description: 'Explore 8 transport types with a decision tree.', component: 'MCPTransports', slotIndex: 0 },
+    { title: 'OAuth Discovery Chain', description: 'The RFC 9728 + RFC 8414 discovery flow for MCP OAuth.', component: 'OAuthDiscoveryChain', slotIndex: 1 },
+  ],
+  16: [
+    { title: 'Remote Execution Topologies', description: 'Four systems for controlling Claude Code remotely.', component: 'RemoteTopologies', slotIndex: 0 },
+  ],
+  17: [
+    { title: 'Prompt Cache Architecture', description: 'Toggle features and adjust conversation length to see cache impact.', component: 'PromptCacheArchitecture', slotIndex: 0 },
+  ],
+};
+
+const diagrams = chapterDiagrams[chapterNumber] || [];
+
+// Separate: diagrams that target a slot vs ones that go at the bottom
+const slotDiagrams = diagrams.filter(d => d.slotIndex >= 0);
+const bottomDiagrams = diagrams.filter(d => d.slotIndex < 0);
+---
+
+{/* Diagrams that will be teleported into mermaid slots */}
+{slotDiagrams.map((diagram) => (
+  <div class="diagram-source hidden" data-target-slot={diagram.slotIndex}>
+    <div class="my-8 p-5 rounded-xl border border-[var(--color-border)] dark:border-[#333]">
+      <div class="flex items-center gap-2 mb-1">
+        <svg class="w-4 h-4 text-[var(--color-terracotta)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        <h4 class="text-base font-semibold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">
+          {diagram.title}
+        </h4>
+      </div>
+      <p class="text-sm text-[var(--color-muted)] mb-4">{diagram.description}</p>
+
+      {diagram.component === 'AgentLoopSimulator' && <AgentLoopSimulator client:only="react" className="w-full" />}
+      {diagram.component === 'ArchitectureExplorer' && <ArchitectureExplorer client:only="react" className="w-full" />}
+      {diagram.component === 'APICallLifecycle' && <APICallLifecycle client:only="react" className="w-full" />}
+      {diagram.component === 'APIRequestFlow' && <APIRequestFlow client:only="react" className="w-full" />}
+      {diagram.component === 'BootstrapFlowchart' && <BootstrapFlowchart client:only="react" className="w-full" />}
+      {diagram.component === 'BootstrapTimeline' && <BootstrapTimeline client:only="react" className="w-full" />}
+      {diagram.component === 'CompressionLayers' && <CompressionLayers client:only="react" className="w-full" />}
+      {diagram.component === 'CoordinatorWorkflow' && <CoordinatorWorkflow client:only="react" className="w-full" />}
+      {diagram.component === 'ErrorEscalation' && <ErrorEscalation client:only="react" className="w-full" />}
+      {diagram.component === 'GoldenPath' && <GoldenPath client:only="react" className="w-full" />}
+      {diagram.component === 'HookExecutionFlow' && <HookExecutionFlow client:only="react" className="w-full" />}
+      {diagram.component === 'HookSnapshotSequence' && <HookSnapshotSequence client:only="react" className="w-full" />}
+      {diagram.component === 'KairosMode' && <KairosMode client:only="react" className="w-full" />}
+      {diagram.component === 'KeyParsingPipeline' && <KeyParsingPipeline client:only="react" className="w-full" />}
+      {diagram.component === 'MCPTransports' && <MCPTransports client:only="react" className="w-full" />}
+      {diagram.component === 'MemoryDirectoryStructure' && <MemoryDirectoryStructure client:only="react" className="w-full" />}
+      {diagram.component === 'MemoryRecall' && <MemoryRecall client:only="react" className="w-full" />}
+      {diagram.component === 'MultiProviderGraph' && <MultiProviderGraph client:only="react" className="w-full" />}
+      {diagram.component === 'OAuthDiscoveryChain' && <OAuthDiscoveryChain client:only="react" className="w-full" />}
+      {diagram.component === 'PermissionResolver' && <PermissionResolver client:only="react" className="w-full" />}
+      {diagram.component === 'PromptCacheArchitecture' && <PromptCacheArchitecture client:only="react" className="w-full" />}
+      {diagram.component === 'PromptCacheCalculator' && <PromptCacheCalculator client:only="react" className="w-full" />}
+      {diagram.component === 'RenderingPipeline' && <RenderingPipeline client:only="react" className="w-full" />}
+      {diagram.component === 'REPLComponentTree' && <REPLComponentTree client:only="react" className="w-full" />}
+      {diagram.component === 'RemoteTopologies' && <RemoteTopologies client:only="react" className="w-full" />}
+      {diagram.component === 'SendMessageRouter' && <SendMessageRouter client:only="react" className="w-full" />}
+      {diagram.component === 'SetupGantt' && <SetupGantt client:only="react" className="w-full" />}
+      {diagram.component === 'SkillsAndHooks' && <SkillsAndHooks client:only="react" className="w-full" />}
+      {diagram.component === 'StateTwoTier' && <StateTwoTier client:only="react" className="w-full" />}
+      {diagram.component === 'StreamingComparison' && <StreamingComparison client:only="react" className="w-full" />}
+      {diagram.component === 'SubAgentTree' && <SubAgentTree client:only="react" className="w-full" />}
+      {diagram.component === 'TaskStateMachine' && <TaskStateMachine client:only="react" className="w-full" />}
+      {diagram.component === 'ToolLifecycle' && <ToolLifecycle client:only="react" className="w-full" />}
+      {diagram.component === 'ToolPipeline' && <ToolPipeline client:only="react" className="w-full" />}
+      {diagram.component === 'TrustBoundarySequence' && <TrustBoundarySequence client:only="react" className="w-full" />}
+      {diagram.component === 'VimStateMachine' && <VimStateMachine client:only="react" className="w-full" />}
+    </div>
+  </div>
+))}
+
+{/* Diagrams without a slot target go at the bottom */}
+{bottomDiagrams.length > 0 && (
+  <div class="mt-12">
+    {bottomDiagrams.map((diagram) => (
+      <div class="mb-10 p-5 rounded-xl border border-[var(--color-border)] dark:border-[#333]">
+        <div class="flex items-center gap-2 mb-1">
+          <svg class="w-4 h-4 text-[var(--color-terracotta)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <h4 class="text-base font-semibold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">
+            {diagram.title}
+          </h4>
+        </div>
+        <p class="text-sm text-[var(--color-muted)] mb-4">{diagram.description}</p>
+
+        {diagram.component === 'PromptCacheCalculator' && <PromptCacheCalculator client:only="react" className="w-full" />}
+      </div>
+    ))}
+  </div>
+)}
+
+<script>
+  // Teleport diagram components from their hidden source containers into the
+  // matching .diagram-slot placeholders inside the chapter prose
+  function teleportDiagrams() {
+    const sources = document.querySelectorAll('.diagram-source[data-target-slot]');
+    sources.forEach((source) => {
+      const targetIndex = source.getAttribute('data-target-slot');
+      const slot = document.querySelector(`.diagram-slot[data-diagram-index="${targetIndex}"]`);
+      if (slot) {
+        // Move the content into the slot
+        slot.appendChild(source);
+        source.classList.remove('hidden');
+      } else {
+        // No matching slot — just show it where it is
+        source.classList.remove('hidden');
+      }
+    });
+  }
+
+  // Run after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', teleportDiagrams);
+  } else {
+    teleportDiagrams();
+  }
+</script>

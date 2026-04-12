@@ -1,0 +1,156 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import { parts, chapters } from '../book.config';
+
+const rawBase = import.meta.env.BASE_URL;
+const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
+---
+
+<BaseLayout
+  title="IRP: Intent Record Protocol — Decision Durability & Portability"
+  description="A technical book on making decisions durable, portable, and queryable across tools. 7 chapters + practical appendix covering architecture, capture, validation, and extensibility."
+>
+  <Header />
+
+  <main class="max-w-4xl mx-auto px-4 md:px-8 py-12 md:py-20">
+
+    <!-- Hero -->
+    <div class="text-center mb-20">
+      <h1 class="text-3xl md:text-4xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-6 leading-tight">
+        Decisions Shouldn't Vanish<br class="hidden md:inline" /> When Tools Change
+      </h1>
+      <p class="text-lg text-[var(--color-secondary)] dark:text-[var(--color-muted)] max-w-2xl mx-auto leading-relaxed mb-6">
+        IRP is a protocol for capturing, validating, and querying decisions across your organization. This book explains the architecture, the design patterns, and how to apply them to your own decisions. Built from first principles. No vendor lock-in.
+      </p>
+      <a
+        href={`${base}${chapters[0].slug}/`}
+        class="inline-flex items-center gap-2 px-6 py-3 bg-[var(--color-terracotta)] text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
+      >
+        Start reading
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
+    </div>
+
+    <!-- What You'll Learn -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-8">
+        What you'll learn
+      </h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        {[
+          { title: 'Ledger as source of truth', text: 'Why JSONL instead of a database. Why append-only is the only safe design. How immutable logs make decisions portable.' },
+          { title: 'Derived state & conflict detection', text: 'Computing current.json from a ledger. Heuristic-based conflict detection without embeddings. Why non-blocking validation prevents friction.' },
+          { title: 'Multi-source capture', text: 'Interactive capture, stdin automation, sensor architecture. How Figma, Slack, and CLI all write to the same ledger without sync problems.' },
+          { title: 'The bridge pattern', text: 'Three-layer architecture for tool integration. Why sandboxed environments need a bridge. How to add new sensors without touching the core.' },
+          { title: 'REST APIs & extensibility', text: '/inherit, /why, /check endpoints. Context injection for external AI models. Cross-tool decision workflows. Sovereignty through local storage.' },
+          { title: 'Real-world scaling', text: 'Team sizing (10 vs 100 people). Multi-repository setups. Ledger maintenance, archiving, and backups. When IRP matters and when it doesn't.' },
+        ].map(({ title, text }) => (
+          <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
+            <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">{title}</h3>
+            <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">{text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <!-- Who This Is For -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-6">
+        Who this is for
+      </h2>
+      <div class="space-y-4 text-[var(--color-secondary)] dark:text-[var(--color-muted)]">
+        <p><strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">Teams building decision management systems.</strong> Every chapter ends with "Apply This" — transferable patterns with concrete adaptation advice. Use the patterns, not the code.</p>
+        <p><strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">Architects evaluating durability patterns.</strong> Learn why ledger-as-source-of-truth matters. Understand the tradeoffs between speed, explainability, and cost.</p>
+        <p><strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">Anyone tired of decisions disappearing.</strong> When teams change tools, decisions die. IRP makes them survive. Apply the patterns to your own decisions.</p>
+      </div>
+    </section>
+
+    <!-- Table of Contents -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-8">
+        Table of contents
+      </h2>
+      {parts.map((part) => {
+        const partChapters = chapters.filter(c => part.chapters.includes(c.number));
+        return (
+          <div class="mb-10">
+            <div class="flex items-baseline gap-3 mb-1">
+              <span class="text-xs font-semibold uppercase tracking-wider text-[var(--color-terracotta)]">Part {part.number}</span>
+              <h3 class="text-lg font-bold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] font-[var(--font-serif)]">{part.title}</h3>
+            </div>
+            <p class="text-sm italic text-[var(--color-muted)] mb-4">{part.epigraph}</p>
+
+            <div class="space-y-2">
+              {partChapters.map((ch) => (
+                <a
+                  href={`${base}${ch.slug}/`}
+                  class="group flex items-start gap-3 p-3 -mx-3 rounded-lg hover:bg-[var(--color-beige)] dark:hover:bg-[var(--color-dark-surface)] transition-colors"
+                >
+                  <span class="text-sm font-mono text-[var(--color-muted)] mt-0.5 w-6 shrink-0 text-right">{ch.number}</span>
+                  <div>
+                    <span class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)] group-hover:text-[var(--color-terracotta)] font-medium transition-colors">
+                      {ch.title}
+                    </span>
+                    <p class="text-sm text-[var(--color-muted)] mt-0.5">{ch.description}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+
+    <!-- Design Philosophy -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-6">
+        Design philosophy
+      </h2>
+      <div class="space-y-4 text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">
+        <p>
+          IRP is built on five core principles: <strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">immutability, portability, auditability, explainability, and team autonomy.</strong>
+        </p>
+        <div class="grid sm:grid-cols-2 gap-4 my-6">
+          {[
+            { principle: 'JSONL over SQL', why: 'Portability. Text survives tool death. Databases don't.' },
+            { principle: 'Keywords over embeddings', why: 'Determinism. Same proposal always produces same result.' },
+            { principle: 'Derived state', why: 'Consistency without sync. Rebuild from ledger, always correct.' },
+            { principle: 'Non-blocking checks', why: 'Autonomy. Inform teams, let them decide. Warnings not blockers.' },
+            { principle: 'Bridge pattern', why: 'Resilience. Bridges die, ledger doesn't. Decisions survive tool changes.' },
+            { principle: 'REST APIs', why: 'Sovereignty. Decisions live locally. Tools integrate, not own.' },
+          ].map(({ principle, why }) => (
+            <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">
+              <span class="text-[var(--color-terracotta)] font-semibold text-sm shrink-0 min-w-fit">{principle}</span>
+              <span class="text-sm">{why}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Links -->
+    <section class="mb-20">
+      <h2 class="text-2xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-6">
+        Quick links
+      </h2>
+      <div class="grid sm:grid-cols-3 gap-4">
+        <a href="https://github.com/jolopes/irp-capture" class="flex gap-2 items-center p-4 rounded-lg border border-[var(--color-border)] dark:border-[#333] hover:border-[var(--color-terracotta)] transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.868-.013-1.703-2.782.603-3.369-1.343-3.369-1.343-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.544 2.914 1.19.092-.926.35-1.557.636-1.914-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0110 4.817c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C17.137 18.194 20 14.44 20 10.017 20 4.484 15.522 0 10 0z" clip-rule="evenodd" /></svg>
+          <span class="font-medium">GitHub</span>
+        </a>
+        <a href="https://jolopes.co" class="flex gap-2 items-center p-4 rounded-lg border border-[var(--color-border)] dark:border-[#333] hover:border-[var(--color-terracotta)] transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          <span class="font-medium">About Johan</span>
+        </a>
+        <a href="https://claude-code-from-source.com" class="flex gap-2 items-center p-4 rounded-lg border border-[var(--color-border)] dark:border-[#333] hover:border-[var(--color-terracotta)] transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm0 22C6.48 22 2 17.52 2 12S6.48 2 12 2s10 4.48 10 10-4.48 10-10 10zm0-18c-4.41 0-8 3.59-8 8s3.59 8 8 8 8-3.59 8-8-3.59-8-8-8z"/></svg>
+          <span class="font-medium">Claude Code Book</span>
+        </a>
+      </div>
+    </section>
+
+  </main>
+</BaseLayout>
