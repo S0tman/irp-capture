@@ -165,10 +165,18 @@ For persistent use, consider:
 - Wait 1-2 minutes for Discord to sync commands
 - Restart Discord client if needed
 
-**SSL certificate error:**
-- Use system Python 3 (avoid MacPorts if possible): `python3 -m venv venv`
-- Or: `pip install --upgrade certifi`
-- Or: Run on a different machine with proper SSL setup
+**SSL certificate error (macOS with MacPorts):**
+- Error: `ssl.SSLCertVerificationError: certificate verify failed`
+- **Solution:**
+  ```bash
+  # Install certifi in your virtual environment
+  source venv/bin/activate
+  pip install certifi
+  
+  # Run the bot with the certifi CA bundle
+  SSL_CERT_FILE=$(python3 -c 'import certifi; print(certifi.where())') python -m irp.discord_sensor.main
+  ```
+- Alternative: Use system Python 3 instead of MacPorts (recommended if available)
 
 **Ledger file not found:**
 - Ensure `IRP_PROJECT_ROOT` in `.env` points to the correct directory

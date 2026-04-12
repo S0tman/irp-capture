@@ -134,10 +134,25 @@ python -m flake8 irp/discord_sensor/
 
 ## Troubleshooting
 
+**SSL Certificate Verification Error (macOS with MacPorts Python):**
+- Error: `ssl.SSLCertVerificationError: certificate verify failed: unable to get local issuer certificate`
+- Cause: MacPorts Python doesn't have access to system CA certificates
+- Solution:
+  ```bash
+  # 1. Ensure certifi is installed
+  source venv/bin/activate
+  pip install certifi
+  
+  # 2. Run the bot with certifi's CA bundle
+  SSL_CERT_FILE=$(python3 -c 'import certifi; print(certifi.where())') python -m irp.discord_sensor.main
+  ```
+- Or add to `.env`: `SSL_CERT_FILE=/path/to/venv/lib/python3.11/site-packages/certifi/cacert.pem`
+
 **Bot doesn't respond to message context menu:**
 - Ensure bot token is correct and has been invited to server
 - Check bot permissions: `Send Messages`, `Use Application Commands`
 - Restart bot after server invite
+- Ensure intents are enabled in Discord Developer Portal
 
 **"Failed to write to ledger" error:**
 - Check `IRP_PROJECT_ROOT` is set correctly
