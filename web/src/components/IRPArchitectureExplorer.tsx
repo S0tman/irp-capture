@@ -78,8 +78,10 @@ const linksData: Array<{ source: string; target: string; label: string }> = [
 export default function IRPArchitectureExplorer({ className = '' }: { className?: string }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const simulationRef = useRef<d3.Simulation<Node, Link> | null>(null);
 
   useEffect(() => {
@@ -137,7 +139,19 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       .attr('orient', 'auto')
       .append('polygon')
       .attr('points', '0 0, 10 3, 0 6')
-      .attr('fill', 'rgba(217, 119, 6, 0.3)');
+      .attr('fill', 'rgba(217, 119, 6, 0.6)');
+
+    // Arrowhead marker for highlighted connections
+    svg.append('defs').append('marker')
+      .attr('id', 'arrowhead-highlight')
+      .attr('markerWidth', 10)
+      .attr('markerHeight', 10)
+      .attr('refX', 24)
+      .attr('refY', 3)
+      .attr('orient', 'auto')
+      .append('polygon')
+      .attr('points', '0 0, 10 3, 0 6')
+      .attr('fill', 'rgba(217, 119, 6, 1)');
 
     // Links
     const link = svg.append('g')
@@ -191,6 +205,12 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
           return ((d.source.id === activeTarget) || (d.target.id === activeTarget))
             ? 'rgba(217, 119, 6, 0.6)'
             : 'rgba(217, 119, 6, 0.2)';
+        })
+        .attr('marker-end', (d: any) => {
+          const activeTarget = selectedNode || target;
+          return ((d.source.id === activeTarget) || (d.target.id === activeTarget))
+            ? 'url(#arrowhead-highlight)'
+            : 'url(#arrowhead)';
         });
 
       linkLabel.style('opacity', (d: any) => {
@@ -215,11 +235,23 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
         hoveredNodeId = d.id;
         updateVisualization(hoveredNodeId);
         setHoveredNode(d.id);
+        // Show tooltip
+        const nodeData = nodesData.find(n => n.id === d.id);
+        if (nodeData && tooltipRef.current) {
+          setTooltipPos({ x: event.clientX, y: event.clientY });
+        }
+      })
+      .on('mousemove', (event, d: any) => {
+        // Update tooltip position as mouse moves
+        if (tooltipRef.current && tooltipRef.current.style.display !== 'none') {
+          setTooltipPos({ x: event.clientX, y: event.clientY });
+        }
       })
       .on('mouseleave', () => {
         hoveredNodeId = null;
         updateVisualization(null);
         setHoveredNode(null);
+        setTooltipPos(null);
       })
       .on('click', (event, d: any) => {
         event.stopPropagation();
@@ -241,7 +273,7 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
           d.fy = null;
         }));
 
-    // Node labels
+    // Node labels - show full labels on circles
     const labels = svg.append('g')
       .selectAll('text')
       .data(nodes)
@@ -250,9 +282,13 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       .attr('text-anchor', 'middle')
       .attr('dy', '0.3em')
       .attr('font-weight', 'bold')
-      .attr('font-size', 14)
+      .attr('font-size', (d: any) => {
+        // Adjust font size based on label length to fit in circle
+        const labelLength = d.label.length;
+        return labelLength > 10 ? 11 : 13;
+      })
       .attr('fill', 'white')
-      .text((d: any) => d.shortLabel)
+      .text((d: any) => d.label)
       .style('pointer-events', 'none');
 
     // Update positions on tick
@@ -278,9 +314,10 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
   }, [selectedNode]);
 
   const displayedNode = nodesData.find(n => n.id === (selectedNode || hoveredNode));
+  const tooltipNode = hoveredNode ? nodesData.find(n => n.id === hoveredNode) : null;
 
   return (
-    <div className={`w-full ${className}`}>
+    <div className={`w-full ${className} relative`}>
       <div ref={containerRef} className="w-full rounded-lg border border-[var(--color-border)] dark:border-[#333] bg-white dark:bg-[var(--color-charcoal)] overflow-hidden">
         <svg
           ref={svgRef}
@@ -288,6 +325,21 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
           style={{ display: 'block' }}
         />
       </div>
+
+      {/* Hover Tooltip */}
+      {tooltipNode && tooltipPos && !selectedNode && (
+        <div
+          ref={tooltipRef}
+          className="fixed bg-[var(--color-charcoal)] dark:bg-[var(--color-cream)] text-white dark:text-[var(--color-charcoal)] px-3 py-2 rounded-lg text-sm max-w-xs pointer-events-none z-50 shadow-lg border border-[var(--color-terracotta)]"
+          style={{
+            left: `${tooltipPos.x + 10}px`,
+            top: `${tooltipPos.y + 10}px`,
+          }}
+        >
+          <p className="font-semibold mb-1">{tooltipNode.label}</p>
+          <p className="text-xs opacity-90">{tooltipNode.description}</p>
+        </div>
+      )}
 
       {displayedNode && (
         <motion.div
