@@ -306,6 +306,10 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       node
         .attr('cx', (d: any) => Math.max(45, Math.min(width - 45, d.x)))
         .attr('cy', (d: any) => Math.max(45, Math.min(height - 45, d.y)));
+
+      labels
+        .attr('x', (d: any) => Math.max(45, Math.min(width - 45, d.x)))
+        .attr('y', (d: any) => Math.max(45, Math.min(height - 45, d.y)));
     });
 
     return () => {
