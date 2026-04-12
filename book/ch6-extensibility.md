@@ -226,7 +226,7 @@ All workflows flow from one source: .irp/ledger.jsonl
 When decisions come from multiple sources, conflicts can emerge. The check command we detailed in Chapter 4 runs across all tools:
 
 **Figma sensor** (Chapter 5) captures: "Frontend should be single-page app"
-**Slack sensor** (future) suggests: "Build as microservices frontend"
+**Slack sensor** suggests: "Build as microservices frontend"
 
 Check runs during Slack capture (using the algorithm we explored in Chapter 2):
 ```
