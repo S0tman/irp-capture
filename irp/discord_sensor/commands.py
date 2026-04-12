@@ -6,6 +6,9 @@ from discord import app_commands
 from .ledger_writer import LedgerWriter
 from .modals import DecisionCaptureModal
 
+# Store ledger writer for context menu (module-level)
+_ledger_writer: LedgerWriter = None
+
 class IRPSensorCog(commands.Cog):
     """Cog containing IRP sensor commands."""
 
@@ -18,6 +21,10 @@ class IRPSensorCog(commands.Cog):
         """
         self.bot = bot
         self.ledger_writer = ledger_writer
+
+        # Store globally for context menu
+        global _ledger_writer
+        _ledger_writer = ledger_writer
 
     @app_commands.command(
         name="irp_capture",
@@ -69,19 +76,27 @@ class IRPSensorCog(commands.Cog):
                 ephemeral=True,
             )
 
-    @app_commands.context_menu(name="Capture decision")
-    async def message_capture(
-        self, interaction: discord.Interaction, message: discord.Message
-    ):
-        """Message context menu for capturing a decision from a message.
+# Context menu MUST be defined at module level (not in class)
+@app_commands.context_menu(name="Capture decision")
+async def message_capture_context(
+    interaction: discord.Interaction, message: discord.Message
+):
+    """Message context menu for capturing a decision from a message.
 
-        Args:
-            interaction: Discord interaction
-            message: The message being captured
-        """
-        # Show modal to user
-        modal = DecisionCaptureModal(message, self.ledger_writer)
-        await interaction.response.send_modal(modal)
+    Args:
+        interaction: Discord interaction
+        message: The message being captured
+    """
+    if _ledger_writer is None:
+        await interaction.response.send_message(
+            "❌ Ledger writer not initialized",
+            ephemeral=True,
+        )
+        return
+
+    # Show modal to user
+    modal = DecisionCaptureModal(message, _ledger_writer)
+    await interaction.response.send_modal(modal)
 
 async def setup(bot: commands.Bot, ledger_writer: LedgerWriter):
     """Load the IRP Sensor cog.
@@ -90,4 +105,8 @@ async def setup(bot: commands.Bot, ledger_writer: LedgerWriter):
         bot: Discord bot instance
         ledger_writer: LedgerWriter instance
     """
+    # Add the cog (contains slash command)
     await bot.add_cog(IRPSensorCog(bot, ledger_writer))
+
+    # Add the context menu to the bot's command tree
+    bot.tree.add_command(message_capture_context)
