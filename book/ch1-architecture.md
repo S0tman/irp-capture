@@ -23,7 +23,7 @@ Three costs compound:
 
 **Conflict invisibility:** Two teams make contradictory decisions in parallel because neither sees the other's work. A backend team decides "use PostgreSQL" while a data team decides "use DynamoDB." The conflict emerges at integration time, not decision time. Earlier detection saves months.
 
-This problem is acute enough that smart teams build custom solutions. Amol Avasare, Head of Growth at Anthropic, built a weekly AI agent that scans Slack conversations across projects to surface cross-functional misalignment—places where teams are about to do overlapping work or pull in different directions. The agent caught major conflicts that would have caused weeks of wasted effort. He built this because decision conflicts are *that expensive*. [Source: Lenny Rachitsky interview with Amol Avasare, "My biggest takeaways from Anthropic's Head of Growth," LinkedIn, 2024]
+This problem is acute enough that smart teams build custom solutions. Amol Avasare, Head of Growth at Anthropic, built a weekly AI agent that scans Slack conversations across projects to surface cross-functional misalignment—places where teams are about to do overlapping work or pull in different directions. The agent caught major conflicts that would have caused weeks of wasted effort. He built this because decision conflicts are *that expensive*. [Source: Lenny Rachitsky interview with Amol Avasare, "My biggest takeaways from Anthropic's Head of Growth," LinkedIn, April 2026 / https://www.linkedin.com/feed/update/urn:li:activity:7446932397385818112/]
 
 ## The IRP Solution: Ledger as Source of Truth
 
