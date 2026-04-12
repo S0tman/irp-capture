@@ -31,12 +31,21 @@ pip install -r requirements.txt
 
 ### 3. Environment Setup
 
-Create a `.env` file in the project root:
+Create a `.env` file in the `discord_sensor/` directory:
 
 ```bash
-DISCORD_BOT_TOKEN=your_bot_token_here
-IRP_PROJECT_ROOT=/path/to/irp-capture
+cp .env.example .env
+# Then edit .env with your values:
 ```
+
+**.env contents:**
+```
+DISCORD_BOT_TOKEN=your_bot_token_here
+IRP_PROJECT_ROOT=/Users/jolopes/irp-capture
+DISCORD_GUILD_ID=0
+```
+
+The bot will automatically load this `.env` file on startup.
 
 ### 4. Run the Bot
 
