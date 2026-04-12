@@ -84,6 +84,7 @@ const links: Link[] = [
 export default function IRPArchitectureExplorer({ className = '' }: { className?: string }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const simulationRef = useRef<d3.Simulation<Node, Link> | null>(null);
 
   useEffect(() => {
@@ -154,9 +155,13 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       .attr('fill', (d: any) => d.color)
       .attr('stroke', 'white')
       .attr('stroke-width', 2)
-      .style('cursor', 'grab')
+      .style('cursor', 'pointer')
       .on('mouseenter', (event, d: any) => setHoveredNode(d.id))
       .on('mouseleave', () => setHoveredNode(null))
+      .on('click', (event, d: any) => {
+        event.stopPropagation();
+        setSelectedNode(selectedNode === d.id ? null : d.id);
+      })
       .call(d3.drag<SVGCircleElement, Node>()
         .on('start', (event, d) => {
           if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -245,40 +250,61 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
       });
     };
 
-    // Watch for hover changes
-    highlightConnected(hoveredNode);
+    // Watch for hover/selection changes
+    highlightConnected(displayedNode);
 
     return () => {
       simulation.stop();
     };
-  }, [hoveredNode]);
+  }, [displayedNode, hoveredNode, selectedNode]);
 
-  const hoveredNodeData = nodes.find(n => n.id === hoveredNode);
+  const displayedNode = selectedNode || hoveredNode;
+  const displayedNodeData = nodes.find(n => n.id === displayedNode);
 
   return (
     <div className={`w-full ${className}`}>
       <svg ref={svgRef} className="w-full border border-[var(--color-border)] dark:border-[#333] rounded-lg bg-white dark:bg-[var(--color-charcoal)]" />
 
-      {hoveredNodeData && (
+      {displayedNodeData && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 10 }}
-          className="mt-4 p-4 rounded-lg border border-[var(--color-border)] dark:border-[#333] bg-[var(--color-beige)] dark:bg-[var(--color-dark-surface)]"
+          className={`mt-4 p-4 rounded-lg border ${selectedNode ? 'border-[var(--color-terracotta)]' : 'border-[var(--color-border)]'} dark:border-[#333] bg-[var(--color-beige)] dark:bg-[var(--color-dark-surface)]`}
+          onClick={(e) => e.stopPropagation()}
         >
-          <h4 className="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">
-            {hoveredNodeData.label}
-          </h4>
+          <div className="flex items-start justify-between mb-2">
+            <h4 className="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">
+              {displayedNodeData.label}
+            </h4>
+            {selectedNode && (
+              <button
+                onClick={() => setSelectedNode(null)}
+                className="text-[var(--color-muted)] hover:text-[var(--color-charcoal)] dark:hover:text-[var(--color-cream)] text-sm"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <p className="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] mb-3">
-            {hoveredNodeData.description}
+            {displayedNodeData.description}
           </p>
           <a
-            href={`/ch${hoveredNodeData.chapter}-${nodes.find(n => n.id === 'ledger')?.id === hoveredNodeData.id ? 'architecture' : hoveredNodeData.id}/`}
+            href={`/ch${displayedNodeData.chapter}-${nodes.find(n => n.id === 'ledger')?.id === displayedNodeData.id ? 'architecture' : displayedNodeData.id}/`}
             className="text-sm font-medium text-[var(--color-terracotta)] hover:underline"
           >
-            Read Chapter {hoveredNodeData.chapter} →
+            Read Chapter {displayedNodeData.chapter} →
           </a>
         </motion.div>
+      )}
+
+      {selectedNode && (
+        <div
+          className="fixed inset-0 z-0"
+          onClick={() => setSelectedNode(null)}
+          style={{ pointerEvents: 'auto' }}
+        />
       )}
 
       <div className="mt-4 text-xs text-[var(--color-muted)] space-y-1">
