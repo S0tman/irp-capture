@@ -4,6 +4,7 @@
  * Each diagram targets a specific mermaid slot index in the chapter prose.
  * A client-side script teleports the rendered components into those slots.
  */
+import IRPArchitectureExplorer from './IRPArchitectureExplorer';
 import AgentLoopSimulator from './AgentLoopSimulator';
 import ArchitectureExplorer from './ArchitectureExplorer';
 import APICallLifecycle from './APICallLifecycle';
@@ -55,11 +56,11 @@ interface DiagramEntry {
 }
 
 // Maps each interactive diagram to the mermaid block index it replaces.
-// For IRP book, diagrams are disabled for now (this was template code from Claude Code from Source).
-// Can be re-enabled with IRP-specific diagrams later.
+// For IRP book, we include IRP-specific diagrams.
 const chapterDiagrams: Record<number, DiagramEntry[]> = {
-  // IRP chapters currently have no interactive diagrams
-  // Mermaid diagrams in markdown render directly via remark-mermaid-raw plugin
+  1: [
+    { title: 'The Six Core Abstractions', description: 'Drag nodes to rearrange, hover for details, click to read the chapter.', component: 'IRPArchitectureExplorer', slotIndex: 0 },
+  ],
 };
 
 const diagrams = chapterDiagrams[chapterNumber] || [];
@@ -83,6 +84,7 @@ const bottomDiagrams = diagrams.filter(d => d.slotIndex < 0);
       </div>
       <p class="text-sm text-[var(--color-muted)] mb-4">{diagram.description}</p>
 
+      {diagram.component === 'IRPArchitectureExplorer' && <IRPArchitectureExplorer client:only="react" className="w-full" />}
       {diagram.component === 'AgentLoopSimulator' && <AgentLoopSimulator client:only="react" className="w-full" />}
       {diagram.component === 'ArchitectureExplorer' && <ArchitectureExplorer client:only="react" className="w-full" />}
       {diagram.component === 'APICallLifecycle' && <APICallLifecycle client:only="react" className="w-full" />}

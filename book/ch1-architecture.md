@@ -130,16 +130,21 @@ This architecture reflects a principle: **decisions should be tool-independent.*
 
 ## Core Abstractions in One Diagram
 
-```
-External Tools (Figma, Slack, etc.)
-          ↓ (sensors)
-    Ledger.jsonl (append-only)
-          ↓ (rebuild)
-    Current.json (last 10 active)
-          ↓ (query)
-REST API / Figma UI / collab.py
-          ↓ (feedback)
-External Systems & Humans
+```mermaid
+graph TB
+    L["<b>Ledger</b><br/>Immutable append-only"]
+    S["<b>Sensors</b><br/>Multi-source capture"]
+    DS["<b>Derived State</b><br/>Current.json"]
+    V["<b>Validation</b><br/>Conflict detection"]
+    R["<b>REST APIs</b><br/>Extensibility"]
+    B["<b>Bridge</b><br/>Tool integration"]
+    
+    S -->|appends| L
+    L -->|rebuilds| DS
+    DS -->|checks| V
+    DS -->|serves| R
+    S -->|through| B
+    B -->|feeds| L
 ```
 
 ## Summary: Why This Matters
