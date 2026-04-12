@@ -90,15 +90,18 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
   useEffect(() => {
     if (!svgRef.current) return;
 
-    const width = svgRef.current.clientWidth;
+    const width = svgRef.current.clientWidth || 800;
     const height = 500;
 
     // Clear previous
     d3.select(svgRef.current).selectAll('*').remove();
 
     const svg = d3.select(svgRef.current)
-      .attr('width', width)
-      .attr('height', height);
+      .attr('width', width || 800)
+      .attr('height', height)
+      .attr('viewBox', `0 0 ${width || 800} ${height}`)
+      .style('width', '100%')
+      .style('height', 'auto');
 
     // Create simulation
     const simulation = d3.forceSimulation(nodes)
@@ -253,8 +256,19 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
     // Watch for hover/selection changes
     highlightConnected(displayedNode);
 
+    // Handle window resize
+    const handleResize = () => {
+      // Trigger re-render on resize
+      if (svgRef.current) {
+        svgRef.current.style.width = '100%';
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
     return () => {
       simulation.stop();
+      window.removeEventListener('resize', handleResize);
     };
   }, [displayedNode, hoveredNode, selectedNode]);
 
