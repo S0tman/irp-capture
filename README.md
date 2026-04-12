@@ -23,7 +23,7 @@ Everyone was in the room. It was the right decision, for the right reasons.
 Last week, someone reopened the debate.
 Because the reasoning was not written down anywhere.
 
-This is not a memory problem. It is a meaning problem.
+This is not a memory problem. It is a meaning or decision, reasoning traceability problem.
 
 ---
 
