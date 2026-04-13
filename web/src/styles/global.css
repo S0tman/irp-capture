@@ -93,3 +93,42 @@ html.dark ::-webkit-scrollbar-thumb {
 ::selection {
   background-color: rgba(204, 120, 92, 0.3);
 }
+
+/* Explicit dark mode text colors — ensure visibility */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6 {
+  color: var(--color-cream) !important;
+}
+
+html.dark p,
+html.dark span,
+html.dark li,
+html.dark a {
+  color: var(--color-muted-dark) !important;
+}
+
+html.dark a {
+  color: var(--color-terracotta);
+  text-decoration: underline;
+}
+
+html.dark a:hover {
+  color: var(--color-cream);
+}
+
+html.dark .text-\[var\(--color-charcoal\)\] {
+  color: var(--color-cream) !important;
+}
+
+html.dark .dark\:text-\[var\(--color-cream\)\] {
+  color: var(--color-cream) !important;
+}
+
+html.dark .dark\:text-\[var\(--color-muted\)\],
+html.dark .dark\:text-\[var\(--color-muted-dark\)\] {
+  color: var(--color-muted-dark) !important;
+}
