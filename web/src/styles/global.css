@@ -52,6 +52,13 @@ html.dark body {
   color: #f5f4ed;
 }
 
+/* Header uses bg-[var(--color-charcoal)] for dark bg, but we swapped
+   --color-charcoal to cream — override the header background directly */
+html.dark header {
+  background-color: rgba(20, 20, 19, 0.95);
+  border-color: #333;
+}
+
 /* Code blocks */
 code, pre {
   font-family: var(--font-mono);
