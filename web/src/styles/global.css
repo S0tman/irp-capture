@@ -38,9 +38,18 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+html.dark {
+  /* Swap the color variables so every element using var(--color-charcoal)
+     automatically renders in cream without needing Tailwind dark: classes */
+  --color-charcoal: #f5f4ed;
+  --color-secondary: #a8a69e;
+  --color-beige: #1e1e1c;
+  --color-border: #333;
+}
+
 html.dark body {
-  background-color: var(--color-charcoal);
-  color: var(--color-cream);
+  background-color: #141413;
+  color: #f5f4ed;
 }
 
 /* Code blocks */
