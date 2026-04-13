@@ -296,9 +296,9 @@ Capture can fail at several points. The system is designed to fail gracefully:
 
 **Design principle:** The ledger is append-only, so failures don't corrupt it. Failed capture attempts leave no trace. Retry is always safe.
 
-## Bootstrapping: Retroactive Capture (Future)
+## Bootstrapping: Retroactive Capture
 
-Teams sometimes want to retroactively capture decisions from git history or documentation. A future `irp bootstrap` command could scan git commits or docs and generate entries. This is useful for teams starting IRP mid-project. But bootstrapping is not the primary flow—most decisions are captured *when they happen*, not after.
+Teams sometimes want to retroactively capture decisions from git history or documentation. The `irp bootstrap` command scans git commits and docs to generate entries retroactively. This is useful for teams starting IRP mid-project. But bootstrapping is not the primary flow—most decisions are captured *when they happen*, not after.
 
 Real-time capture (interactive or via sensors) is the intended pattern.
 

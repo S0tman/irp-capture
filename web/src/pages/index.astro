@@ -20,7 +20,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
       <h1 class="text-3xl md:text-4xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-6 leading-tight">
         Decisions Shouldn't Vanish<br class="hidden md:inline" /> When Tools Change
       </h1>
-      <p class="text-lg text-[var(--color-secondary)] dark:text-[var(--color-muted)] max-w-2xl mx-auto leading-relaxed mb-6">
+      <p class="text-lg text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] max-w-2xl mx-auto leading-relaxed mb-6">
         IRP is a protocol for capturing, validating, and querying decisions across your organization. This book explains the architecture, the design patterns, and how to apply them to your own decisions. Built from first principles. No vendor lock-in.
       </p>
       <a
@@ -42,27 +42,27 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
       <div class="grid md:grid-cols-2 gap-6">
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Ledger as source of truth</h3>
-          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Why JSONL instead of a database. Why append-only is the only safe design. How immutable logs make decisions portable.</p>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">Why JSONL instead of a database. Why append-only is the only safe design. How immutable logs make decisions portable.</p>
         </div>
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Derived state &amp; conflict detection</h3>
-          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Computing current.json from a ledger. Heuristic-based conflict detection without embeddings. Why non-blocking validation prevents friction.</p>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">Computing current.json from a ledger. Heuristic-based conflict detection without embeddings. Why non-blocking validation prevents friction.</p>
         </div>
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Multi-source capture</h3>
-          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Interactive capture, stdin automation, sensor architecture. How Figma, Slack, and CLI all write to the same ledger without sync problems.</p>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">Interactive capture, stdin automation, sensor architecture. How Figma, Slack, and CLI all write to the same ledger without sync problems.</p>
         </div>
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">The bridge pattern</h3>
-          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Three-layer architecture for tool integration. Why sandboxed environments need a bridge. How to add new sensors without touching the core.</p>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">Three-layer architecture for tool integration. Why sandboxed environments need a bridge. How to add new sensors without touching the core.</p>
         </div>
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">REST APIs &amp; extensibility</h3>
-          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">/inherit, /why, /check endpoints. Context injection for external AI models. Cross-tool decision workflows. Sovereignty through local storage.</p>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">/inherit, /why, /check endpoints. Context injection for external AI models. Cross-tool decision workflows. Sovereignty through local storage.</p>
         </div>
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Real-world scaling</h3>
-          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">Team sizing (10 vs 100 people). Multi-repository setups. Ledger maintenance, archiving, and backups. When IRP matters and when it doesn't.</p>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">Team sizing (10 vs 100 people). Multi-repository setups. Ledger maintenance, archiving, and backups. When IRP matters and when it doesn't.</p>
         </div>
       </div>
     </section>
@@ -72,7 +72,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
       <h2 class="text-2xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-6">
         Who this is for
       </h2>
-      <div class="space-y-4 text-[var(--color-secondary)] dark:text-[var(--color-muted)]">
+      <div class="space-y-4 text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)]">
         <p><strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">Teams building decision management systems.</strong> Every chapter ends with "Apply This" — transferable patterns with concrete adaptation advice. Use the patterns, not the code.</p>
         <p><strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">Architects evaluating durability patterns.</strong> Learn why ledger-as-source-of-truth matters. Understand the tradeoffs between speed, explainability, and cost.</p>
         <p><strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">Anyone tired of decisions disappearing.</strong> When teams change tools, decisions die. IRP makes them survive. Apply the patterns to your own decisions.</p>
@@ -120,7 +120,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
       <h2 class="text-2xl font-bold font-[var(--font-serif)] text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-6">
         Design philosophy
       </h2>
-      <div class="space-y-4 text-[var(--color-secondary)] dark:text-[var(--color-muted)] leading-relaxed">
+      <div class="space-y-4 text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">
         <p>
           IRP is built on five core principles: <strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">immutability, portability, auditability, explainability, and team autonomy.</strong>
         </p>

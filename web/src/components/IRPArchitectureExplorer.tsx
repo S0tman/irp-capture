@@ -371,7 +371,7 @@ export default function IRPArchitectureExplorer({ className = '' }: { className?
               </button>
             )}
           </div>
-          <p className="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted)] mb-3">
+          <p className="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] mb-3">
             {displayedNode.description}
           </p>
           <a

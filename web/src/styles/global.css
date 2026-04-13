@@ -13,6 +13,7 @@
   --color-dark-surface: #1e1e1c;
   --color-secondary: #30302e;
   --color-muted: #87867f;
+  --color-muted-dark: #a8a69e; /* Better contrast for dark mode secondary text */
   --color-border: #c2c0b6;
   --color-highlight: #eda100;
 
