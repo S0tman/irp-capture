@@ -4,8 +4,8 @@
 
 @plugin "@tailwindcss/typography";
 
-@theme {
-  /* Anthropic palette — extracted from anthropic.com */
+/* CSS custom properties for consistent color references */
+:root {
   --color-cream: #f5f4ed;
   --color-beige: #e8e6dc;
   --color-terracotta: #d97757;
@@ -13,7 +13,7 @@
   --color-dark-surface: #1e1e1c;
   --color-secondary: #30302e;
   --color-muted: #87867f;
-  --color-muted-dark: #a8a69e; /* Better contrast for dark mode secondary text */
+  --color-muted-dark: #a8a69e;
   --color-border: #c2c0b6;
   --color-highlight: #eda100;
 
