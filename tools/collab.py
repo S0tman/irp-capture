@@ -27,6 +27,9 @@ Usage:
   # Use a different model
   python3 tools/collab.py --model gpt-4o-mini "Summarize this thread"
 
+  # Interactively pick a model before sending
+  python3 tools/collab.py --pick "Critique this approach: ..."
+
   # Skip IRP context (plain call)
   python3 tools/collab.py --no-irp "What's the weather?"
 
@@ -37,6 +40,12 @@ Environment:
   OPENAI_API_KEY   — required (unless using a local model that doesn't need auth)
   COLLAB_API_BASE  — override API endpoint (default: https://api.openai.com/v1)
   COLLAB_MODEL     — override default model (default: gpt-4o)
+
+Model tiers (for --pick menu):
+  Fast/cheap   : gpt-4o-mini, gpt-4.1-mini
+  Balanced     : gpt-4o, gpt-4.1
+  Powerful     : gpt-4.5, o3
+  Reasoning    : o3-mini, o4-mini
 """
 
 import argparse
@@ -177,6 +186,8 @@ def main():
     parser.add_argument("--project-root", "-p",
                         default=".",
                         help="Project root containing .irp/ (default: cwd)")
+    parser.add_argument("--pick", action="store_true",
+                        help="Interactively pick a model before sending")
     parser.add_argument("--no-irp", action="store_true",
                         help="Skip IRP context injection")
     parser.add_argument("--system", "-s",
@@ -184,6 +195,35 @@ def main():
     parser.add_argument("--raw", action="store_true",
                         help="Output raw response only (no headers/formatting)")
     args = parser.parse_args()
+
+    # Interactive model picker
+    MODELS = [
+        ("gpt-4o",      "Balanced — fast, good for most tasks"),
+        ("gpt-4.1",     "Balanced — newer, stronger reasoning than 4o"),
+        ("gpt-4.5",     "Powerful — best for strategic/creative work"),
+        ("o3",          "Powerful — deep reasoning, slower"),
+        ("o4-mini",     "Reasoning — fast o-series, good cost/quality"),
+        ("gpt-4o-mini", "Fast/cheap — quick lookups, simple tasks"),
+        ("gpt-4.1-mini","Fast/cheap — newer mini, good for drafts"),
+    ]
+
+    if args.pick:
+        print("\n[collab] Pick a model:", file=sys.stderr)
+        for i, (name, desc) in enumerate(MODELS, 1):
+            marker = " ← current default" if name == args.model else ""
+            print(f"  {i}) {name:20s} {desc}{marker}", file=sys.stderr)
+        print(file=sys.stderr)
+        try:
+            choice = input("  Enter number (or press Enter to keep default): ").strip()
+            if choice:
+                idx = int(choice) - 1
+                if 0 <= idx < len(MODELS):
+                    args.model = MODELS[idx][0]
+                    print(f"[collab] Model set to: {args.model}\n", file=sys.stderr)
+                else:
+                    print("[collab] Invalid choice, keeping default.", file=sys.stderr)
+        except (ValueError, KeyboardInterrupt):
+            print("\n[collab] Keeping default model.", file=sys.stderr)
 
     # Read prompt from arg or stdin
     if args.prompt:
