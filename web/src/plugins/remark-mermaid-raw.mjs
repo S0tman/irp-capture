@@ -3,22 +3,15 @@
  *
  * Each slot contains:
  *  - data-diagram-index    sequential index for React component teleport
- *  - <template class="mermaid-src">  the raw mermaid source, HTML-encoded
+ *  - data-mermaid-b64      base64-encoded mermaid source (safe in HTML attrs)
  *
  * Two rendering paths:
  *  A) If InteractiveDiagrams.astro maps a React component to this slot index,
- *     the teleport script moves it in and the template is ignored.
- *  B) Otherwise, the client-side mermaid.js script reads the template and
- *     renders the diagram directly.
+ *     the teleport script moves it in and the b64 attr is ignored.
+ *  B) Otherwise, the client-side mermaid.js script reads data-mermaid-b64,
+ *     decodes with atob(), and renders the diagram.
  */
 let diagramCounter = 0;
-
-function htmlEncode(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 export default function remarkMermaidRaw() {
   return (tree) => {
@@ -34,9 +27,11 @@ function walkTree(node) {
     const child = node.children[i];
     if (child.type === 'code' && child.lang === 'mermaid') {
       const index = diagramCounter++;
+      // Use Buffer (Node.js) to base64-encode; safe in all HTML attribute contexts
+      const b64 = Buffer.from(child.value, 'utf8').toString('base64');
       node.children[i] = {
         type: 'html',
-        value: `<div class="diagram-slot mermaid-wrapper" data-diagram-index="${index}"><template class="mermaid-src">${htmlEncode(child.value)}</template></div>`,
+        value: `<div class="diagram-slot mermaid-wrapper" data-diagram-index="${index}" data-mermaid-b64="${b64}"></div>`,
       };
     } else {
       walkTree(child);
