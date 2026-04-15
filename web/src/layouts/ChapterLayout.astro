@@ -60,4 +60,57 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
   <!-- Client-side scripts -->
   <script src="../scripts/copy-code.ts"></script>
   <script src="../scripts/focus-mode.ts"></script>
+
+  <!-- Mermaid diagram rendering (CDN ESM — no bundler required) -->
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    function getMermaidTheme() {
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'neutral';
+    }
+
+    async function renderMermaidDiagrams() {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: getMermaidTheme(),
+        securityLevel: 'loose',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      });
+
+      const wrappers = document.querySelectorAll('.mermaid-wrapper');
+      for (const wrapper of wrappers) {
+        // Skip slots that already have a React component teleported in
+        if (wrapper.querySelector('.diagram-source')) continue;
+        // Skip already-rendered diagrams (avoid double render on theme change)
+        if (wrapper.querySelector('.mermaid-rendered')) {
+          wrapper.innerHTML = '';
+        }
+
+        const tmpl = wrapper.querySelector('template.mermaid-src');
+        if (!tmpl) continue;
+
+        // Decode HTML entities preserved by the remark plugin
+        const decoded = tmpl.innerHTML
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&');
+
+        const id = `mermaid-${wrapper.getAttribute('data-diagram-index') ?? Math.random().toString(36).slice(2)}`;
+
+        try {
+          const { svg } = await mermaid.render(id, decoded);
+          wrapper.innerHTML = `<div class="mermaid-rendered overflow-x-auto py-2">${svg}</div>`;
+        } catch (e) {
+          console.warn('Mermaid render error (slot', wrapper.getAttribute('data-diagram-index'), '):', e);
+          wrapper.innerHTML = `<pre class="overflow-x-auto p-4 rounded-lg text-sm opacity-60">${tmpl.innerHTML}</pre>`;
+        }
+      }
+    }
+
+    // module scripts are deferred — runs after page parse and React teleport
+    renderMermaidDiagrams();
+
+    // Re-render when theme toggles
+    window.addEventListener('theme-changed', renderMermaidDiagrams);
+  </script>
 </BaseLayout>

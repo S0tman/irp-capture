@@ -1,9 +1,24 @@
 /**
- * Remark plugin: replaces ```mermaid code blocks with anchor placeholders.
- * A client-side script teleports interactive React components into these slots.
- * Each slot gets a sequential data-diagram-index attribute.
+ * Remark plugin: replaces ```mermaid code blocks with slot divs.
+ *
+ * Each slot contains:
+ *  - data-diagram-index    sequential index for React component teleport
+ *  - <template class="mermaid-src">  the raw mermaid source, HTML-encoded
+ *
+ * Two rendering paths:
+ *  A) If InteractiveDiagrams.astro maps a React component to this slot index,
+ *     the teleport script moves it in and the template is ignored.
+ *  B) Otherwise, the client-side mermaid.js script reads the template and
+ *     renders the diagram directly.
  */
 let diagramCounter = 0;
+
+function htmlEncode(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 export default function remarkMermaidRaw() {
   return (tree) => {
@@ -21,7 +36,7 @@ function walkTree(node) {
       const index = diagramCounter++;
       node.children[i] = {
         type: 'html',
-        value: `<div class="diagram-slot" data-diagram-index="${index}"></div>`,
+        value: `<div class="diagram-slot mermaid-wrapper" data-diagram-index="${index}"><template class="mermaid-src">${htmlEncode(child.value)}</template></div>`,
       };
     } else {
       walkTree(child);
