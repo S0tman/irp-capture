@@ -39,7 +39,7 @@ export const chapters: ChapterConfig[] = [
   { number: 3, slug: 'ch3-capture', title: 'Capturing Intent', description: 'Interactive and stdin capture modes, sensor architecture, and context enrichment' },
   { number: 4, slug: 'ch4-validation', title: 'Decision Validation', description: 'The check command, keyword-based conflict detection, and team resolution' },
   { number: 5, slug: 'ch5-figma-plugin', title: 'The Figma Plugin Architecture', description: 'Three-layer architecture, bridge pattern, message-based relay, and conflict checking integration' },
-  { number: 6, slug: 'ch6-extensibility', title: 'Extensibility & Cross-Engine Context', description: 'REST APIs, context injection for AI models, multi-tool workflows, and adding new sensors' },
+  { number: 6, slug: 'ch6-extensibility', title: 'Extensibility & Cross-Engine Context', description: 'REST APIs, context injection for AI models, sovereign stack integrations (Obsidian + MemPalace), and adding new sensors' },
   { number: 7, slug: 'ch7-epilogue', title: 'Application & Synthesis', description: 'Pattern-to-problem matching, design tradeoffs, evolution roadmap, and how to read this book again' },
   { number: 8, slug: 'appendix-practical-considerations', title: 'Appendix: Practical Considerations', description: 'Team scaling, multi-repository setups, ledger maintenance, security, and troubleshooting' },
 ];
