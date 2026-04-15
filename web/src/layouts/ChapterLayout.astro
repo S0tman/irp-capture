@@ -61,7 +61,7 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
   <script src="../scripts/copy-code.ts"></script>
   <script src="../scripts/focus-mode.ts"></script>
 
-  <!-- Mermaid diagram rendering — bundled via Vite, no CDN required -->
+  <!-- Mermaid diagram rendering — finds code.mermaid-source blocks from remark plugin -->
   <script>
     import mermaid from 'mermaid';
 
@@ -79,34 +79,54 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       });
 
-      const wrappers = document.querySelectorAll<HTMLElement>('.mermaid-wrapper');
-      for (const wrapper of wrappers) {
-        // Skip slots where a React component has been teleported in
-        if (wrapper.querySelector('.diagram-source')) continue;
+      // The remark plugin marks mermaid blocks as <code class="mermaid-source">
+      // inside <pre> wrappers. We read the text content, render with mermaid,
+      // and replace the entire <pre> block.
+      const codeBlocks = document.querySelectorAll<HTMLElement>('code.mermaid-source');
+      for (const code of codeBlocks) {
+        const pre = code.closest('pre');
+        if (!pre) continue;
 
-        // Decode source from base64 attr (set by remark-mermaid-raw.mjs)
-        // Cache on dataset so we can re-render after theme change without the attr
-        let source = wrapper.dataset.mermaidSource;
-        if (!source) {
-          const b64 = wrapper.getAttribute('data-mermaid-b64');
-          if (!b64) continue;
-          try {
-            source = atob(b64);
-            wrapper.dataset.mermaidSource = source;
-          } catch (e) {
-            console.warn('[mermaid] base64 decode failed on slot', wrapper.dataset.diagramIndex, e);
-            continue;
-          }
-        }
+        // Skip already-rendered blocks (theme re-render)
+        if (pre.dataset.mermaidRendered) continue;
 
-        wrapper.innerHTML = '';
-        const id = `mermaid-${wrapper.dataset.diagramIndex ?? 'x'}-${++renderSeq}`;
+        const source = code.textContent || '';
+        if (!source.trim()) continue;
+
+        // Store source on pre for theme-change re-renders
+        pre.dataset.mermaidSource = source;
+        pre.dataset.mermaidRendered = 'true';
+
+        const idx = code.getAttribute('datadiagramindex') ?? 'x';
+        const id = `mermaid-${idx}-${++renderSeq}`;
+
         try {
           const { svg } = await mermaid.render(id, source);
-          wrapper.innerHTML = `<div class="overflow-x-auto py-4">${svg}</div>`;
+          // Replace the <pre> with a rendered diagram div
+          const container = document.createElement('div');
+          container.className = 'mermaid-rendered overflow-x-auto py-4';
+          container.dataset.mermaidSource = source;
+          container.dataset.diagramIndex = idx;
+          container.innerHTML = svg;
+          pre.replaceWith(container);
         } catch (e) {
-          console.warn('[mermaid] render error on slot', wrapper.dataset.diagramIndex, e);
-          wrapper.innerHTML = `<pre class="overflow-x-auto p-4 rounded-lg text-sm opacity-60">${source}</pre>`;
+          console.warn('[mermaid] render error on diagram', idx, e);
+          // Leave the code block visible as fallback
+        }
+      }
+
+      // Also handle re-render of already-rendered diagrams (theme change)
+      const rendered = document.querySelectorAll<HTMLElement>('.mermaid-rendered');
+      for (const container of rendered) {
+        const source = container.dataset.mermaidSource;
+        if (!source) continue;
+        const idx = container.dataset.diagramIndex ?? 'x';
+        const id = `mermaid-re-${idx}-${++renderSeq}`;
+        try {
+          const { svg } = await mermaid.render(id, source);
+          container.innerHTML = svg;
+        } catch (e) {
+          console.warn('[mermaid] re-render error on diagram', idx, e);
         }
       }
     }

@@ -1,15 +1,14 @@
 /**
- * Remark plugin: replaces ```mermaid code blocks with slot divs.
+ * Remark plugin: converts ```mermaid code blocks into plain-text code blocks
+ * with data attributes for client-side mermaid rendering.
  *
- * Each slot contains:
- *  - data-diagram-index    sequential index for React component teleport
- *  - data-mermaid-b64      base64-encoded mermaid source (safe in HTML attrs)
+ * Strategy: Astro 5's content layer strips `type: 'html'` raw nodes.
+ * Instead, we keep legitimate `type: 'code'` MDAST nodes (which Shiki
+ * and rehype always preserve) and mark them with hProperties so the
+ * client-side script can find and render them.
  *
- * Two rendering paths:
- *  A) If InteractiveDiagrams.astro maps a React component to this slot index,
- *     the teleport script moves it in and the b64 attr is ignored.
- *  B) Otherwise, the client-side mermaid.js script reads data-mermaid-b64,
- *     decodes with atob(), and renders the diagram.
+ * The mermaid source stays visible as a <pre><code> block until JS
+ * replaces it — graceful degradation by design.
  */
 let diagramCounter = 0;
 
@@ -27,11 +26,19 @@ function walkTree(node) {
     const child = node.children[i];
     if (child.type === 'code' && child.lang === 'mermaid') {
       const index = diagramCounter++;
-      // Use Buffer (Node.js) to base64-encode; safe in all HTML attribute contexts
-      const b64 = Buffer.from(child.value, 'utf8').toString('base64');
+      // Keep as a code block but switch lang to 'text' so Shiki doesn't
+      // need mermaid grammar. Add hProperties that remark-rehype passes
+      // through to the generated <code> element.
       node.children[i] = {
-        type: 'html',
-        value: `<div class="diagram-slot mermaid-wrapper" data-diagram-index="${index}" data-mermaid-b64="${b64}"><p class="mermaid-loading text-xs text-[var(--color-muted)] italic py-2">Loading diagram…</p></div>`,
+        type: 'code',
+        lang: 'text',
+        value: child.value,
+        data: {
+          hProperties: {
+            className: ['mermaid-source'],
+            datadiagramindex: String(index),
+          },
+        },
       };
     } else {
       walkTree(child);
