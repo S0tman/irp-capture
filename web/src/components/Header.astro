@@ -26,6 +26,13 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
     </div>
 
     <div class="flex items-center gap-2">
+      <a
+        href={`${base}changelog/`}
+        class="hidden sm:block px-3 py-1.5 rounded-md text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] hover:text-[var(--color-charcoal)] dark:hover:text-[var(--color-cream)] hover:bg-[var(--color-beige)] dark:hover:bg-[var(--color-dark-surface)] transition-colors"
+      >
+        Changelog
+      </a>
+
       <!-- Focus mode: hide sidebars for distraction-free reading -->
       <button
         id="focus-toggle"
