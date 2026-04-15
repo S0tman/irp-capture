@@ -1,7 +1,6 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
-// import remarkMermaidRaw from './src/plugins/remark-mermaid-raw.mjs';
 
 export default defineConfig({
   site: 'https://irp-book.vercel.app/',
@@ -16,7 +15,6 @@ export default defineConfig({
         dark: 'github-dark',
       },
     },
-    // remarkPlugins: [remarkMermaidRaw],  // disabled for diagnostic
   },
   output: 'static',
 });
