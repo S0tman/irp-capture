@@ -41,7 +41,8 @@ web/
 ├── src/
 │   ├── pages/
 │   │   ├── index.astro          # Landing page
-│   │   └── [...slug].astro      # Dynamic chapter pages
+│   │   ├── [...slug].astro      # Dynamic chapter pages
+│   │   └── changelog.astro      # Changelog page (reads CHANGELOG.md)
 │   ├── layouts/
 │   │   ├── BaseLayout.astro
 │   │   └── ChapterLayout.astro
@@ -72,10 +73,11 @@ book/
 ```
 
 The site automatically:
-- Renders markdown to HTML with syntax highlighting
-- Supports Mermaid diagrams (code fences with language=mermaid)
+- Renders markdown to HTML with Shiki syntax highlighting
+- Renders Mermaid diagrams as interactive SVGs (code fences with ` ```mermaid`)
 - Generates static pages for each chapter
 - Builds table of contents from book.config.ts
+- Serves the repo CHANGELOG.md at `/changelog/`
 
 ## Configuration
 
@@ -131,11 +133,13 @@ Astro builds to a `dist/` folder. Deploy that folder to:
 
 - ✅ Dark mode (CSS variables, no JavaScript)
 - ✅ Responsive design (mobile, tablet, desktop)
-- ✅ Syntax highlighting (code blocks)
-- ✅ Mermaid diagrams (flowcharts, graphs, etc.)
+- ✅ Syntax highlighting (Shiki, dual-theme)
+- ✅ Mermaid diagrams (flowcharts, architecture, etc.) — client-side rendering
 - ✅ Table of contents with navigation
 - ✅ Previous/next chapter links
 - ✅ Part dividers with epigraphs
+- ✅ Changelog page (auto-generated from repo CHANGELOG.md)
+- ✅ Focus mode (hide sidebars for distraction-free reading)
 - ✅ Fast page loads (static generation)
 - ✅ SEO optimized
 
@@ -179,8 +183,10 @@ npm run dev -- --port 3001
 - Check content.config.ts glob pattern matches your files
 
 ### Mermaid diagrams not rendering
-- Use ` ```mermaid` (with backticks, no language specification)
-- Ensure the remark-mermaid-raw plugin is enabled
+- Use ` ```mermaid` code fences in your markdown files
+- Shiki (bundled with Astro 5) handles `mermaid` as a native language
+- The client-side `mermaid.js` script in `ChapterLayout.astro` detects mermaid code blocks by content prefix and renders them as interactive SVG diagrams
+- If diagrams show as raw code, check the browser console for mermaid rendering errors
 
 ## License
 
