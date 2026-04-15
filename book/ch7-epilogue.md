@@ -33,6 +33,9 @@ This chapter gives guidance for different scenarios.
 **Problem: "Decisions are isolated in Figma, Slack, or CLI—never meet"**
 → Add **sensor & bridge pattern** (Chapters 3 & 5). Multiple sources, one ledger. The bridge is just a proxy; all power comes from the core.
 
+**Problem: "Decisions should outlive the tool stack and feed my agent's memory"**
+→ Add **sovereign stack integrations** (Chapter 6). IRP writes each decision to your Obsidian vault and MemPalace palace automatically. The ledger remains the canonical source; the integrations are projections.
+
 **Start with your biggest pain point. Build the minimum pattern to solve it. Don't build bridges until the core is solid.**
 
 ```mermaid

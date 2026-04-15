@@ -264,6 +264,123 @@ The alternative (storing decisions in Figma, Slack, or Claude) creates vendor lo
 
 Current.json is the interface. It's small, text, versionable. You can commit it to git. You can share it with collaborators. External tools read it. They don't own it.
 
+## Sovereign Stack Integrations
+
+The local-first principle extends beyond the ledger. Builders running self-hosted AI stacks—Obsidian for a knowledge base, a local LLM for inference, MemPalace for agent memory—were independently converging on IRP as the missing layer. They had knowledge. They had memory. Nothing captured *why decisions were made* in a form that could travel into both a human-readable vault and an agent-queryable store simultaneously.
+
+IRP closes this with two native integrations that fire automatically after every `irp capture`, without modifying the capture flow.
+
+### Integration dispatch
+
+After `append_ledger_entry()` and `write_current()` complete, `dispatch.run()` is called:
+
+```python
+# irp/core/commands/capture.py (simplified)
+append_ledger_entry(irp_dir, candidate)
+write_current(irp_dir, rebuild_current(read_ledger(irp_dir)))
+
+integrations = _dispatch.run(candidate, project_root)
+```
+
+`dispatch.run()` tries to load `.env` from the project root, then calls each registered integration. Integration failures are caught and surfaced in the result dict — they never interrupt the ledger write. The ledger is always the authoritative step.
+
+### Obsidian integration
+
+Writes each captured decision as a `.md` file to your Obsidian vault. Obsidian vaults are plain directories — no extra packages needed.
+
+```bash
+export IRP_OBSIDIAN_VAULT="/Users/you/Notes"
+```
+
+Each decision lands at `{vault}/decisions/IRP-YYYY-MM-DD-NNN.md` with YAML frontmatter:
+
+```markdown
+---
+id: IRP-2026-04-15-001
+type: decision
+timestamp: 2026-04-15
+confidence: high
+tags: [architecture]
+source: cli
+---
+
+# Use Postgres for the reporting service
+
+## Why it matters
+
+Redis considered but rejected — query patterns require joins.
+```
+
+Human-readable. Browsable in any Markdown editor. Survives any Obsidian version change.
+
+### MemPalace integration
+
+Writes each captured decision into the MemPalace `mempalace_drawers` ChromaDB collection. Agents running against the palace can now run semantic queries against past decisions alongside their other memories.
+
+```bash
+pip install 'irp-capture[mempalace]'
+
+# Optional — defaults to ~/.mempalace/palace
+export IRP_MEMPALACE_PATH="/Users/you/.mempalace/palace"
+```
+
+If MemPalace is not installed or the palace directory does not exist and `IRP_MEMPALACE_PATH` is not set, the integration skips silently.
+
+### Architecture: three destinations, one capture
+
+```mermaid
+flowchart TD
+    A([irp capture]) --> B
+
+    subgraph Core["IRP Core"]
+        B["append_ledger_entry()"]
+        B --> C[".irp/ledger.jsonl\nappend-only canonical"]
+        B --> D[".irp/current.json\nlast 10 decisions"]
+        B --> E["dispatch.run()"]
+    end
+
+    subgraph Integrations["Sovereign Stack Integrations (optional)"]
+        E -->|IRP_OBSIDIAN_VAULT| F["obsidian.sync()"]
+        E -->|palace exists| G["mempalace.sync()"]
+        E -->|neither configured| H["skip silently"]
+
+        F --> I["{vault}/decisions/{id}.md\nYAML frontmatter + markdown body"]
+        G --> J["mempalace_drawers\nChromaDB collection · upsert"]
+    end
+
+    subgraph Query["Query Paths"]
+        D -->|irp why / REST| K["👤 Human\nCLI · REST API · Obsidian vault"]
+        I --> K
+        J -->|semantic search| L["🤖 Agent\nMemPalace query"]
+    end
+
+    style C fill:#1a1a1a,stroke:#555,color:#e8e8e8
+    style D fill:#1a1a0a,stroke:#f7e06a,color:#f7e06a
+    style I fill:#0f1a0f,stroke:#4fd175,color:#4fd175
+    style J fill:#0f0f1a,stroke:#bf7fff,color:#bf7fff
+```
+
+**The design principle:** The ledger remains the canonical source. Integrations are write-through projections — each receives a copy of the decision but cannot modify or delete it. Remove an integration and the ledger is unaffected. Add an integration and no existing data needs migration.
+
+This mirrors the sensor pattern from Chapter 3: sensors are independent paths *into* the ledger; integrations are independent paths *out of* it.
+
+```
+Sensors  →  ledger  ←  canonical truth  →  Integrations
+             ↓
+         current.json
+```
+
+The sovereign stack, complete:
+
+| Layer | Tool | Role |
+|---|---|---|
+| Knowledge | Obsidian | What you learned |
+| Inference | Ollama · local LLM | Reasoning engine |
+| Memory | MemPalace | What your agents remember |
+| **Decisions** | **IRP** | **What was decided and why** |
+
+All local. No vendor in the loop.
+
 ## Extensibility: Adding New Sensors
 
 The architecture is designed for new sensors to be added easily.

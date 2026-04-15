@@ -4,6 +4,20 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.3.0] — 2026-04-15
+
+### Milestone
+- **Sovereign stack integrations** — IRP now writes decisions natively to Obsidian vaults and MemPalace palaces. No bundling, no licensing issues. IRP writes to the filesystem and ChromaDB directly. The decision layer completes the Karpathy stack: Obsidian (knowledge) + MemPalace (agent memory) + IRP (decisions).
+
+### Added
+- `irp/integrations/obsidian.py` — writes each captured decision as a `.md` file to your Obsidian vault (`{vault}/decisions/{id}.md`). No extra dependencies. Set `IRP_OBSIDIAN_VAULT=/path/to/vault` in env.
+- `irp/integrations/mempalace.py` — writes each captured decision into the MemPalace `mempalace_drawers` ChromaDB collection. Agents can semantically query past IRP decisions. Set `IRP_MEMPALACE_PATH` (defaults to `~/.mempalace/palace`). Optional dependency: `pip install 'irp-capture[mempalace]'`.
+- `irp/integrations/dispatch.py` — post-capture dispatcher. Fires enabled integrations silently — integration errors never break the capture flow.
+- `irp capture` output now includes integration confirmation lines: `✓ obsidian: /vault/decisions/IRP-xxx.md`
+- `pyproject.toml` — new optional extras: `[mempalace]` and `[sovereign]` (both install `chromadb>=0.5`)
+
+---
+
 ## [0.2.0] — 2026-04-14
 
 ### Milestone

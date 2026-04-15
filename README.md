@@ -242,6 +242,63 @@ No tool talks to another. Everything talks to the ledger.
 
 ---
 
+## Integrations
+
+Integrations are optional sync targets. After each `irp capture`, IRP can write the decision to your knowledge base and agent memory — automatically.
+
+### Obsidian
+
+Writes each decision as a `.md` file to your Obsidian vault. No extra dependencies needed — Obsidian vaults are plain directories.
+
+```bash
+# Set in your shell or project .env
+export IRP_OBSIDIAN_VAULT="/Users/you/Notes"
+```
+
+Each decision lands at `{vault}/decisions/IRP-YYYY-MM-DD-NNN.md` with YAML frontmatter:
+
+```markdown
+---
+id: IRP-2026-04-15-001
+type: decision
+timestamp: 2026-04-15
+confidence: high
+tags: [architecture]
+source: cli
+---
+
+# Use Postgres for the reporting service
+
+## Why it matters
+
+Redis considered but rejected — query patterns require joins.
+```
+
+### MemPalace
+
+Writes each decision into the MemPalace `mempalace_drawers` ChromaDB collection. Your agents can now semantically query past decisions alongside their other memories.
+
+```bash
+pip install 'irp-capture[mempalace]'
+
+# Optional — defaults to ~/.mempalace/palace
+export IRP_MEMPALACE_PATH="/Users/you/.mempalace/palace"
+```
+
+If MemPalace is not installed or the palace directory does not exist, IRP skips silently. No error. No friction.
+
+### The sovereign stack
+
+```
+Obsidian vault     ← your knowledge
+MemPalace palace   ← your agent's memory
+IRP ledger         ← your decisions
+
+All three. All local. No SaaS required.
+```
+
+---
+
 ## Use with Claude Code
 
 If you clone this repo or have `SKILL.md` in your project root,
@@ -413,8 +470,10 @@ IRP focuses on the second.
 | Figma plugin | Live — v0 |
 | Git hook | Live — warn mode (enforce coming) |
 | PR bot | Live — warn-only |
-| pip package | Live — v0.1.1 |
+| pip package | Live — v0.3.0 |
 | REST API | Live — v0 (`pip install irp-capture[api]`) |
+| Obsidian integration | Live — v0 (set `IRP_OBSIDIAN_VAULT`) |
+| MemPalace integration | Live — v0 (`pip install irp-capture[mempalace]`) |
 
 ---
 

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from irp.core.store import append_ledger_entry, next_irp_id, read_ledger, rebuild_current, write_current
+from irp.integrations import dispatch as _dispatch
 
 def confirm_token(prompt: str = "Confirm capture? [c=confirm / s=skip]: ") -> bool:
     value = input(prompt).strip().lower()
@@ -78,9 +79,22 @@ def run_capture(project_root: Path, irp_dir: Path, args) -> dict:
     current = rebuild_current(updated_ledger)
     write_current(irp_dir, current)
 
+    integrations = _dispatch.run(candidate, project_root)
+
+    integration_lines = []
+    for r in integrations:
+        name = r.get("integration", "unknown")
+        status = r.get("status", "?")
+        if status == "ok":
+            detail = r.get("path") or r.get("id") or ""
+            integration_lines.append(f"  ✓ {name}: {detail}")
+        elif status == "error":
+            integration_lines.append(f"  ✗ {name}: {r.get('error', '')}")
+
     return {
         "command": "capture",
         "status": "captured",
         "entry": candidate,
-        "text": "\n".join(header + [f"Captured {candidate['id']}"]),
+        "integrations": integrations,
+        "text": "\n".join(header + [f"Captured {candidate['id']}"] + integration_lines),
     }
