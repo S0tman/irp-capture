@@ -477,6 +477,14 @@ IRP focuses on the second.
 
 ---
 
+## The IRP Book
+
+Read the full technical guide at **[irp-book.vercel.app](https://irp-book.vercel.app)**.
+
+Covers the core framework, state and conflict detection, capturing intent, decision validation, the Figma plugin architecture, extensibility patterns (REST API, sovereign stack integrations), and practical application.
+
+---
+
 ## Contributing
 
 IRP is used to capture real decisions across CLI and Slack workflows.

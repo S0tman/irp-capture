@@ -16,6 +16,13 @@ All notable changes to irp-capture are documented here.
 - `irp capture` output now includes integration confirmation lines: `✓ obsidian: /vault/decisions/IRP-xxx.md`
 - `pyproject.toml` — new optional extras: `[mempalace]` and `[sovereign]` (both install `chromadb>=0.5`)
 
+### Book site (irp-book.vercel.app)
+- **Ch6 — Sovereign Stack Integrations section** — new material covering integration dispatch, Obsidian integration, MemPalace integration, and two Mermaid architecture diagrams (REST API endpoints flow, three-destinations-one-capture architecture)
+- **Ch7 — Epilogue updated** — pattern-to-problem matching expanded with sovereign stack reference
+- **Mermaid diagrams now render across all chapters** — removed the broken `remark-mermaid-raw` plugin (Astro 5's content layer stripped its raw HTML output). Shiki handles `mermaid` as a native language; client-side `mermaid.js` replaces code blocks with interactive SVG diagrams.
+- **Changelog page** — `CHANGELOG.md` from the repo root is now accessible at `/changelog/` on the book site
+- **Sidebar + header** — added Changelog navigation link to both desktop and mobile nav
+
 ---
 
 ## [0.2.0] — 2026-04-14
