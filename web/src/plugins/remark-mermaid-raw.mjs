@@ -31,7 +31,7 @@ function walkTree(node) {
       const b64 = Buffer.from(child.value, 'utf8').toString('base64');
       node.children[i] = {
         type: 'html',
-        value: `<div class="diagram-slot mermaid-wrapper" data-diagram-index="${index}" data-mermaid-b64="${b64}"></div>`,
+        value: `<div class="diagram-slot mermaid-wrapper" data-diagram-index="${index}" data-mermaid-b64="${b64}"><p class="mermaid-loading text-xs text-[var(--color-muted)] italic py-2">Loading diagram…</p></div>`,
       };
     } else {
       walkTree(child);

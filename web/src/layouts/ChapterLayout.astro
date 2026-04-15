@@ -61,9 +61,9 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
   <script src="../scripts/copy-code.ts"></script>
   <script src="../scripts/focus-mode.ts"></script>
 
-  <!-- Mermaid diagram rendering (CDN ESM, is:inline prevents Vite bundling) -->
-  <script type="module" is:inline>
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  <!-- Mermaid diagram rendering — bundled via Vite, no CDN required -->
+  <script>
+    import mermaid from 'mermaid';
 
     let renderSeq = 0;
 
@@ -79,7 +79,7 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       });
 
-      const wrappers = document.querySelectorAll('.mermaid-wrapper');
+      const wrappers = document.querySelectorAll<HTMLElement>('.mermaid-wrapper');
       for (const wrapper of wrappers) {
         // Skip slots where a React component has been teleported in
         if (wrapper.querySelector('.diagram-source')) continue;
@@ -111,7 +111,7 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
       }
     }
 
-    // Deferred module script — runs after page parse
+    // Astro module scripts are deferred — runs after DOM is ready
     renderAll();
 
     // Re-render when theme toggles
