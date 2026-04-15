@@ -61,9 +61,22 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
   <script src="../scripts/copy-code.ts"></script>
   <script src="../scripts/focus-mode.ts"></script>
 
-  <!-- Mermaid diagram rendering — finds code.mermaid-source blocks from remark plugin -->
+  <!-- Mermaid diagram rendering — finds code blocks with mermaid content -->
   <script>
     import mermaid from 'mermaid';
+
+    // Mermaid directives that identify a code block as a mermaid diagram
+    const MERMAID_PREFIXES = [
+      'graph ', 'graph\n', 'flowchart ', 'flowchart\n',
+      'sequenceDiagram', 'classDiagram', 'stateDiagram',
+      'erDiagram', 'gantt', 'pie ', 'pie\n', 'gitGraph',
+      'mindmap', 'timeline', 'sankey', 'xychart',
+    ];
+
+    function isMermaidSource(text: string): boolean {
+      const trimmed = text.trim();
+      return MERMAID_PREFIXES.some(p => trimmed.startsWith(p));
+    }
 
     let renderSeq = 0;
 
@@ -79,62 +92,53 @@ const showPartHeader = part && isFirstChapterOfPart(chapterNumber);
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       });
 
-      // The remark plugin marks mermaid blocks as <code class="mermaid-source">
-      // inside <pre> wrappers. We read the text content, render with mermaid,
-      // and replace the entire <pre> block.
-      const codeBlocks = document.querySelectorAll<HTMLElement>('code.mermaid-source');
-      for (const code of codeBlocks) {
-        const pre = code.closest('pre');
-        if (!pre) continue;
-
-        // Skip already-rendered blocks (theme re-render)
+      // Find all <pre> blocks and check if their text is mermaid source.
+      // The remark plugin relabels ```mermaid to ```plaintext so Shiki
+      // renders them as plain code blocks. We detect by content.
+      const allPre = document.querySelectorAll<HTMLElement>('pre');
+      for (const pre of allPre) {
+        // Skip already-processed blocks
         if (pre.dataset.mermaidRendered) continue;
 
-        const source = code.textContent || '';
-        if (!source.trim()) continue;
+        const code = pre.querySelector('code');
+        if (!code) continue;
 
-        // Store source on pre for theme-change re-renders
+        const source = code.textContent || '';
+        if (!isMermaidSource(source)) continue;
+
         pre.dataset.mermaidSource = source;
         pre.dataset.mermaidRendered = 'true';
 
-        const idx = code.getAttribute('datadiagramindex') ?? 'x';
-        const id = `mermaid-${idx}-${++renderSeq}`;
-
+        const id = `mermaid-${++renderSeq}`;
         try {
           const { svg } = await mermaid.render(id, source);
-          // Replace the <pre> with a rendered diagram div
           const container = document.createElement('div');
           container.className = 'mermaid-rendered overflow-x-auto py-4';
           container.dataset.mermaidSource = source;
-          container.dataset.diagramIndex = idx;
           container.innerHTML = svg;
           pre.replaceWith(container);
         } catch (e) {
-          console.warn('[mermaid] render error on diagram', idx, e);
+          console.warn('[mermaid] render error:', e);
           // Leave the code block visible as fallback
         }
       }
 
-      // Also handle re-render of already-rendered diagrams (theme change)
+      // Re-render already-rendered diagrams on theme change
       const rendered = document.querySelectorAll<HTMLElement>('.mermaid-rendered');
       for (const container of rendered) {
         const source = container.dataset.mermaidSource;
         if (!source) continue;
-        const idx = container.dataset.diagramIndex ?? 'x';
-        const id = `mermaid-re-${idx}-${++renderSeq}`;
+        const id = `mermaid-re-${++renderSeq}`;
         try {
           const { svg } = await mermaid.render(id, source);
           container.innerHTML = svg;
         } catch (e) {
-          console.warn('[mermaid] re-render error on diagram', idx, e);
+          console.warn('[mermaid] re-render error:', e);
         }
       }
     }
 
-    // Astro module scripts are deferred — runs after DOM is ready
     renderAll();
-
-    // Re-render when theme toggles
     window.addEventListener('theme-changed', renderAll);
   </script>
 </BaseLayout>
