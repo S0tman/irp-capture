@@ -73,7 +73,7 @@ Why JSONL instead of a database?
 
 2. **Streaming:** You can append a decision without reading the whole file. Each line is atomic.
 
-3. **Resilience:** If one line is corrupted, the rest of the ledger is intact. A JSON database corruption could be catastrophic.
+3. **Resilience:** If one line is corrupted, the rest of the ledger is intact. A relational database corruption could be catastrophic.
 
 4. **Auditability:** Every decision is logged in order. You can inspect the ledger directly, no API required.
 
