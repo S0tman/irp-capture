@@ -418,9 +418,49 @@ Same pattern. Bridge routes, IRP writes.
 
 Extensibility emerges from simplicity: the bridge is just a router. Each sensor is independent.
 
+## MCP: Protocol-Level Extensibility
+
+The REST API works for HTTP-based tools. But the emerging standard for AI tool integration is **MCP** — the Model Context Protocol.
+
+IRP exposes an MCP server that any MCP-compatible client can use. This includes:
+
+- Claude Code, Cursor, Windsurf (editor-integrated agents)
+- Custom Python agents and frameworks
+- Reasoning systems like Understanding Graph
+
+**The MCP server exposes four tools:**
+
+- `irp_capture` — Record a decision (what, why, confidence, tags)
+- `irp_why` — Look up a specific decision or the latest
+- `irp_inherit` — Return all active decisions (project context)
+- `irp_check` — Check a proposal for conflicts with active decisions
+
+**Installation and usage:**
+
+```bash
+pip install 'irp-capture[mcp]'
+irp-mcp  # starts the stdio server
+```
+
+**Configuration** (Claude Code, Cursor, or any MCP client):
+
+```json
+{
+  "mcpServers": {
+    "irp": {
+      "command": "irp-mcp"
+    }
+  }
+}
+```
+
+Once configured, agents can call `irp_capture` directly within their workflows without leaving their context. This is simpler than the REST API for agent frameworks and aligns IRP with the emerging agent integration standard.
+
+---
+
 ## Future: Event Webhooks
 
-IRP currently is request-driven (sensors POST decisions, tools GET decisions). A future enhancement could add event webhooks: "When a decision is captured, notify these endpoints." This would enable CI/CD pipelines to react to architecture decisions automatically. But for now, tools pull decisions via REST API and respond accordingly.
+IRP currently is request-driven (sensors POST decisions, tools GET decisions). A future enhancement could add event webhooks: "When a decision is captured, notify these endpoints." This would enable CI/CD pipelines to react to architecture decisions automatically. But for now, tools pull decisions via REST API or use the MCP protocol, and respond accordingly.
 
 ## Measuring Adoption
 
@@ -437,16 +477,17 @@ A healthy IRP system shows steady ledger growth, active check usage, and high co
 
 ## Summary: Extensibility Through Simplicity
 
-IRP's extensibility comes from four principles:
+IRP's extensibility comes from five principles:
 
 1. **Portable format:** Decisions are JSON, easily transported
 2. **REST API:** Any tool can query decisions via HTTP
-3. **Bridge pattern:** Sensors are independent, route through same bridge
-4. **Local-first:** Source of truth is local, tools are integrators not owners
+3. **MCP protocol:** Agents can capture and query decisions via the Model Context Protocol
+4. **Bridge pattern:** Sensors are independent, route through same bridge
+5. **Local-first:** Source of truth is local, tools are integrators not owners
 
 These principles enable:
-- Multi-tool capture (Figma, Slack, CLI, etc.)
-- Multi-tool querying (REST API, collab.py, direct file access)
+- Multi-tool capture (Figma, Slack, CLI, agents via MCP, etc.)
+- Multi-tool querying (REST API, MCP tools, collab.py, direct file access)
 - Conflict detection across tools
 - Context injection into external AI models
 - Minimal coupling, maximum flexibility
