@@ -236,6 +236,7 @@ Nothing changes about how you work.
 | **Git hook** | Capture architecture decisions at commit time |
 | **PR bot** | Add to any GitHub repo — warns on PRs that conflict with active decisions. See setup below. |
 | **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]` — see `irp/api/README.md`. |
+| **MCP server** | Expose IRP as MCP tools for any MCP-compatible client. `pip install 'irp-capture[mcp]'` then run `irp-mcp`. Works with Claude Code, Cursor, Windsurf, and custom agent frameworks. |
 | **More coming** | VS Code, Python SDK |
 
 No tool talks to another. Everything talks to the ledger.
@@ -470,8 +471,9 @@ IRP focuses on the second.
 | Figma plugin | Live — v0 |
 | Git hook | Live — warn mode (enforce coming) |
 | PR bot | Live — warn-only |
-| pip package | Live — v0.3.0 |
+| pip package | Live — v0.4.0 |
 | REST API | Live — v0 (`pip install irp-capture[api]`) |
+| MCP server | Live — v0 (`pip install 'irp-capture[mcp]'`) |
 | Obsidian integration | Live — v0 (set `IRP_OBSIDIAN_VAULT`) |
 | MemPalace integration | Live — v0 (`pip install irp-capture[mempalace]`) |
 

@@ -4,6 +4,30 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.4.0] — 2026-04-17
+
+### Milestone
+- **MCP server** — IRP is now an MCP (Model Context Protocol) tool server. Any MCP-compatible client (Claude Code, Cursor, Windsurf, Understanding Graph, custom agents) can capture decisions, query reasoning, and check for conflicts via protocol.
+
+### Added
+- `irp/mcp/server.py` — MCP server exposing four tools: `irp_capture`, `irp_why`, `irp_inherit`, `irp_check`
+- `irp-mcp` console entry point — run the server via `irp-mcp` (stdio transport)
+- `pyproject.toml` — new optional extra: `[mcp]` (installs `mcp>=1.0`)
+- Configurable project root via `IRP_PROJECT_ROOT` env var
+
+### Configuration
+```json
+{
+  "mcpServers": {
+    "irp": {
+      "command": "irp-mcp"
+    }
+  }
+}
+```
+
+---
+
 ## [0.3.0] — 2026-04-15
 
 ### Milestone
