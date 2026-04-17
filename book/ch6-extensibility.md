@@ -351,6 +351,7 @@ flowchart TD
     subgraph Query["Query Paths"]
         D -->|irp why / REST| K["👤 Human\nCLI · REST API · Obsidian vault"]
         I --> K
+        D -->|irp-mcp server| M["🤖 Agent\nClaude Code · Cursor · Understanding Graph"]
         J -->|semantic search| L["🤖 Agent\nMemPalace query"]
     end
 
