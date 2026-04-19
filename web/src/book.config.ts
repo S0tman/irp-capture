@@ -31,6 +31,12 @@ export const parts: PartConfig[] = [
     epigraph: 'The patterns are universal. Your decisions are not.',
     chapters: [7, 8],
   },
+  {
+    number: 4,
+    title: 'A Plain-Language Guide to EU AI Act Compliance',
+    epigraph: "The EU AI Act doesn't regulate AI. It regulates whose hands are on the steering wheel.",
+    chapters: [9, 10, 11, 12, 13, 14, 15, 16, 17],
+  },
 ];
 
 export const chapters: ChapterConfig[] = [
@@ -42,6 +48,15 @@ export const chapters: ChapterConfig[] = [
   { number: 6, slug: 'ch6-extensibility', title: 'Extensibility & Cross-Engine Context', description: 'REST APIs, MCP protocol for agents, context injection for AI models, sovereign stack integrations (Obsidian + MemPalace), and adding new sensors' },
   { number: 7, slug: 'ch7-epilogue', title: 'Application & Synthesis', description: 'Pattern-to-problem matching, design tradeoffs, evolution roadmap, and how to read this book again' },
   { number: 8, slug: 'appendix-practical-considerations', title: 'Appendix: Practical Considerations', description: 'Team scaling, multi-repository setups, ledger maintenance, security, and troubleshooting' },
+  { number: 9,  slug: 'ch9-why-this-law-exists',    title: 'Why This Law Exists',                         description: 'The incidents that moved legislators, what the governance gap actually was, and why the AI Act is different from GDPR' },
+  { number: 10, slug: 'ch10-who-it-applies-to',      title: 'Who It Applies To',                           description: 'Provider, Deployer, Importer — the role distinction that changes everything, and why "we just use AI" is no longer safe' },
+  { number: 11, slug: 'ch11-the-risk-ladder',        title: 'The Risk Ladder',                             description: 'Four tiers from Unacceptable to Minimal, Annex III high-risk categories, and how to self-assess before the regulator does' },
+  { number: 12, slug: 'ch12-article-12-logging',     title: 'Article 12 — The Black Box Requirement',      description: 'What logging means under the AI Act, why saving prompts to a database does not qualify, and what a compliant audit trail looks like' },
+  { number: 13, slug: 'ch13-article-13-ifu',         title: 'Article 13 — The Instruction Manual',         description: 'Why every high-risk AI system needs an Instructions for Use document, who writes it, and what happens when it is missing' },
+  { number: 14, slug: 'ch14-article-14-oversight',   title: 'Article 14 — The Human in the Loop',          description: 'What human oversight means legally vs operationally, how to prove a human was in control, and the documentation that survives an audit' },
+  { number: 15, slug: 'ch15-article-27-fria',        title: 'Article 27 — The Rights Audit',               description: 'What a Fundamental Rights Impact Assessment requires, who must conduct one, and why public-sector deployers will be audited on this first' },
+  { number: 16, slug: 'ch16-article-72-monitoring',  title: 'Article 72 — The Forever Job',                description: 'Post-market monitoring as an ongoing obligation, what changes trigger re-assessment, and how to build a compliance system rather than a compliance project' },
+  { number: 17, slug: 'ch17-the-path-forward',       title: 'The Path Forward',                            description: 'Building compliance as a capability, the compliance stack by company size, and how to use the IRP Compliance Assessment as your starting point' },
 ];
 
 export function getPartForChapter(chapterNumber: number): PartConfig | undefined {
