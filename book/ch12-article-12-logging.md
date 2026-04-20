@@ -10,6 +10,8 @@ When a technical team hears "logging requirement," they think of what their syst
 
 These are two entirely different things.
 
+Article 12 is, at its core, a decision accountability obligation. The question it answers is not "did your system run?" but "when your system made a recommendation that affected a person's life, what is the documented record of that decision — and what did a human do about it?"
+
 ## What Article 12 Actually Requires
 
 Article 12 of the EU AI Act requires high-risk AI systems to automatically generate logs of operation throughout their lifecycle. The logs must:
@@ -63,7 +65,7 @@ A compliant Article 12 log captures, for each decision cycle:
 7. **Timestamp chain** — when each step occurred, in sequence
 8. **Integrity marker** — evidence that the record has not been modified after the fact
 
-Items 5, 6, and 7 are what most systems currently do not capture. The AI logs its output. The human acts. No connection between the two is recorded.
+Items 5, 6, and 7 are where most deployments fail. The AI logs its output. The human acts. No connection between the two is recorded — because no system was designed to capture it. Most organisations cannot currently produce a decision record that links recommendation to human action. Engineering logs are fragmented across systems. Human decisions are undocumented. The gap is structural, not incidental.
 
 ## The Retention Question
 
@@ -91,13 +93,17 @@ Practical tamper-evidence does not require a blockchain or a complex cryptograph
 
 Many off-the-shelf logging solutions provide these properties. The question is whether they are applied specifically to the *decision record* rather than just the system's operational logs.
 
-## How IRP Compliance Helps with Article 12
+## Why Existing Systems Fail Article 12 — and What Is Structurally Required
 
-IRP Compliance is built around the decision record as the primary artefact. The IRP (Intent Record Protocol) captures not just what a system recommended but why a decision was made — the human intent, the context, the rationale — in a structured, append-only ledger.
+Most organisations discover this problem at their first audit. Engineering logs show the AI ran. Database records show what it returned. Nothing shows what the human did next — because no system was built to capture that link. The AI recommendation and the human decision exist in separate systems that were never designed to speak to each other.
 
-Applied to AI Act compliance, the IRP pattern maps directly to Article 12's requirements: each AI-assisted decision creates a ledger entry that records the system's output, the human decision-maker's action, and the reasoning — structured, searchable, and integrity-verified. The ledger is the audit trail. The audit trail is the compliance evidence.
+At the volume of decisions most high-risk deployments process, this cannot be patched retrospectively. Asking reviewers to manually log their decisions alongside AI outputs does not scale beyond tens of decisions per day. The connection must be structural — built into the decision workflow itself, not added as an administrative step.
 
-The IRP Compliance Assessment at irp-compliance.vercel.app includes a dedicated question on your current logging approach (Question 5) and scores it against the Article 12 standard. If your current logging scores below 50% on that question, the gap between what you have and what the Act requires is your first priority to close.
+This is what Article 12 structurally requires: a decision record layer that sits between the AI system and the human decision-maker, capturing both sides of every consequential event in a single, integrity-verified record. This layer is not optional infrastructure. The Act makes it mandatory. The question is only how it is implemented.
+
+The IRP (Intent Record Protocol) is one implementation of this pattern: an append-only ledger that captures the AI recommendation, the human decision, the reasoning, and the timestamp as a single structured record — linked, searchable, and auditable. Organisations can implement equivalent patterns in their own systems. But the layer must exist. Without it, Article 12 compliance is not achievable at scale.
+
+The IRP Compliance Assessment at irp-compliance.vercel.app scores your current logging approach against the Article 12 standard (Question 5). If your score is below 50%, closing the decision record gap is your first compliance priority.
 
 ---
 
@@ -109,6 +115,6 @@ The IRP Compliance Assessment at irp-compliance.vercel.app includes a dedicated 
 
 3. **Retention minimums are floors, not targets.** Six months is the minimum for deployers. Employment, credit, and public-sector decisions typically require 2–7 years to survive challenge periods and investigations.
 
-4. **Tamper-evidence is mandatory in practice.** Append-only, sequentially linked records with access controls. Not complex — but it must be designed in, not bolted on.
+4. **Tamper-evidence is mandatory.** Append-only, sequentially linked records with access controls. Not complex — but it must be designed in, not bolted on.
 
 5. **Storing prompts in a database is not compliance.** Hash-encrypted storage captures what the model saw. Article 12 requires a record of what happened next — the human's decision and the outcome. Those are different things.

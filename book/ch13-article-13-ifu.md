@@ -6,7 +6,9 @@ Chapter 12 addressed the logging obligation — the internal record of what happ
 
 If Article 12 is the black box recorder, Article 13 is the flight manual. And in most organisations, the flight manual does not exist.
 
-Article 13 of the EU AI Act requires high-risk AI systems to be designed and developed in a way that is sufficiently transparent so that deployers can understand the system's operation and use it appropriately. This transparency obligation is fulfilled, in practice, through a document called the Instructions for Use — the IFU.
+Article 13 is also a decision accountability obligation — facing outward. Where Article 12 asks whether decisions can be reconstructed internally, Article 13 asks whether the humans making decisions with AI were adequately informed to make them. A decision made with a system whose limitations were never disclosed is not a decision under genuine human control.
+
+Article 13 requires high-risk AI systems to be sufficiently transparent for deployers to understand their operation and use them appropriately. This obligation is fulfilled through a document called the Instructions for Use — the IFU.
 
 The IFU is not a user guide. It is not a product brochure. It is not a white paper. It is a specific, legally significant document that a Provider must produce and a Deployer must receive before the system is put into operation.
 
@@ -30,7 +32,7 @@ Article 13 specifies the minimum content of the IFU. For a high-risk AI system, 
 
 ## The Responsibility Split
 
-The IFU obligation creates a specific division of responsibility between Providers and Deployers that is worth making explicit.
+The IFU obligation creates a specific division of responsibility between Providers and Deployers.
 
 ```mermaid
 sequenceDiagram
@@ -77,19 +79,21 @@ Article 13 implies, and the broader quality management obligations in Article 9 
 
 This is one of the operational continuities that organisations consistently underestimate. The IFU must be versioned, its distribution must be tracked, and Deployers must be notified of material changes. A Deployer who was given an accurate IFU two years ago but never received the update documenting new limitations discovered through post-market monitoring is operating on stale information — and both the Provider and Deployer are at risk.
 
-## A Note on Procurement
+## On Procurement
 
 For organisations that license AI systems from vendors: the IFU is a contractual obligation, not just a regulatory one. When you procure a high-risk AI system, the IFU must be part of the contractual deliverable. A vendor who cannot produce a compliant IFU is a non-compliant Provider, and you — as Deployer — inherit risk from that non-compliance.
 
 The practical question to ask every AI vendor: "Can you supply an Article 13 Instructions for Use document that covers your system's intended purpose, limitations, known risks, and required oversight measures?" If they cannot, do not deploy the system.
 
-## How IRP Compliance Helps with Article 13
+## Why Existing Systems Fail Article 13 — and What Is Structurally Required
 
-The IFU obligation is where the "decision record" pattern intersects with forward-facing documentation. IRP Compliance provides a structured template and review mechanism for capturing the IFU as an operational artefact — not a document filed once and forgotten, but a living specification that the IRP ledger can reference when logging decision events.
+The IFU breaks in practice for a predictable reason: it is treated as a one-time document. Providers file it at release. Deployers sign off during procurement. When the system is updated six months later, the IFU is not. The Deployer operates on stale information, possibly making consequential decisions under limitations that were documented after their IFU was issued — but never communicated to them.
 
-When a decision is captured in the IRP audit trail, it can carry a reference to the IFU version active at the time of the decision. This allows an auditor to reconstruct not just what happened, but what the deploying organisation was told about the system's capabilities and limitations when the decision was made. That linkage — between the IFU and the decision record — is what makes Article 12 and Article 13 work together as a coherent compliance posture rather than two separate box-ticking exercises.
+Article 13 requires decision traceability between the IFU and the deployment. When an auditor asks "what were Deployers told this system could and could not do, when applicant 4471 was screened?" the answer requires knowing which IFU version was active at that moment — not the current version, the version then. Without a structured link between IFU versions and decision records, that question cannot be answered precisely. At any meaningful scale, it cannot be answered at all.
 
-The IRP Compliance Assessment includes a dedicated section on IFU documentation (Questions 6–8) that helps you identify whether your current documentation satisfies the Article 13 standard and where the gaps are.
+IRP ties each decision record to the IFU version active when the decision was made. The IFU is not a filed document — it is a versioned artefact in the same ledger as the decision. That linkage is what makes Article 12 and Article 13 coherent together: the decision record carries both the AI recommendation and the documented basis on which the Deployer was expected to act.
+
+The IRP Compliance Assessment includes a dedicated section on IFU documentation (Questions 6–8).
 
 ---
 
