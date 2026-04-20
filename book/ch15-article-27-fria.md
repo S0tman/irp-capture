@@ -4,7 +4,9 @@
 
 Chapters 12 through 14 covered the three most operationally intensive obligations for high-risk AI: logging, transparency, and human oversight. Article 27 introduces a fourth that is less well-known but carries significant weight for public-sector organisations and a growing set of private-sector Deployers: the Fundamental Rights Impact Assessment, or FRIA.
 
-If GDPR gave organisations the concept of the Data Protection Impact Assessment (DPIA) — a structured pre-deployment analysis of privacy risks — the AI Act introduces its counterpart for AI systems: an assessment of the risks to fundamental rights before a high-risk AI system is deployed.
+The FRIA is a decision accountability tool that precedes deployment. Where Articles 12 and 14 trace decisions after they happen, Article 27 demands a decision *before* deployment: is the risk to fundamental rights acceptable, and is there a documented human who made that call?
+
+If GDPR gave organisations the concept of the Data Protection Impact Assessment (DPIA) — a structured pre-deployment analysis of privacy risks — the AI Act introduces its counterpart: an assessment of the risks to fundamental rights before a high-risk AI system is deployed.
 
 The FRIA is not a legal fiction. It is a documented, structured analysis that must be produced, retained, and — in some cases — submitted to authorities or made available on request.
 
@@ -78,13 +80,15 @@ One of the underappreciated values of the FRIA — when conducted genuinely — 
 
 Organisations that treat the FRIA as an early warning mechanism — a structured challenge to their deployment assumptions — derive genuine operational value from it. Organisations that treat it as a paperwork requirement produce documents that satisfy no one and protect no one.
 
-## How IRP Compliance Helps with Article 27
+## Why Existing Systems Fail Article 27 — and What Is Structurally Required
 
-The FRIA is a structured document — but it is not a static one. It must be updated when the system changes materially, when new risk information emerges, or when the operational context shifts. This creates a version management and audit trail challenge that IRP Compliance is designed to address.
+The FRIA breaks as a static document. When the system changes, when the use case expands, when new risk information emerges — the FRIA must be updated. Most organisations have no mechanism to detect when an update is triggered, no version history linking each assessment to specific deployments, and no record of who made the deployment decision and under which FRIA version.
 
-IRP Compliance provides a structured FRIA template aligned to Article 27's requirements, and uses the IRP ledger to track FRIA versions — when each assessment was conducted, what changed between versions, and what decisions were made as a result. When an auditor asks "what was your FRIA when you deployed version 2.3 of this system?" the ledger has the answer: not just the document, but the decision record linking the FRIA to the deployment.
+An auditor investigating a complaint will ask: what did your FRIA say when you deployed version 2.3 of this system, to this population, in this context? Without structured version management tied to the deployment decision record, that question cannot be answered precisely. The document exists. The decision record linking it to the deployment does not.
 
-The IRP Compliance Assessment includes questions on your FRIA process (Questions 14–16) that identify whether your organisation is within Article 27's scope and whether your current documentation meets the standard.
+IRP treats each FRIA revision as a decision event — captured, timestamped, and linked to subsequent deployment decisions in the same ledger. This is not administrative overhead. It is the minimum structure the obligation requires: a traceable chain from "we assessed the fundamental rights risks" to "we made a documented decision to proceed."
+
+The IRP Compliance Assessment includes questions on your FRIA process (Questions 14–16).
 
 ---
 

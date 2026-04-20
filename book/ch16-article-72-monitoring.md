@@ -8,7 +8,9 @@ Most organisations approach EU AI Act compliance as a project. There are deliver
 
 This model is wrong, and Article 72 is the provision that makes it wrong.
 
-Article 72 requires Providers of high-risk AI systems to establish, document, and implement a post-market monitoring system — a continuous, systematic mechanism for gathering and reviewing information about the system's performance, risks, and impacts once it is deployed and operating in the real world. Post-market monitoring is not a retrospective audit. It is an ongoing operational function.
+Post-market monitoring is where decision accountability extends beyond deployment. Articles 12 through 15 govern how decisions are made, recorded, and assessed. Article 72 governs what happens when the system making those decisions starts to behave differently than it did when it was validated — and requires a documented human decision about what to do about it.
+
+Article 72 requires Providers of high-risk AI systems to establish, document, and implement a post-market monitoring system — a continuous, systematic mechanism for gathering and reviewing information about the system's performance, risks, and impacts once it is deployed. Post-market monitoring is not a retrospective audit. It is a permanent operational function.
 
 The title of this chapter is accurate: post-market monitoring under Article 72 is a permanent obligation. It runs for as long as the system is deployed. It adapts as the system changes and as new information emerges. There is no completion date.
 
@@ -81,15 +83,19 @@ A minimal viable monitoring system for a high-risk AI deployment includes:
 
 **Periodic review cadence** — a defined schedule for reviewing monitoring data, assessing whether findings require action, and documenting the conclusion. Monthly for high-volume deployments; at minimum quarterly for lower-volume systems.
 
-**Ownership** — a named individual or role is responsible for post-market monitoring. Not "the AI team" or "compliance" generically. A specific person who is accountable for the monitoring output and who has authority to escalate or halt the system.
+**Ownership** — a named individual or role is responsible for post-market monitoring. Not "the AI team" or "compliance" generically. A specific person accountable for the monitoring output with authority to escalate or halt the system.
 
-## How IRP Compliance Helps with Article 72
+Most organisations' monitoring programmes cannot produce the required evidence on demand. Findings live in analyst notes, Slack threads, or quarterly slide decks. The decision about what to do with each finding — and who made it — is undocumented. That is not a monitoring programme. It is observation without accountability.
 
-Post-market monitoring generates a continuous stream of findings, reviews, and decisions — precisely the kind of structured, time-stamped, auditable record that the IRP ledger is designed to capture.
+## Why Existing Systems Fail Article 72 — and What Is Structurally Required
 
-IRP Compliance maps the post-market monitoring cycle to IRP decision records: each monitoring review is a captured decision, with inputs (the monitoring data), the finding, the action taken (or the decision not to act and why), and the timestamp. When regulators ask for evidence of post-market monitoring, the IRP ledger provides a complete, navigable record of what was found, when, and what was done about it.
+Post-market monitoring generates findings. Those findings must produce decisions: investigate further, adjust the system, restrict its use, report to authorities. Each of these is a consequential decision that must be documented with the same rigour as the deployment decisions that preceded it.
 
-The IRP Compliance Assessment includes questions on your monitoring setup (Questions 17–19) that diagnose whether you have a genuine post-market monitoring system or a reactive incident response process, and what is needed to close the gap.
+Most monitoring programmes generate data but not decisions. Dashboards track metrics. Reviews happen informally. When a regulator asks "what did you do when monitoring detected a 12% accuracy drop in Q3?" the typical answer is "we discussed it" — with no record of who decided what, under whose authority, or what action was taken. That answer does not satisfy Article 72.
+
+IRP maps the monitoring cycle directly to decision records: each finding is a structured input, each review is a captured decision, each action — or documented decision not to act — is a ledger entry. The result is a monitoring record that survives regulatory scrutiny not because it is elaborate, but because every significant finding has a corresponding documented human decision. At scale, this structure is the only way to demonstrate continuous, evidenced monitoring rather than reactive incident management.
+
+The IRP Compliance Assessment includes questions on your monitoring setup (Questions 17–19).
 
 ---
 
