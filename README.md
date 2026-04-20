@@ -483,7 +483,11 @@ IRP focuses on the second.
 
 Read the full technical guide at **[irp-book.vercel.app](https://irp-book.vercel.app)**.
 
-Covers the core framework, state and conflict detection, capturing intent, decision validation, the Figma plugin architecture, extensibility patterns (REST API, sovereign stack integrations), and practical application.
+**Parts 1–3** cover the IRP framework: architecture, state and conflict detection, capturing intent, decision validation, the Figma plugin, extensibility (REST API, MCP, sovereign stack integrations), and practical application.
+
+**Part 4 — A Plain-Language Guide to EU AI Act Compliance** extends the book for a non-technical audience. Nine chapters covering why the Act exists, the Provider/Deployer/Importer role taxonomy, the four-tier risk ladder, and plain-language breakdowns of Articles 12, 13, 14, 27, and 72. Each article chapter explains why existing systems fail the standard and why IRP-style decision records are the structural consequence of what the Act requires — not an optional add-on.
+
+***REMOVED***
 
 ---
 

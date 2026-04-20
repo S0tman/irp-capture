@@ -4,6 +4,37 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [book-2026-04-20] — 2026-04-20
+
+### Book site (irp-book.vercel.app) — Part 4 launch + editorial pass
+
+#### Added
+- **Part 4: A Plain-Language Guide to EU AI Act Compliance** — 9 new chapters (ch9–ch17) added to the IRP Book
+  - `ch9-why-this-law-exists.md` — origin of the Act (Dutch SyRI + childcare cases), the governance gap, GDPR vs AI Act distinction, phase-in timeline
+  - `ch10-who-it-applies-to.md` — Provider / Deployer / Importer role taxonomy, the modification threshold that creates new Providers
+  - `ch11-the-risk-ladder.md` — four tiers, Annex III high-risk categories, self-assessment decision tree
+  - `ch12-article-12-logging.md` — why system logs ≠ decision records, compliant audit trail anatomy, tamper-evidence, retention
+  - `ch13-article-13-ifu.md` — Instructions for Use as a legal artefact, Provider/Deployer responsibility split, IFU as living document
+  - `ch14-article-14-oversight.md` — genuine vs nominal oversight, override rate diagnostic, high-volume deployment patterns
+  - `ch15-article-27-fria.md` — who must conduct a FRIA, minimum content, DPIA vs FRIA distinction, FRIA as early warning
+  - `ch16-article-72-monitoring.md` — post-market monitoring as permanent function, distribution shifts, monitoring without consequence
+  - `ch17-the-path-forward.md` — compliance stack by org size, three failure modes, IRP Compliance Assessment as starting point
+- `book.config.ts` — Part 4 added with 9 chapter entries (numbers 9–17)
+
+#### Strengthened (editorial pass — GPT review integration)
+- **Decision accountability spine** added across all Part 4 chapters: "The AI Act is not about AI. It is about decisions."
+- **IRP positioning upgraded**: all "How IRP Compliance helps" sections rewritten from "helpful tool" to "structurally required layer" — showing why existing systems fail and why manual processes break at scale
+- **Impossibility gap** introduced in ch12, ch14, ch16: concrete statements that most organisations currently cannot produce the required evidence
+- **Reconstruction → capture framing** added to ch12: Article 12 assumes logs are enough; IRP shifts from reconstruction after the fact to capture at decision time
+- **"Integrity-verified" clarified** → "append-only record, each entry linked to previous, so gaps and modifications are detectable"
+- **"Extends, not replaces" Article 12** framing added — IRP extends Article 12 from system logs to decision-level traceability
+- **"The ledger is the audit trail. The audit trail is the compliance evidence."** restored as the category-defining line in ch12
+- **Assessment links** made live (clickable markdown) in every chapter that references the IRP Compliance Assessment (ch12–ch17)
+- Soft phrases removed: "in practice", "worth making explicit", "design tension", "A Note on…"
+- Language tightened ~10% across all edited chapters
+
+---
+
 ## [0.4.0] — 2026-04-17
 
 ### Milestone

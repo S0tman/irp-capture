@@ -99,11 +99,17 @@ Most organisations discover this problem at their first audit. Engineering logs 
 
 At the volume of decisions most high-risk deployments process, this cannot be patched retrospectively. Asking reviewers to manually log their decisions alongside AI outputs does not scale beyond tens of decisions per day. The connection must be structural — built into the decision workflow itself, not added as an administrative step.
 
-This is what Article 12 structurally requires: a decision record layer that sits between the AI system and the human decision-maker, capturing both sides of every consequential event in a single, integrity-verified record. This layer is not optional infrastructure. The Act makes it mandatory. The question is only how it is implemented.
+This is what Article 12 structurally requires: a decision record layer that sits between the AI system and the human decision-maker, capturing both sides of every consequential event in a single, append-only record — each entry linked to the previous, so gaps and modifications are detectable. This layer is not optional infrastructure. The Act makes it mandatory. The question is only how it is implemented.
 
-The IRP (Intent Record Protocol) is one implementation of this pattern: an append-only ledger that captures the AI recommendation, the human decision, the reasoning, and the timestamp as a single structured record — linked, searchable, and auditable. Organisations can implement equivalent patterns in their own systems. But the layer must exist. Without it, Article 12 compliance is not achievable at scale.
+IRP does not replace what Article 12 requires. It extends it — from system-level logs (what the AI did) to decision-level traceability (what a human decided, and why).
 
-The IRP Compliance Assessment at irp-compliance.vercel.app scores your current logging approach against the Article 12 standard (Question 5). If your score is below 50%, closing the decision record gap is your first compliance priority.
+Article 12 assumes that logging system behaviour is sufficient for traceability. In practice, regulators ask organisations to explain decisions, not just system outputs. Without capturing reasoning at the moment a decision is made, that explanation becomes a reconstruction exercise — slow, inconsistent, and often incomplete. IRP shifts this from reconstruction to capture.
+
+The IRP (Intent Record Protocol) is one implementation of this pattern: an append-only ledger that captures each material AI-assisted decision — the recommendation, the human action, the reasoning, and the timestamp — as a single structured record. Organisations can implement equivalent patterns in their own systems. But the layer must exist. Without it, Article 12 compliance is not achievable at scale.
+
+The ledger is the audit trail. The audit trail is the compliance evidence.
+
+If your decision record gap is significant, closing it is your first compliance priority.
 
 ---
 
