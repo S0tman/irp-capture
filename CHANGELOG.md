@@ -4,6 +4,22 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [book-2026-04-20b] — 2026-04-20
+
+### Book site — ch10 GPAI provider blind spot section
+
+#### Added
+- **ch10: "The GPAI Blind Spot"** — new major section addressing the misconception that AI model service providers (sovereign cloud, API-first, open-source hosters) are outside the Act's scope
+  - Explains GPAI model definition (Articles 51–55), obligations already live since Aug 2, 2025
+  - Covers the four GPAI provider obligations: technical documentation, copyright policy, training data summary, EU database registration
+  - Addresses the open-source exemption precisely: partial, narrow, collapses on fine-tuning or service wrapping
+  - Explains the systemic risk threshold (10²⁵ FLOPs) and what additional obligations it triggers
+  - Mermaid decision tree: "Are you a GPAI provider?"
+  - Essentials updated with #6 on model service providers
+- Synthesised from Claude + GPT collaborative review (GPT-4o via collab.py)
+
+---
+
 ## [book-2026-04-20] — 2026-04-20
 
 ### Book site (irp-book.vercel.app) — Part 4 launch + editorial pass
