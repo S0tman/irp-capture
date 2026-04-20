@@ -97,8 +97,6 @@ At scale, manual tracking of human engagement does not work. A team processing h
 
 This is the requirement Article 14 creates and that IRP addresses: the human decision must be a captured artefact in the same record as the AI recommendation. Not reconstructed from secondary sources. Not asserted after the fact. Generated at the moment of review, linked to the AI output, and retained with integrity. At any meaningful scale, this is the only way the oversight record can exist.
 
-The IRP Compliance Assessment includes questions on your oversight design (Questions 10–13) that map to Article 14's four dimensions: comprehension, observation, intervention, and halt authority.
-
 ---
 
 ## The Essentials

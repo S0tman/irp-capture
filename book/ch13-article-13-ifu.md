@@ -93,8 +93,6 @@ Article 13 requires decision traceability between the IFU and the deployment. Wh
 
 IRP ties each decision record to the IFU version active when the decision was made. The IFU is not a filed document — it is a versioned artefact in the same ledger as the decision. That linkage is what makes Article 12 and Article 13 coherent together: the decision record carries both the AI recommendation and the documented basis on which the Deployer was expected to act.
 
-The IRP Compliance Assessment includes a dedicated section on IFU documentation (Questions 6–8).
-
 ---
 
 ## The Essentials

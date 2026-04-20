@@ -84,7 +84,7 @@ After the theory and the obligation mapping, three practical failures account fo
 
 ## Starting Point: The IRP Compliance Assessment
 
-The fastest way to understand your current position is to map it. The IRP Compliance Assessment at irp-compliance.vercel.app is a structured 20-question evaluation — covering your AI systems' risk tier, your role, your logging practices, your IFU documentation, your human oversight design, your FRIA status, and your post-market monitoring approach.
+The fastest way to understand your current position is to map it. The [IRP Compliance Assessment](https://irp-compliance.vercel.app) is a structured 20-question evaluation — covering your AI systems' risk tier, your role, your logging practices, your IFU documentation, your human oversight design, your FRIA status, and your post-market monitoring approach.
 
 It takes approximately five minutes. It produces a scored output across the five core obligation areas, identifies your estimated regulatory fine exposure, and generates a prioritised list of the highest-leverage compliance actions for your specific situation.
 
@@ -112,7 +112,7 @@ The steering wheel is yours. The question is whether you can prove it.
 
 4. **Procurement is compliance.** Requiring IFUs, conformity assessments, and post-market monitoring plans from AI vendors before contracts are signed is the most leverage-efficient compliance action most organisations can take.
 
-5. **The assessment is the start.** Understanding your current position — role, risk tier, obligation gaps, fine exposure — is the prerequisite for everything else. The IRP Compliance Assessment provides that baseline in five minutes. What you do with it takes longer. Start now.
+5. **The assessment is the start.** Understanding your current position — role, risk tier, obligation gaps, fine exposure — is the prerequisite for everything else. The [IRP Compliance Assessment](https://irp-compliance.vercel.app) provides that baseline in five minutes. What you do with it takes longer. Start now.
 
 ---
 

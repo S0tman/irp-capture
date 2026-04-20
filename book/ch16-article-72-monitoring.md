@@ -95,8 +95,6 @@ Most monitoring programmes generate data but not decisions. Dashboards track met
 
 IRP maps the monitoring cycle directly to decision records: each finding is a structured input, each review is a captured decision, each action — or documented decision not to act — is a ledger entry. The result is a monitoring record that survives regulatory scrutiny not because it is elaborate, but because every significant finding has a corresponding documented human decision. At scale, this structure is the only way to demonstrate continuous, evidenced monitoring rather than reactive incident management.
 
-The IRP Compliance Assessment includes questions on your monitoring setup (Questions 17–19).
-
 ---
 
 ## The Essentials

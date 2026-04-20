@@ -23,7 +23,7 @@ The AI Act asks: *when this system made a recommendation, was a human actually i
 
 ## What "Regulation" Actually Means Here
 
-The AI Act does not regulate algorithms. It does not require your model to be explainable in a technical sense. It does not mandate a particular architecture, framework, or vendor. Strip away the risk tiers, the conformity assessments, the Article numbers. The AI Act is not about AI. It is about decisions. Specifically: who makes them, who is accountable for them, and whether they can be reconstructed after the fact.
+The AI Act does not regulate algorithms. It does not require your model to be explainable in a technical sense. It does not mandate a particular architecture, framework, or vendor. Strip away the risk tiers, the conformity assessments, the Article numbers. The AI Act is not about AI. It is about decisions. AI Act compliance assumes that logging system behaviour is enough. In reality, you need to remember why decisions were made — who made them, under what conditions, and what they knew at the time.
 
 What it regulates is the *relationship* between AI systems and the humans they affect.
 

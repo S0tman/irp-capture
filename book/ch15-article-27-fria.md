@@ -88,8 +88,6 @@ An auditor investigating a complaint will ask: what did your FRIA say when you d
 
 IRP treats each FRIA revision as a decision event — captured, timestamped, and linked to subsequent deployment decisions in the same ledger. This is not administrative overhead. It is the minimum structure the obligation requires: a traceable chain from "we assessed the fundamental rights risks" to "we made a documented decision to proceed."
 
-The IRP Compliance Assessment includes questions on your FRIA process (Questions 14–16).
-
 ---
 
 ## The Essentials
