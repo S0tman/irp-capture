@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -23,6 +23,26 @@ async function runIrp(args: string): Promise<{ stdout: string; stderr: string }>
   } catch (err: any) {
     return { stdout: err.stdout || '', stderr: err.stderr || String(err) };
   }
+}
+
+/** Pipe a JSON payload to `irp capture --stdin` to avoid shell escaping issues. */
+async function runIrpCaptureStdin(payload: object): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const { executable, projectRoot } = getConfig();
+    const child = spawn(executable, ['capture', '--stdin'], {
+      cwd: projectRoot || undefined,
+      env: { ...process.env },
+    });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    child.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    child.on('close', () => resolve({ stdout, stderr }));
+
+    child.stdin.write(JSON.stringify(payload));
+    child.stdin.end();
+  });
 }
 
 function getOutputChannel(): vscode.OutputChannel {
@@ -76,9 +96,14 @@ async function captureDecision() {
   });
   if (!why) return;
 
-  const { stdout, stderr } = await runIrp(
-    `capture "Decision: ${what.replace(/"/g, '\\"')}" --why "${why.replace(/"/g, '\\"')}"`
-  );
+  const { stdout, stderr } = await runIrpCaptureStdin({
+    type: 'decision',
+    what: `Decision: ${what}`,
+    why,
+    confidence: 'high',
+    source: 'vscode',
+    tags: [],
+  });
 
   if (stderr && !stdout) {
     vscode.window.showErrorMessage(`IRP error: ${stderr}`);
