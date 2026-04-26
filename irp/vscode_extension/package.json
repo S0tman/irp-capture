@@ -1,0 +1,70 @@
+{
+  "name": "irp-capture",
+  "displayName": "IRP — Intent Record Protocol",
+  "description": "Capture decisions and reasoning directly from VS Code. An append-only ledger that records why things were done.",
+  "version": "0.5.0",
+  "publisher": "irp-capture",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["decision log", "local-first", "append-only", "devtools", "ai"],
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/S0tman/irp-capture"
+  },
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "irp.capture",
+        "title": "IRP: Capture Decision"
+      },
+      {
+        "command": "irp.why",
+        "title": "IRP: Show Recent Decisions"
+      },
+      {
+        "command": "irp.doctor",
+        "title": "IRP: Doctor (Health Check)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "irp.capture",
+        "key": "ctrl+shift+i",
+        "mac": "cmd+shift+i",
+        "when": "editorFocus"
+      }
+    ],
+    "configuration": {
+      "title": "IRP",
+      "properties": {
+        "irp.executable": {
+          "type": "string",
+          "default": "irp",
+          "description": "Path to the irp executable. Default assumes irp is on your PATH."
+        },
+        "irp.projectRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Project root for the IRP ledger. Defaults to the first workspace folder."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.24.0"
+  }
+}

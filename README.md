@@ -241,7 +241,7 @@ Nothing changes about how you work.
 | **PR bot** | Add to any GitHub repo — warns on PRs that conflict with active decisions. See setup below. |
 | **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]` — see `irp/api/README.md`. |
 | **MCP server** | Expose IRP as MCP tools for any MCP-compatible client. `pip install 'irp-capture[mcp]'` then run `irp-mcp`. Works with Claude Code, Cursor, Windsurf, and custom agent frameworks. See [CURSOR-GUIDE.md](CURSOR-GUIDE.md) for Cursor-specific setup. |
-| **VS Code** | Extension in progress — captures decisions without leaving the editor |
+| **VS Code** | Extension — `IRP: Capture Decision` (⌘⇧I), status bar, `irp why` output panel. Install: drag `irp-capture-0.5.0.vsix` into Extensions. |
 
 No tool talks to another. Everything talks to the ledger.
 
