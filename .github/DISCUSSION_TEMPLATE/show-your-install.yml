@@ -1,0 +1,70 @@
+title: "Show your install: [brief description of your stack]"
+labels: ["show-and-tell"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Show your install
+        Tell us how you're using IRP. No install is too simple — even "CLI only" is useful signal.
+
+  - type: dropdown
+    id: how-you-installed
+    attributes:
+      label: How you installed
+      options:
+        - pip install irp-capture
+        - git clone
+        - Both
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sensors
+    attributes:
+      label: Sensors you're using
+      description: Check all that apply
+      multiple: true
+      options:
+        - CLI (irp capture)
+        - Claude Code skill
+        - VS Code extension
+        - Cursor (MCP)
+        - Figma plugin
+        - Discord sensor
+        - Slack sensor
+        - Git hook
+        - PR bot
+        - REST API
+        - MCP server
+        - Other
+
+  - type: dropdown
+    id: integrations
+    attributes:
+      label: Integrations active
+      multiple: true
+      options:
+        - Obsidian
+        - MemPalace
+        - None yet
+
+  - type: textarea
+    id: stack
+    attributes:
+      label: Your stack in one sentence
+      placeholder: "e.g. Claude Code + Obsidian vault + IRP CLI on a local-first agentic research setup"
+    validations:
+      required: true
+
+  - type: textarea
+    id: the-gap
+    attributes:
+      label: What problem does IRP solve for you?
+      description: What were you losing before — or what does it protect against now?
+      placeholder: "e.g. Every new Claude session started from zero. irp why gives it context instantly."
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: Friction you hit, sensors you wish existed, workflow tips for others.
