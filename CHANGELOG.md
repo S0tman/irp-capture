@@ -4,6 +4,43 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.5.0] — 2026-04-26
+
+### Added — traction stack: doctor, VS Code extension, Cursor guide, Discussion template
+
+#### `irp doctor`
+- New CLI command: checks Python version, irp-capture install, `.irp/` directory, `ledger.jsonl` integrity, `current.json`, Claude Code skill presence, and optional integrations (Obsidian, MemPalace, MCP, REST API)
+- Core vs optional distinction: integration ✗ is informational, not a failure
+- Supports `--json` flag
+- Registered in `build_parser()` and dispatch table
+
+#### VS Code extension (`irp/vscode_extension/`)
+- Three commands: `IRP: Capture Decision` (⌘⇧I), `IRP: Show Recent Decisions`, `IRP: Doctor`
+- Two-step input box (what → why), pipes JSON to `irp capture --stdin` — no shell escaping
+- Status bar item (`⬡ IRP · N decisions`) — live count, click to open why panel
+- Dedicated IRP output channel for `why` and `doctor` output
+- Configurable `irp.executable` and `irp.projectRoot` settings
+- Packaged as `irp-capture-0.5.0.vsix` (8.12 KB)
+- Source field set to `vscode` for ledger provenance
+
+#### Cursor guide (`CURSOR-GUIDE.md`)
+- MCP server setup: `pip install 'irp-capture[mcp]'`, `mcp.json` config, `IRP_PROJECT_ROOT` env override
+- Available tools table: `irp_capture`, `irp_why`, `irp_inherit`, `irp_check`
+- Zero-install `.cursorrules` fallback for teams not running the MCP server
+- README sensors table links to guide
+
+#### GitHub traction
+- PyPI `installs/month` + version badges added to README top (shields.io, signal-blue)
+- GitHub Discussions badge added
+- Discussion link + CTA added to Contributing section
+- "Show your install" structured Discussion template (`.github/DISCUSSION_TEMPLATE/show-your-install.yml`)
+- VS Code sensor row updated in README status table
+
+#### PyPI
+- v0.5.0 published to https://pypi.org/project/irp-capture/0.5.0/
+
+---
+
 ## [book-2026-04-20b] — 2026-04-20
 
 ### Book site — ch10 GPAI provider blind spot section
