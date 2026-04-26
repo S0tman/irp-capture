@@ -240,7 +240,7 @@ Nothing changes about how you work.
 | **Git hook** | Capture architecture decisions at commit time |
 | **PR bot** | Add to any GitHub repo — warns on PRs that conflict with active decisions. See setup below. |
 | **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]` — see `irp/api/README.md`. |
-| **MCP server** | Expose IRP as MCP tools for any MCP-compatible client. `pip install 'irp-capture[mcp]'` then run `irp-mcp`. Works with Claude Code, Cursor, Windsurf, and custom agent frameworks. |
+| **MCP server** | Expose IRP as MCP tools for any MCP-compatible client. `pip install 'irp-capture[mcp]'` then run `irp-mcp`. Works with Claude Code, Cursor, Windsurf, and custom agent frameworks. See [CURSOR-GUIDE.md](CURSOR-GUIDE.md) for Cursor-specific setup. |
 | **VS Code** | Extension in progress — captures decisions without leaving the editor |
 
 No tool talks to another. Everything talks to the ledger.
