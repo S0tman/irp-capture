@@ -411,6 +411,7 @@ Start capturing from day one, even if the entries are simple.
 | Review recent decisions | `irp why` |
 | Review specific decision | `irp why --id IRP-2026-04-08-001` |
 | Capture from stdin | `irp capture --stdin` |
+| Check installation health | `irp doctor` |
 | JSON output | Add `--json` to any command |
 
 ---
@@ -475,7 +476,7 @@ IRP focuses on the second.
 | Figma plugin | Live — v0 |
 | Git hook | Live — warn mode (enforce coming) |
 | PR bot | Live — warn-only |
-| pip package | Live — v0.4.0 |
+| pip package | Live — v0.5.0 |
 | REST API | Live — v0 (`pip install irp-capture[api]`) |
 | MCP server | Live — v0 (`pip install 'irp-capture[mcp]'`) |
 | Obsidian integration | Live — v0 (set `IRP_OBSIDIAN_VAULT`) |

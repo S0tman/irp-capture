@@ -12,6 +12,7 @@ from irp.core.commands.capture import run_capture
 from irp.core.commands.check import run_check
 from irp.core.commands.demo import run_demo
 from irp.core.commands.bootstrap import run_bootstrap
+from irp.core.commands.doctor import run_doctor
 from irp.core.commands.inherit import run_inherit
 from irp.core.commands.why import run_why
 
@@ -81,6 +82,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_demo_gen.add_argument("--json", action="store_true")
 
+    # ── doctor ────────────────────────────────────────────────────────────────
+    p = sub.add_parser("doctor", help="Check installation health and environment")
+    p.add_argument("--json", action="store_true")
+
     # ── bootstrap ─────────────────────────────────────────────────────────────
     p_boot = sub.add_parser(
         "bootstrap",
@@ -145,6 +150,7 @@ def main() -> int:
             "check":     run_check,
             "demo":      run_demo,
             "bootstrap": run_bootstrap,
+            "doctor":    run_doctor,
         }
         result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
         print_result(result, getattr(args, "json", False))
