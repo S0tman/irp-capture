@@ -1,5 +1,9 @@
 # irp-capture
 
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/irp-capture?label=installs%2Fmonth&color=4A90D9)](https://pypistats.org/packages/irp-capture)
+[![PyPI - Version](https://img.shields.io/pypi/v/irp-capture?color=4A90D9)](https://pypi.org/project/irp-capture/)
+[![Discussions](https://img.shields.io/github/discussions/S0tman/irp-capture?color=4A90D9)](https://github.com/S0tman/irp-capture/discussions)
+
 ## Intent Record Protocol
 
 **IRP is a decision ledger that records why things were done.**
@@ -237,7 +241,7 @@ Nothing changes about how you work.
 | **PR bot** | Add to any GitHub repo — warns on PRs that conflict with active decisions. See setup below. |
 | **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]` — see `irp/api/README.md`. |
 | **MCP server** | Expose IRP as MCP tools for any MCP-compatible client. `pip install 'irp-capture[mcp]'` then run `irp-mcp`. Works with Claude Code, Cursor, Windsurf, and custom agent frameworks. |
-| **More coming** | VS Code, Python SDK |
+| **VS Code** | Extension in progress — captures decisions without leaving the editor |
 
 No tool talks to another. Everything talks to the ledger.
 
@@ -496,6 +500,8 @@ Read the full technical guide at **[irp-book.vercel.app](https://irp-book.vercel
 IRP is used to capture real decisions across CLI and Slack workflows.
 It is early. If you are building in this space and the substrate
 model resonates, open an issue or reach out.
+
+💬 **[Join the discussion →](https://github.com/S0tman/irp-capture/discussions)** — share your stack, ask questions, or show how you use IRP.
 
 The sensor pattern is open. If you want to write a sensor
 for a tool your team uses, the format is simple and documented.
