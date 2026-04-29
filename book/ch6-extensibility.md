@@ -578,6 +578,11 @@ Most tools that graph knowledge — Obsidian's graph view, second-brain tools, A
 
 IRP's graph is different. Every node is a structured, human-confirmed decision. Every edge is a traceable cross-reference inside a `why` field — someone explicitly said "this decision was made because of that one." The graph makes reasoning lineage visible, not just document relationships.
 
+> **Neurons that fire together, wire together.**
+> — Donald Hebb, *The Organization of Behavior*, 1949
+>
+> The same principle governs IRP's provenance graph. Decisions that reference each other in their `why` fields wire together — forming a lineage that survives tool changes, team changes, and time. The graph is not a diagram of what you built. It is an externalised record of how you reasoned.
+
 As a project grows, the graph reveals:
 
 - **clusters** — decisions that share domain or provenance
