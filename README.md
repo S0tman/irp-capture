@@ -1,6 +1,6 @@
 # irp-capture
 
-[![PyPI - Downloads](https://static.pepy.tech/personalized-badge/irp-capture?period=month&units=international_system&left_color=555555&right_color=4A90D9&left_text=installs%2Fmonth)](https://pepy.tech/project/irp-capture)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/irp-capture?color=4A90D9)](https://pypi.org/project/irp-capture/)
 [![PyPI - Version](https://img.shields.io/pypi/v/irp-capture?color=4A90D9)](https://pypi.org/project/irp-capture/)
 [![Discussions](https://img.shields.io/github/discussions/S0tman/irp-capture?color=4A90D9)](https://github.com/S0tman/irp-capture/discussions)
 
