@@ -145,9 +145,21 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
   .graphData({ nodes, links })
 
   // Nodes
-  .nodeLabel(d => `<div style="font:12px monospace;background:#111;color:#e5e7eb;padding:4px 8px;border-radius:6px;border:1px solid #374151;max-width:320px;white-space:normal;line-height:1.5">
-      <strong>${d.id}</strong><br>${d.what||''}
-    </div>`)
+  .nodeLabel(d => {
+    const e = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const confColor = {high:'#22c55e',medium:'#f59e0b',low:'#ef4444'}[d.confidence||''] || '#6b7280';
+    const tags = (d.tags||[]).map(t=>`<span style="background:#1f2937;color:#9ca3af;padding:1px 5px;border-radius:3px;font-size:10px;font-family:monospace">${e(t)}</span>`).join(' ');
+    return `<div style="font:12px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111827;color:#e5e7eb;padding:11px 13px;border-radius:9px;border:1px solid #374151;max-width:380px;white-space:normal;box-shadow:0 4px 20px rgba(0,0,0,.6)">
+      <div style="font-size:10px;color:#6b7280;font-family:monospace;letter-spacing:.04em;margin-bottom:5px">${e(d.id)}</div>
+      <div style="font-weight:600;font-size:13px;color:#f9fafb;margin-bottom:7px">${e(d.what)}</div>
+      ${d.why?`<div style="font-size:11px;color:#9ca3af;margin-bottom:8px;padding-top:6px;border-top:1px solid #1f2937"><span style="color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why</span><br>${e(d.why)}</div>`:''}
+      <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+        ${d.confidence?`<span style="color:${confColor};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${e(d.confidence)}</span>`:''}
+        ${tags}
+        ${d.timestamp?`<span style="color:#4b5563;font-size:10px;margin-left:auto">${e(String(d.timestamp).slice(0,10))}</span>`:''}
+      </div>
+    </div>`;
+  })
   .nodeColor(nodeColor)
   .nodeVal(d => (d.confidence === 'high' ? 6 : d.confidence === 'medium' ? 4 : 3))
   .nodeOpacity(0.92)
