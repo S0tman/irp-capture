@@ -4,6 +4,7 @@
  * Each diagram targets a specific mermaid slot index in the chapter prose.
  * A client-side script teleports the rendered components into those slots.
  */
+import DecisionGraph from './DecisionGraph';
 import IRPArchitectureExplorer from './IRPArchitectureExplorer';
 import AgentLoopSimulator from './AgentLoopSimulator';
 import ArchitectureExplorer from './ArchitectureExplorer';
@@ -60,6 +61,9 @@ interface DiagramEntry {
 const chapterDiagrams: Record<number, DiagramEntry[]> = {
   1: [
     { title: 'The Six Core Abstractions', description: 'Drag nodes to rearrange, hover for details, click to read the chapter.', component: 'IRPArchitectureExplorer', slotIndex: 0 },
+  ],
+  6: [
+    { title: 'Live Decision Graph — 18 design decisions, 20 provenance edges', description: 'Drag to orbit the globe · Scroll to zoom · Click any node to inspect the full decision · Globe rotates when idle', component: 'DecisionGraph', slotIndex: -1 },
   ],
 };
 
@@ -140,6 +144,7 @@ const bottomDiagrams = diagrams.filter(d => d.slotIndex < 0);
         </div>
         <p class="text-sm text-[var(--color-muted)] mb-4">{diagram.description}</p>
 
+        {diagram.component === 'DecisionGraph' && <DecisionGraph client:only="react" className="w-full" />}
         {diagram.component === 'PromptCacheCalculator' && <PromptCacheCalculator client:only="react" className="w-full" />}
       </div>
     ))}
