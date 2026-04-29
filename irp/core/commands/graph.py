@@ -41,10 +41,11 @@ h1{font-size:14px;font-weight:600;color:#f9fafb}
 .hint{font-size:11px;color:#9ca3af;padding:7px 20px;border-bottom:1px solid #111827;z-index:10;position:relative}
 .main{display:flex;flex:1;overflow:hidden;position:relative}
 #graph{flex:1;cursor:grab;position:relative}
+.node-label{position:absolute;pointer-events:none;transform:translate(-50%,-140%);font:bold 9px ui-monospace,"SF Mono",monospace;color:rgba(229,231,235,0.82);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
 #graph:active{cursor:grabbing}
 #graph canvas{display:block}
 #detail{width:320px;border-left:1px solid #1f2937;padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;flex-shrink:0;background:#0a0c12;z-index:10}
-#detail.empty{align-items:center;justify-content:center;color:#374151;font-size:13px}
+#detail.empty{align-items:center;justify-content:center;color:#4b5563;font-size:13px;text-align:center;gap:8px}
 .did{font-size:11px;font-weight:700;color:#6b7280;font-family:monospace;letter-spacing:.03em}
 .dwhat{font-size:14px;font-weight:600;color:#f9fafb;line-height:1.45}
 .dwhy{font-size:12px;color:#9ca3af;line-height:1.55}
@@ -59,7 +60,8 @@ h1{font-size:14px;font-weight:600;color:#f9fafb}
 .dsrc{font-size:11px;color:#4b5563;font-family:monospace}
 .refs{display:flex;flex-direction:column;gap:3px}
 .rl{font-size:11px;color:#60a5fa;font-family:monospace;cursor:pointer;text-decoration:underline}
-footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3af;flex-shrink:0;z-index:10;position:relative}
+footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3af;flex-shrink:0;z-index:10;position:relative;display:flex;justify-content:space-between;align-items:center}
+#toggle-labels{color:#6b7280;cursor:pointer;text-decoration:none;user-select:none}#toggle-labels:hover{color:#9ca3af}
 </style>
 </head>
 <body>
@@ -73,12 +75,12 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
     <div class="li"><div class="dot" style="background:#6b7280"></div>unknown</div>
   </div>
 </header>
-<div class="hint"><strong>Drag</strong> to orbit &nbsp;&middot;&nbsp; <strong>Scroll</strong> to zoom &nbsp;&middot;&nbsp; <strong>Click</strong> a node to inspect &nbsp;&middot;&nbsp; <strong>Right-drag</strong> to pan</div>
+<div class="hint"><strong>Drag</strong> to orbit &nbsp;&middot;&nbsp; <strong>Scroll</strong> to zoom &nbsp;&middot;&nbsp; <strong>Hover</strong> a node to inspect &nbsp;&middot;&nbsp; <strong>Click references</strong> in tooltip to follow lineage &nbsp;&middot;&nbsp; <strong>Right-drag</strong> to pan</div>
 <div class="main">
   <div id="graph"></div>
-  <div id="detail" class="empty"><span>Click a node to inspect</span></div>
+  <div id="detail" class="empty"><span>Hover a node to inspect</span><span style="font-size:11px;color:#374151">Click references in the tooltip<br>to follow provenance lineage</span></div>
 </div>
-<footer>Source: .irp/ledger.jsonl &nbsp;&middot;&nbsp; Edges = IRP id cross-references in <em>why</em> fields &nbsp;&middot;&nbsp; <code>irp export graph --force</code> to regenerate</footer>
+<footer><span>Source: .irp/ledger.jsonl &nbsp;&middot;&nbsp; Edges = IRP id cross-references in <em>why</em> fields &nbsp;&middot;&nbsp; <code>irp export graph --force</code> to regenerate</span><a id="toggle-labels" onclick="toggleLabels()">Hide IDs</a></footer>
 
 <script>
 const decisions = __DECISIONS_JSON__;
@@ -87,7 +89,7 @@ const idSet = new Set(decisions.map(d => d.id));
 const byId = Object.fromEntries(decisions.map(d => [d.id, d]));
 
 const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
-const nodeColor = d => CONF_COLOR[d.confidence] || '#6b7280';
+const nodeColor = d => d.id === lockedId ? '#D3D3D3' : (CONF_COLOR[d.confidence] || '#6b7280');
 
 // Build provenance edges from IRP id cross-refs in why fields
 const edgeSet = new Set();
@@ -111,6 +113,11 @@ let lockedId = null;
 function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+function shortId(id) {
+  const m = (id||'').match(/IRP-\d{4}-\d{2}-\d{2}-(\d+)/);
+  return m ? 'IRP-' + m[1] : id;
+}
 function badgeClass(c) { return {high:'bh',medium:'bm',low:'bl'}[c]||'bu'; }
 
 function showDetail(d) {
@@ -133,6 +140,7 @@ function showDetail(d) {
 
 function clearDetail() {
   lockedId = null;
+  Graph.nodeColor(nodeColor);
   detail.className = 'empty';
   detail.innerHTML = '<span>Click a node to inspect</span>';
 }
@@ -149,10 +157,12 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
     const e = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const confColor = {high:'#22c55e',medium:'#f59e0b',low:'#ef4444'}[d.confidence||''] || '#6b7280';
     const tags = (d.tags||[]).map(t=>`<span style="background:#1f2937;color:#9ca3af;padding:1px 5px;border-radius:3px;font-size:10px;font-family:monospace">${e(t)}</span>`).join(' ');
+    const refs = [...new Set((d.why||'').match(IRP_RE)||[])].filter(r=>idSet.has(r)&&r!==d.id);
     return `<div style="font:12px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111827;color:#e5e7eb;padding:11px 13px;border-radius:9px;border:1px solid #374151;max-width:380px;white-space:normal;box-shadow:0 4px 20px rgba(0,0,0,.6)">
       <div style="font-size:10px;color:#6b7280;font-family:monospace;letter-spacing:.04em;margin-bottom:5px">${e(d.id)}</div>
       <div style="font-weight:600;font-size:13px;color:#f9fafb;margin-bottom:7px">${e(d.what)}</div>
       ${d.why?`<div style="font-size:11px;color:#9ca3af;margin-bottom:8px;padding-top:6px;border-top:1px solid #1f2937"><span style="color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why</span><br>${e(d.why)}</div>`:''}
+      ${refs.length?`<div style="padding-top:6px;border-top:1px solid #1f2937;margin-bottom:6px"><span style="color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em">References</span><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${refs.map(r=>`<span onclick="event.stopPropagation();focusNode('${r}')" style="color:#60a5fa;font-size:10px;font-family:monospace;cursor:pointer;text-decoration:underline;padding:1px 4px;border-radius:3px;background:#1e3a5f">${e(r)}</span>`).join('')}</div></div>`:''}
       <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
         ${d.confidence?`<span style="color:${confColor};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${e(d.confidence)}</span>`:''}
         ${tags}
@@ -182,6 +192,7 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
       clearDetail();
     } else {
       lockedId = node.id;
+      Graph.nodeColor(nodeColor);
       showDetail(node);
       // Animate camera towards clicked node
       const dist = 120;
@@ -236,6 +247,7 @@ function focusNode(id) {
   const node = nodes.find(n => n.id === id);
   if (!node) return;
   lockedId = id;
+  Graph.nodeColor(nodeColor);
   showDetail(node);
   const dist = 120;
   const distRatio = 1 + dist / Math.hypot(node.x||1, node.y||1, node.z||1);
@@ -245,6 +257,36 @@ function focusNode(id) {
     800
   );
 }
+
+// ── Label visibility toggle ────────────────────────────────────────────────
+let labelsVisible = true;
+function toggleLabels() {
+  labelsVisible = !labelsVisible;
+  document.querySelectorAll('.node-label').forEach(el => {
+    el.style.display = labelsVisible ? '' : 'none';
+  });
+  document.getElementById('toggle-labels').textContent = labelsVisible ? 'Hide IDs' : 'Show IDs';
+}
+
+// ── DOM label overlay — projects each node's 3D position to screen coords ─────
+const labelEls = {};
+nodes.forEach(node => {
+  const el = document.createElement('div');
+  el.className = 'node-label';
+  el.textContent = shortId(node.id);
+  graphEl.appendChild(el);
+  labelEls[node.id] = el;
+});
+(function tickLabels() {
+  nodes.forEach(node => {
+    const el = labelEls[node.id];
+    if (!el) return;
+    const pos = Graph.graph2ScreenCoords(node.x || 0, node.y || 0, node.z || 0);
+    el.style.left = pos.x + 'px';
+    el.style.top  = pos.y + 'px';
+  });
+  requestAnimationFrame(tickLabels);
+})();
 </script>
 </body>
 </html>

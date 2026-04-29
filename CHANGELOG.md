@@ -4,6 +4,47 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.6.2] — 2026-04-29
+
+### Changed — `irp export graph` · Decision graph UX overhaul
+
+A full interaction redesign of the `GRAPH.html` output and the `demo-graph.html` used in the IRP Book ch6.
+
+#### Interaction model — frozen tooltip
+
+Previous model (hover tooltip) broke down because the tooltip disappeared the moment the cursor left the node, making it impossible to click reference links inside it. Replaced with a **frozen tooltip** pattern:
+
+- **Click a node** → tooltip freezes in place at cursor position (`position:fixed`, `pointer-events:auto`), camera flies to node
+- **Click a reference pill** inside the tooltip → camera flies to the target node, tooltip dissolves, target node becomes selected
+- **Click same node again or background** → dismisses tooltip and clears selection
+- Eliminates the hover-then-click timing problem entirely
+
+#### Node selection highlight
+
+Clicked (locked) node turns `#D3D3D3` (light grey). Re-selecting via a reference link transfers the highlight to the destination node. Deselection restores confidence-based colour coding (green / amber / red).
+
+#### Persistent node ID labels
+
+Every node displays a persistent `IRP-NNN` label (date stripped from full id) via a CSS overlay projected with `Graph.graph2ScreenCoords()`. No Three.js dependency — zero library conflicts. Labels follow nodes through rotation and zoom.
+
+#### Show / Hide IDs toggle
+
+Footer right-hand side: **Hide IDs / Show IDs** link. Lets users switch between the annotated traceability view and a clean globe view, without reloading.
+
+#### Panel removal
+
+The right-side detail panel was removed after the frozen tooltip made it redundant. Canvas now uses full width.
+
+#### Hebbian Theory callout — IRP Book ch6
+
+Added a blockquote to `ch6-extensibility.md`:
+
+> **Neurons that fire together, wire together.** — Donald Hebb, 1949
+
+Frames IRP provenance edges through the lens of associative memory: decisions that cross-reference each other in their `why` fields wire together, forming a lineage that survives tool changes and team changes.
+
+---
+
 ## [0.6.1] — 2026-04-29
 
 ### Added — `irp export graph` · Interactive 3D decision graph
