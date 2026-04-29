@@ -498,13 +498,13 @@ Decisions that cannot be safely converted to a single-sentence rule — multi-se
 ### DECISIONS.md — the human-facing projection
 
 ```markdown
-## IRP-2026-04-28-002 · 2026-04-28
+## IRP-2026-04-12-003 · 2026-04-12
 
-**Locked positioning convergence: IRP's wedge is 'decision-backed portable context'**
+**Rejected GraphQL in favour of REST for the public API — team has no GraphQL experience and clients are simple.**
 
-*Two-model convergence (Claude + GPT) confirmed the empty layer in the market stack.*
+*Three engineers flagged GraphQL complexity during design review. REST is sufficient for current query patterns and eliminates a learning curve before launch.*
 
-Confidence: 🟢 high  Tags: `positioning` `strategy`  Source: claude-gpt-convergence
+Confidence: 🟢 high  Tags: `api` `architecture` `rejected-graphql`  Source: slack · channel C0AMXC2E069
 ```
 
 Every decision, newest-first. Confidence badges. Tags. Source label (slack channel, demo scenario, stdin, CLI). Fully readable by any collaborator without running IRP. A complete audit trail in a single file.
