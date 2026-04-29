@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from irp.core.store import read_ledger
+from irp.core.commands.graph import run_export_graph
 
 # ── header copy ──────────────────────────────────────────────────────────────
 
