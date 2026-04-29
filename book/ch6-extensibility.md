@@ -556,7 +556,7 @@ irp export graph --output viz.html  # custom output path
 irp export graph --force            # overwrite existing
 ```
 
-This produces a single self-contained HTML file — no server, no dependencies, open in any browser.
+This produces a single self-contained HTML file — no server, no dependencies, open in any browser. A live demo with 18 cross-referenced design-system decisions is embedded at the bottom of this chapter — scroll down to try it.
 
 ### What it renders
 
