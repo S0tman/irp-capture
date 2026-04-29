@@ -4,6 +4,46 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.6.1] — 2026-04-29
+
+### Added — `irp export graph` · Interactive 3D decision graph
+
+New command: render the full decision ledger as a self-contained interactive 3D HTML file.
+
+```bash
+irp export graph                    # writes GRAPH.html in project root
+irp export graph --output viz.html  # custom path
+irp export graph --force            # overwrite existing
+```
+
+#### What it generates
+
+A single `GRAPH.html` — no server, no install, open in any browser. Built on [3d-force-graph](https://github.com/vasturiano/3d-force-graph) (Three.js/WebGL). Decisions rendered as a 3D force globe with:
+
+- **Globe layout** — nodes distribute into a sphere under 3D force simulation; clusters form naturally as cross-referenced decisions grow
+- **Colour coding** — green (high confidence), amber (medium), red (low), grey (unknown)
+- **Node size** — scales with confidence level
+- **Animated particles** — travel along provenance edges (IRP id cross-references found in `why` fields)
+- **Directional arrows** — show which decision references which
+- **Click to inspect** — detail panel shows full decision: id, what, why, tags, confidence, source, and clickable cross-reference links
+- **Camera fly** — clicking a node animates the camera toward it
+- **Inertia** — dragging the globe has smooth deceleration (OrbitControls damping)
+- **Auto-rotation** — slow clockwise idle rotation; pauses on interaction, resumes after 2 s
+
+#### Design invariants
+
+- No new schema. Reads `.irp/ledger.jsonl` only.
+- No LLM calls. No inference. Deterministic mapping only.
+- Edges derived from IRP id cross-references in `why` fields (regex only — no inference).
+- Single self-contained HTML via CDN — no build step, no dependencies to install.
+- `GRAPH.html` is gitignored by default (always regenerable; treat as a build artefact).
+
+#### Obsidian graph view (same session)
+
+`irp/integrations/obsidian.py` now converts bare IRP ids in `why` fields to `[[wikilinks]]` on write. Obsidian's built-in graph view draws provenance edges automatically — no extra configuration.
+
+---
+
 ## [0.6.0] — 2026-04-29
 
 ### Added — `irp export context`
