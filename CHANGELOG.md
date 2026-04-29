@@ -4,6 +4,38 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.6.0] — 2026-04-29
+
+### Added — `irp export context`
+
+New command: export decision lineage as portable working-context files.
+
+#### `irp export context --target agents.md`
+- Derives single-line agent rules under **Working constraints** — each rule cites its source IRP id
+- Lists every decision with full provenance under **Relevant decisions**
+- Conservative rule derivation: decisions that are multi-sentence, long-form, or contain em-dash summaries are listed in full rather than forced into a misleading rule
+- Fills the empty layer beneath AGENTS.md / CLAUDE.md / DESIGN.md: those files tell agents *what to do*, IRP tells them *why those rules exist*
+
+#### `irp export context --target decisions.md`
+- Human-readable decision log, newest-first
+- One section per decision: IRP id · timestamp heading, bold `what`, italic `why`
+- Confidence badges (🟢 high / 🟡 medium / 🔴 low), tag list, source label (slack channel, demo scenario, stdin, etc.)
+- Readable by any collaborator who doesn't run IRP
+
+#### Flags (both targets)
+- `--output PATH` — override default output path (AGENTS.md or DECISIONS.md in project root)
+- `--force` — overwrite existing output file
+- `--writable` — leave file `-rw-r--r--`; default is `chmod 444` read-only
+- `--json` — machine-readable output
+
+#### Design invariants
+- No new schema. Reads `.irp/ledger.jsonl` only.
+- No LLM calls. No inference. Deterministic text transformation only.
+- Provenance on every output line. Always regenerable.
+- Read-only by default — editors surface "file is locked" before any save.
+
+---
+
 ## [0.5.0] — 2026-04-26
 
 ### Added — traction stack: doctor, VS Code extension, Cursor guide, Discussion template
