@@ -321,7 +321,13 @@ irp export graph
 
 `DECISIONS.md` renders your full decision history newest-first — confidence, tags, source, reasoning. Readable by any collaborator who doesn't run IRP.
 
-`GRAPH.html` renders all decisions as a self-contained interactive 3D force globe. Nodes are colour-coded by confidence. Animated particles travel along provenance edges — every IRP id cross-reference in a `why` field becomes a directed edge. Click any node to inspect the full decision. No server required — open in any browser.
+`GRAPH.html` renders all decisions as a self-contained interactive 3D force globe. Nodes are colour-coded by confidence (green / amber / red). Animated particles travel along provenance edges — every IRP id cross-reference in a `why` field becomes a directed edge. No server required — open in any browser.
+
+**Interaction model:**
+- **Click a node** → tooltip freezes in place at cursor; camera flies to node; node turns light grey (#D3D3D3)
+- **Click a reference pill** inside the tooltip → camera flies to the target; selection transfers; tooltip dissolves
+- **Click background or same node** → dismisses and resets
+- **Persistent IRP-NNN labels** float above each node; toggle via **Hide IDs / Show IDs** in the footer
 
 Both context files ship read-only (`chmod 444`) by default. They are regenerable at any time. The ledger remains the source of truth.
 
