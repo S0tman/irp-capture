@@ -13,6 +13,7 @@ from irp.core.commands.check import run_check
 from irp.core.commands.demo import run_demo
 from irp.core.commands.bootstrap import run_bootstrap
 from irp.core.commands.doctor import run_doctor
+from irp.core.commands.export import run_export
 from irp.core.commands.inherit import run_inherit
 from irp.core.commands.why import run_why
 
@@ -125,6 +126,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_boot.add_argument("--json", action="store_true")
 
+    # ── export ───────────────────────────────────────────────────────────────
+    p_export = sub.add_parser(
+        "export",
+        help="Export decision lineage to portable formats for downstream agents",
+    )
+    export_sub = p_export.add_subparsers(dest="export_action", required=True)
+
+    p_export_ctx = export_sub.add_parser(
+        "context",
+        help="Export decision-derived working context (e.g. AGENTS.md, DECISIONS.md)",
+    )
+    p_export_ctx.add_argument(
+        "--target",
+        type=str,
+        required=True,
+        choices=["agents.md", "decisions.md"],
+        help="Target format: agents.md (agent constraints) or decisions.md (human log)",
+    )
+    p_export_ctx.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output file path (default: AGENTS.md or DECISIONS.md in project root)",
+    )
+    p_export_ctx.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing output file",
+    )
+    p_export_ctx.add_argument(
+        "--writable",
+        action="store_true",
+        help="Leave the exported file writable (default: chmod 444 read-only)",
+    )
+    p_export_ctx.add_argument("--json", action="store_true")
+
     return parser
 
 def print_result(result: dict, as_json: bool) -> None:
@@ -151,6 +188,7 @@ def main() -> int:
             "demo":      run_demo,
             "bootstrap": run_bootstrap,
             "doctor":    run_doctor,
+            "export":    run_export,
         }
         result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
         print_result(result, getattr(args, "json", False))

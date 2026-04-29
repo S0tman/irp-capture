@@ -459,6 +459,93 @@ Once configured, agents can call `irp_capture` directly within their workflows w
 
 ---
 
+## Export Context: Decisions as Portable Files
+
+The REST API and MCP protocol serve decisions to live systems — running agents, CI pipelines, IDE plugins. But there is a different portability problem: *how do decisions travel to places that don't query an API?* A new project. A handoff. A collaborator who doesn't run IRP. A downstream agent that reads a file instead of calling a server.
+
+IRP solves this with `irp export context`:
+
+```bash
+# Agent-facing rules with full provenance
+irp export context --target agents.md
+
+# Human-readable decision log
+irp export context --target decisions.md
+```
+
+### AGENTS.md — the agent-facing projection
+
+The `AGENTS.md` pattern is used across 60,000+ projects (Linux Foundation, Google DESIGN.md, Anthropic CLAUDE.md). Every project that uses AI tooling has some version of "here are the rules for this project." The problem: those rules are written by hand, drift from reality, and carry no provenance. Nobody knows *why* the rule exists.
+
+IRP's `--target agents.md` generates that file from your decision ledger:
+
+```markdown
+## Working constraints
+
+- **Use Postgres for the reporting service.** *(Source: IRP-2026-04-12-001)*
+- **Do not introduce a database in Slack Capture v0.** *(Source: IRP-2026-03-22-001)*
+
+## Relevant decisions
+
+- **IRP-2026-04-12-001** (2026-04-12) — Use Postgres for the reporting service
+  - *Why:* Redis considered but rejected — query patterns require joins
+```
+
+Each rule cites its IRP id. That id is traceable back to the original decision via `irp why --id`. The full provenance chain is intact. This is the missing layer: `AGENTS.md` tells agents *what to do*, IRP tells them *why those rules exist*.
+
+Decisions that cannot be safely converted to a single-sentence rule — multi-sentence, em-dash summaries, long-form context — are listed under "Relevant decisions" with full text instead of being forced into a misleading rule. The exporter is conservative by design.
+
+### DECISIONS.md — the human-facing projection
+
+```markdown
+## IRP-2026-04-28-002 · 2026-04-28
+
+**Locked positioning convergence: IRP's wedge is 'decision-backed portable context'**
+
+*Two-model convergence (Claude + GPT) confirmed the empty layer in the market stack.*
+
+Confidence: 🟢 high  Tags: `positioning` `strategy`  Source: claude-gpt-convergence
+```
+
+Every decision, newest-first. Confidence badges. Tags. Source label (slack channel, demo scenario, stdin, CLI). Fully readable by any collaborator without running IRP. A complete audit trail in a single file.
+
+### Design invariants
+
+Both formats share the same constraints:
+
+- **No new schema.** Reads `.irp/ledger.jsonl` only.
+- **No LLM calls. No inference.** Deterministic text transformation only.
+- **Provenance on every output line.** Every rule cites its source IRP id.
+- **Always regenerable.** The ledger is canonical; the file is a projection.
+- **Read-only by default.** Both files ship `chmod 444`. Editors surface a "file is locked" prompt before any save. Override with `--writable` or `chmod +w`.
+
+```bash
+# Override the output path
+irp export context --target agents.md --output path/to/AGENTS.md
+
+# Force overwrite an existing file
+irp export context --target decisions.md --force
+
+# Leave the file writable for downstream tooling
+irp export context --target agents.md --writable
+```
+
+### The positioning
+
+The market has AGENTS.md (instructions), memory tools (what was said), MCP (what to connect), wikis (what was learned). The empty layer is *why it was decided*. IRP fills that layer.
+
+```
+AGENTS.md tells agents what to do.
+IRP tells them why those rules exist.
+
+A wiki remembers what you learned.
+IRP remembers why you chose.
+```
+
+The exporter is the first executable proof of this thesis. Not a pitch. Running code.
+
+---
+
 ## Future: Event Webhooks
 
 IRP currently is request-driven (sensors POST decisions, tools GET decisions). A future enhancement could add event webhooks: "When a decision is captured, notify these endpoints." This would enable CI/CD pipelines to react to architecture decisions automatically. But for now, tools pull decisions via REST API or use the MCP protocol, and respond accordingly.
@@ -478,19 +565,21 @@ A healthy IRP system shows steady ledger growth, active check usage, and high co
 
 ## Summary: Extensibility Through Simplicity
 
-IRP's extensibility comes from five principles:
+IRP's extensibility comes from six principles:
 
 1. **Portable format:** Decisions are JSON, easily transported
 2. **REST API:** Any tool can query decisions via HTTP
 3. **MCP protocol:** Agents can capture and query decisions via the Model Context Protocol
 4. **Bridge pattern:** Sensors are independent, route through same bridge
 5. **Local-first:** Source of truth is local, tools are integrators not owners
+6. **Deterministic projection:** Decisions export to portable files (AGENTS.md, DECISIONS.md) with full provenance — no LLM calls, no inference, always regenerable
 
 These principles enable:
 - Multi-tool capture (Figma, Slack, CLI, agents via MCP, etc.)
 - Multi-tool querying (REST API, MCP tools, collab.py, direct file access)
 - Conflict detection across tools
 - Context injection into external AI models
+- Portable working context for agents and humans who don't query an API
 - Minimal coupling, maximum flexibility
 
 Next chapter: patterns and synthesis—what can you apply to your own decisions?
@@ -521,3 +610,8 @@ Next chapter: patterns and synthesis—what can you apply to your own decisions?
 - **Problem solved:** Decisions survive tool changes, avoid vendor lock-in
 - **How to adapt:** Keep source of truth locally, integrate selectively with tools
 - **Pitfall to watch:** Don't replicate decisions to external systems. Sync is a separate concern.
+
+**Pattern 6: Deterministic File Projection**
+- **Problem solved:** Decisions need to reach places that don't query an API — new projects, handoffs, agents that read files, collaborators who don't run IRP
+- **How to adapt:** Keep a canonical, structured substrate (JSONL ledger); derive human- and machine-readable projections from it deterministically; never let the projection become the source of truth
+- **Pitfall to watch:** The file feels like documentation, so people edit it by hand. Lock it read-only. The provenance chain (rule → IRP id → `irp why --id`) only holds if the file was generated, not hand-edited.
