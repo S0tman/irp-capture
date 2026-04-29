@@ -546,6 +546,71 @@ The exporter is the first executable proof of this thesis. Not a pitch. Running 
 
 ---
 
+## Interactive Decision Graph: Decisions as a Living Visual
+
+`irp export context` solves the portability problem for text. But there is a different kind of legibility — the one you get when you see how decisions *connect*.
+
+```bash
+irp export graph                    # writes GRAPH.html in project root
+irp export graph --output viz.html  # custom output path
+irp export graph --force            # overwrite existing
+```
+
+This produces a single self-contained HTML file — no server, no dependencies, open in any browser.
+
+### What it renders
+
+Every decision in `.irp/ledger.jsonl` becomes a node. Every IRP id cross-reference found in a `why` field becomes a directed edge. The layout uses [3d-force-graph](https://github.com/vasturiano/3d-force-graph) (Three.js/WebGL): nodes distribute into a 3D force globe, clusters form naturally as more cross-referenced decisions accumulate over time.
+
+Colour coding follows confidence:
+- 🟢 Green — high
+- 🟡 Amber — medium
+- 🔴 Red — low
+- ⚫ Grey — unknown
+
+Animated particles travel along provenance edges. Directional arrows show which decision references which. The globe rotates slowly when idle; drag to orbit, scroll to zoom.
+
+Click any node to inspect the full decision in the detail panel — id, what, why, tags, confidence, source, and clickable cross-reference links that fly the camera to the referenced decision.
+
+### Why provenance edges matter
+
+Most tools that graph knowledge — Obsidian's graph view, second-brain tools, ADR viewers — graph *documents*. Every node is a file. Edges are backlinks between files.
+
+IRP's graph is different. Every node is a structured, human-confirmed decision. Every edge is a traceable cross-reference inside a `why` field — someone explicitly said "this decision was made because of that one." The graph makes reasoning lineage visible, not just document relationships.
+
+As a project grows, the graph reveals:
+
+- **clusters** — decisions that share domain or provenance
+- **hubs** — highly-referenced architectural decisions that constrain many later ones
+- **isolated nodes** — standalone decisions with no cross-referencing (often early-stage or domain-switching entries)
+
+### Design invariants
+
+The same rules apply as for context exporters:
+
+- **No new schema.** Reads `.irp/ledger.jsonl` only.
+- **No LLM calls. No inference.** Edges are derived from regex matching only — a cross-reference edge exists if and only if a `why` field contains another decision's IRP id.
+- **Always regenerable.** The ledger is canonical; `GRAPH.html` is a build artefact.
+- **Single self-contained HTML.** The 3d-force-graph library loads via CDN. No build step, no package manager.
+
+```bash
+# Regenerate after capturing new decisions
+irp export graph --force
+```
+
+### Obsidian graph view
+
+If you use the Obsidian integration, the same provenance edges appear automatically inside Obsidian's built-in graph view. The integration now converts bare IRP ids in `why` fields to `[[wikilinks]]` on write — Obsidian's graph renderer draws edges between notes that contain matching wikilinks, no extra configuration needed.
+
+```
+GRAPH.html       ← standalone WebGL globe, any browser
+Obsidian graph   ← same edges, inside your vault
+```
+
+Two views, one substrate.
+
+---
+
 ## Future: Event Webhooks
 
 IRP currently is request-driven (sensors POST decisions, tools GET decisions). A future enhancement could add event webhooks: "When a decision is captured, notify these endpoints." This would enable CI/CD pipelines to react to architecture decisions automatically. But for now, tools pull decisions via REST API or use the MCP protocol, and respond accordingly.
@@ -565,7 +630,7 @@ A healthy IRP system shows steady ledger growth, active check usage, and high co
 
 ## Summary: Extensibility Through Simplicity
 
-IRP's extensibility comes from six principles:
+IRP's extensibility comes from seven principles:
 
 1. **Portable format:** Decisions are JSON, easily transported
 2. **REST API:** Any tool can query decisions via HTTP
@@ -573,6 +638,7 @@ IRP's extensibility comes from six principles:
 4. **Bridge pattern:** Sensors are independent, route through same bridge
 5. **Local-first:** Source of truth is local, tools are integrators not owners
 6. **Deterministic projection:** Decisions export to portable files (AGENTS.md, DECISIONS.md) with full provenance — no LLM calls, no inference, always regenerable
+7. **Visual lineage:** The full decision ledger renders as an interactive 3D graph — nodes are decisions, edges are provenance cross-references, clusters reveal architectural patterns over time
 
 These principles enable:
 - Multi-tool capture (Figma, Slack, CLI, agents via MCP, etc.)
@@ -580,6 +646,7 @@ These principles enable:
 - Conflict detection across tools
 - Context injection into external AI models
 - Portable working context for agents and humans who don't query an API
+- Visual inspection of decision lineage and provenance clusters
 - Minimal coupling, maximum flexibility
 
 Next chapter: patterns and synthesis—what can you apply to your own decisions?
@@ -615,3 +682,8 @@ Next chapter: patterns and synthesis—what can you apply to your own decisions?
 - **Problem solved:** Decisions need to reach places that don't query an API — new projects, handoffs, agents that read files, collaborators who don't run IRP
 - **How to adapt:** Keep a canonical, structured substrate (JSONL ledger); derive human- and machine-readable projections from it deterministically; never let the projection become the source of truth
 - **Pitfall to watch:** The file feels like documentation, so people edit it by hand. Lock it read-only. The provenance chain (rule → IRP id → `irp why --id`) only holds if the file was generated, not hand-edited.
+
+**Pattern 7: Visual Lineage Graph**
+- **Problem solved:** Text lists of decisions don't reveal how decisions *relate* — which ones constrain later ones, which domains cluster, which early architectural choices propagate forward
+- **How to adapt:** Derive edges structurally (regex on cross-references in `why` fields); use a force-directed 3D layout so clusters emerge without any manual grouping; keep it a build artefact regenerated from the same substrate
+- **Pitfall to watch:** Don't treat the graph as the source of truth. Edges should be derived, not authored. If you let people draw edges manually, the provenance chain breaks.
