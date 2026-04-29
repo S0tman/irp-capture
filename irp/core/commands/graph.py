@@ -203,13 +203,26 @@ controls.autoRotate = true;
 controls.autoRotateSpeed = 0.4;
 
 let idleTimer;
+let nodeHovered = false;
+
 function resetIdle() {
   controls.autoRotate = false;
   clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => { controls.autoRotate = true; }, 2000);
+  idleTimer = setTimeout(() => { if (!nodeHovered) controls.autoRotate = true; }, 2000);
 }
 graphEl.addEventListener('pointerdown', resetIdle);
 graphEl.addEventListener('wheel', resetIdle);
+
+// Stop rotation immediately on node hover; resume idle countdown on leave
+Graph.onNodeHover(node => {
+  nodeHovered = !!node;
+  if (nodeHovered) {
+    controls.autoRotate = false;
+    clearTimeout(idleTimer);
+  } else {
+    resetIdle();
+  }
+});
 
 // Resize handler
 function resize() {
