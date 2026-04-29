@@ -302,6 +302,30 @@ IRP ledger         ← your decisions
 All three. All local. No SaaS required.
 ```
 
+### Portable working context
+
+IRP decisions travel with your work. Export them as portable files that any agent or human can read — with full provenance.
+
+```bash
+# Export agent-facing rules (AGENTS.md)
+irp export context --target agents.md
+
+# Export human-readable decision log (DECISIONS.md)
+irp export context --target decisions.md
+```
+
+`AGENTS.md` derives single-line constraints from your decisions, each citing its source IRP id. Drop it in any project root and agents know not just *what* the rules are, but *where they came from*.
+
+`DECISIONS.md` renders your full decision history newest-first — confidence, tags, source, reasoning. Readable by any collaborator who doesn't run IRP.
+
+Both files ship read-only (`chmod 444`) by default. They are regenerable at any time. The ledger remains the source of truth.
+
+```
+The missing layer in the AI tool stack:
+  AGENTS.md       ← what to do
+  IRP ledger      ← why those rules exist
+```
+
 ---
 
 ## Use with Claude Code
@@ -412,6 +436,8 @@ Start capturing from day one, even if the entries are simple.
 | Review specific decision | `irp why --id IRP-2026-04-08-001` |
 | Capture from stdin | `irp capture --stdin` |
 | Check installation health | `irp doctor` |
+| Export agent constraints | `irp export context --target agents.md` |
+| Export human decision log | `irp export context --target decisions.md` |
 | JSON output | Add `--json` to any command |
 
 ---
