@@ -162,6 +162,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_export_ctx.add_argument("--json", action="store_true")
 
+    p_export_graph = export_sub.add_parser(
+        "graph",
+        help="Export decision graph as a self-contained interactive HTML file",
+    )
+    p_export_graph.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output file path (default: GRAPH.html in project root)",
+    )
+    p_export_graph.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing output file",
+    )
+    p_export_graph.add_argument("--json", action="store_true")
+
     return parser
 
 def print_result(result: dict, as_json: bool) -> None:
