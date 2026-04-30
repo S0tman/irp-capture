@@ -115,8 +115,8 @@ function esc(s) {
 }
 
 function shortId(id) {
-  const m = (id||'').match(/IRP-\d{4}-\d{2}-\d{2}-(\d+)/);
-  return m ? 'IRP-' + m[1] : id;
+  const m = (id||'').match(/IRP-\d{4}-(\d{2})-(\d{2})-(\d+)/);
+  return m ? 'IRP-' + m[1] + m[2] + '-' + m[3] : id;
 }
 function badgeClass(c) { return {high:'bh',medium:'bm',low:'bl'}[c]||'bu'; }
 
