@@ -4,6 +4,28 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.6.3] — 2026-05-01
+
+### Added — `irp stats` · Local activation dashboard
+
+- New `irp stats` command — surfaces capture cadence, weekly ramp (ASCII bar chart), sensors used, top tags, days active. All local. No telemetry.
+- `irp stats --demo` shows stats for the built-in 18-decision sample dataset without touching the ledger
+- Empty ledger nudges to `irp stats --demo`
+
+### Added — CLI milestone moments
+
+- Inline messages in `irp capture` output at key activation thresholds: 1st, 10th, 25th, 50th decision
+- First capture from a named sensor (Slack, MCP, Figma, VS Code, Discord, Git, API) triggers: *"IRP is now embedded in your X workflow"*
+
+### Added — `irp export graph --demo`
+
+- `--demo` flag generates `GRAPH-demo.html` from a built-in 18-decision / 22-edge design system dataset — no real ledger required
+- Ledger is never read or modified in demo mode
+- Empty-ledger nudge: if `irp export graph` is run with no decisions captured, the CLI prints a helpful message directing users to `--demo`
+- Design principle locked (IRP-2026-05-01-001, corrected by IRP-2026-05-01-002): export commands and rich-output commands must ship with `--demo` + sample data; simple read commands (`why`, `check`, `inherit`) are exempt
+
+---
+
 ## [0.6.2] — 2026-04-29
 
 ### Changed — `irp export graph` · Decision graph UX overhaul
