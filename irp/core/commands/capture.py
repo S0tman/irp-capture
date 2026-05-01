@@ -9,6 +9,41 @@ from typing import Any
 from irp.core.store import append_ledger_entry, next_irp_id, read_ledger, rebuild_current, write_current
 from irp.integrations import dispatch as _dispatch
 
+_MILESTONES = {
+    1:  "→ First decision captured. Run `irp why` to review it.",
+    10: "→ 10 decisions. Try `irp export graph` to see how they connect.",
+    25: "→ 25 decisions. Your ledger is getting rich — share it with your team.",
+    50: "→ 50 decisions. This is a serious decision record.",
+}
+
+_SENSOR_LABELS = {
+    "slack": "Slack", "discord": "Discord", "figma": "Figma",
+    "vscode": "VS Code", "mcp": "MCP", "git": "Git hook", "api": "REST API",
+}
+
+def _milestone_lines(updated_ledger: list[dict], new_entry: dict) -> list[str]:
+    decisions = [r for r in updated_ledger if r.get("type") == "decision" or (r.get("what") and r.get("why"))]
+    count = len(decisions)
+    lines = []
+
+    if count in _MILESTONES:
+        lines.append("")
+        lines.append(_MILESTONES[count])
+
+    # New sensor type milestone
+    src = new_entry.get("source", "")
+    if src in _SENSOR_LABELS:
+        prior_sources = {
+            r.get("source") for r in updated_ledger
+            if (r.get("type") == "decision" or (r.get("what") and r.get("why")))
+            and r.get("id") != new_entry.get("id")
+        }
+        if src not in prior_sources:
+            lines.append("")
+            lines.append(f"→ First capture from {_SENSOR_LABELS[src]}. IRP is now embedded in your {_SENSOR_LABELS[src]} workflow.")
+
+    return lines
+
 def confirm_token(prompt: str = "Confirm capture? [c=confirm / s=skip]: ") -> bool:
     value = input(prompt).strip().lower()
     return value == "c"
@@ -91,10 +126,12 @@ def run_capture(project_root: Path, irp_dir: Path, args) -> dict:
         elif status == "error":
             integration_lines.append(f"  ✗ {name}: {r.get('error', '')}")
 
+    milestone_lines = _milestone_lines(updated_ledger, candidate)
+
     return {
         "command": "capture",
         "status": "captured",
         "entry": candidate,
         "integrations": integrations,
-        "text": "\n".join(header + [f"Captured {candidate['id']}"] + integration_lines),
+        "text": "\n".join(header + [f"Captured {candidate['id']}"] + integration_lines + milestone_lines),
     }
