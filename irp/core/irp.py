@@ -15,6 +15,7 @@ from irp.core.commands.bootstrap import run_bootstrap
 from irp.core.commands.doctor import run_doctor
 from irp.core.commands.export import run_export
 from irp.core.commands.inherit import run_inherit
+from irp.core.commands.stats import run_stats
 from irp.core.commands.why import run_why
 
 def build_parser() -> argparse.ArgumentParser:
@@ -82,6 +83,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_demo_gen.add_argument("--json", action="store_true")
+
+    # ── stats ─────────────────────────────────────────────────────────────────
+    p = sub.add_parser("stats", help="Show your local activation pattern — capture cadence, sensors, tags")
+    p.add_argument(
+        "--demo",
+        action="store_true",
+        help="Show stats for built-in sample dataset (18 decisions) — does not touch your ledger",
+    )
+    p.add_argument("--json", action="store_true")
 
     # ── doctor ────────────────────────────────────────────────────────────────
     p = sub.add_parser("doctor", help="Check installation health and environment")
@@ -209,6 +219,7 @@ def main() -> int:
             "check":     run_check,
             "demo":      run_demo,
             "bootstrap": run_bootstrap,
+            "stats":     run_stats,
             "doctor":    run_doctor,
             "export":    run_export,
         }
