@@ -177,6 +177,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Overwrite existing output file",
     )
+    p_export_graph.add_argument(
+        "--demo",
+        action="store_true",
+        help="Generate graph from built-in sample data (18 decisions, 22 edges) — does not touch your ledger",
+    )
     p_export_graph.add_argument("--json", action="store_true")
 
     return parser

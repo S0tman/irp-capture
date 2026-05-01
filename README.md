@@ -315,6 +315,9 @@ irp export context --target decisions.md
 
 # Export interactive 3D decision graph (GRAPH.html)
 irp export graph
+
+# Try a populated example without touching your ledger (18 decisions, 22 edges)
+irp export graph --demo
 ```
 
 `AGENTS.md` derives single-line constraints from your decisions, each citing its source IRP id. Drop it in any project root and agents know not just *what* the rules are, but *where they came from*.
@@ -451,6 +454,7 @@ Start capturing from day one, even if the entries are simple.
 | Export agent constraints | `irp export context --target agents.md` |
 | Export human decision log | `irp export context --target decisions.md` |
 | Export interactive 3D graph | `irp export graph` |
+| Export graph with sample data | `irp export graph --demo` |
 | JSON output | Add `--json` to any command |
 
 ---
