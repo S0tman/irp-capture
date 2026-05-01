@@ -309,16 +309,55 @@ def _count_edges(decisions: list[dict[str, Any]]) -> int:
                 count += 1
     return count
 
+_SAMPLE_DECISIONS: list[dict[str, Any]] = json.loads(
+    '[{"id":"IRP-2026-01-10-001","type":"decision","what":"Adopt a shared design token system across all product surfaces","why":"Every team was maintaining separate colour and spacing values, causing visual drift and expensive rework at every brand refresh. Foundational decision that gates IRP-2026-01-15-002 and IRP-2026-02-01-004.","confidence":"high","tags":["design-system","tokens","brand"],"source":"slack","timestamp":"2026-01-10T09:00:00Z"},'
+    '{"id":"IRP-2026-01-15-002","type":"decision","what":"Use Figma variables as the single source of truth for all design tokens","why":"Teams already live in Figma. Variables enable multi-mode switching (light/dark, brand A/B) without duplication. Rejected Storybook tokens as primary source — too dev-centric for a design-led org. Builds on IRP-2026-01-10-001.","confidence":"high","tags":["figma","tokens","design-system"],"source":"slack","timestamp":"2026-01-15T10:30:00Z"},'
+    '{"id":"IRP-2026-01-20-003","type":"decision","what":"Tokens sync from Figma to code via automated pipeline — no manual export","why":"Manual export creates drift between design and code within 48 hours. Every launch was blocked on a last-minute sync sprint. References IRP-2026-01-15-002 as upstream source. Rejected manual handoff — it failed three consecutive quarters.","confidence":"high","tags":["automation","figma","handoff"],"source":"stdin","timestamp":"2026-01-20T14:00:00Z"},'
+    '{"id":"IRP-2026-02-01-004","type":"decision","what":"Build component library on Radix UI primitives, not from scratch","why":"Accessibility compliance is a hard blocker for enterprise sales. Radix handles ARIA patterns correctly out of the box. Estimated 6 months to build from scratch with equivalent a11y coverage. Rejected scratch build — risk too high. Extends IRP-2026-01-10-001 system direction.","confidence":"high","tags":["components","a11y","radix","enterprise"],"source":"slack","timestamp":"2026-02-01T11:00:00Z"},'
+    '{"id":"IRP-2026-02-05-005","type":"decision","what":"All components must support light and dark mode via token modes, not separate stylesheets","why":"Three enterprise accounts requested dark mode in Q1 contracts. IRP-2026-01-15-002 token system makes this feasible without duplication — mode switching costs near zero once tokens are wired. Rejected separate stylesheets — 2× maintenance burden.","confidence":"high","tags":["dark-mode","tokens","components"],"source":"stdin","timestamp":"2026-02-05T09:00:00Z"},'
+    '{"id":"IRP-2026-02-10-006","type":"decision","what":"Motion uses a single easing curve: ease-out at 200 ms for micro, 400 ms for page transitions","why":"Animation inconsistency was the top complaint in UX research (cited by 67% of testers). Rejected spring physics — unpredictable for handoff and hard to QA across browsers. Aligns with IRP-2026-01-10-001 system coherence goal.","confidence":"high","tags":["motion","animation","ux"],"source":"slack","timestamp":"2026-02-10T16:00:00Z"},'
+    '{"id":"IRP-2026-02-20-007","type":"decision","what":"Design decisions require a rationale note in Figma before engineering handoff","why":"Lost reasoning was the root cause of 80% of design-dev conflicts in Q4 audit. Without documented why, engineers make assumptions that require expensive rework. References IRP-2026-02-01-004 — accessibility decisions especially need traceable rationale.","confidence":"high","tags":["process","handoff","rationale","figma"],"source":"stdin","timestamp":"2026-02-20T10:00:00Z"},'
+    '{"id":"IRP-2026-03-01-008","type":"decision","what":"Design critiques are timeboxed to 45 minutes with a pre-agreed decision owner","why":"Critiques were averaging 2.5 hours without resolution. Decision fatigue was leading to poor outcomes in the last 30 minutes. IRP-2026-02-20-007 requires someone to own the rationale note — ownership must be assigned before the critique, not after.","confidence":"medium","tags":["process","critique","meetings"],"source":"stdin","timestamp":"2026-03-01T09:00:00Z"},'
+    '{"id":"IRP-2026-03-10-009","type":"decision","what":"Brand voice is expert but human — no technical jargon without plain-language follow-up","why":"User research: 43% of creative directors felt alienated by product copy. Enterprise buyers want confidence without complexity. Connects IRP-2026-01-10-001 visual system coherence to content tone. Rejected purely technical voice — wrong for the ICP.","confidence":"high","tags":["brand","copy","voice","content"],"source":"slack","timestamp":"2026-03-10T11:00:00Z"},'
+    '{"id":"IRP-2026-03-15-010","type":"decision","what":"All illustrations use 1.5 px line weight at base scale — no exceptions","why":"Inconsistent line weights made multi-page documents look unpolished in enterprise demos. The design team had five competing standards. References IRP-2026-01-10-001 — visual system must be internally consistent. Rejected per-team latitude — too hard to enforce at scale.","confidence":"high","tags":["illustration","visual-system","brand"],"source":"stdin","timestamp":"2026-03-15T14:00:00Z"},'
+    '{"id":"IRP-2026-03-20-011","type":"decision","what":"REST over GraphQL for the asset delivery API","why":"The creative tools team has zero GraphQL experience. REST is sufficient for current query patterns. GraphQL adds a learning curve with no query-complexity benefit at this stage. References IRP-2026-02-01-004 — keep the component API simple for enterprise onboarding.","confidence":"high","tags":["api","rest","architecture"],"source":"slack","timestamp":"2026-03-20T10:00:00Z"},'
+    '{"id":"IRP-2026-04-01-012","type":"decision","what":"All exported assets served from CDN edge nodes — no origin fallback for large files","why":"Large creative files were hitting 4–8 s load times from origin. CDN edge cuts this to under 400 ms. Rejected client-side compression — too complex for the file format diversity. Builds on IRP-2026-03-20-011 delivery architecture.","confidence":"high","tags":["cdn","performance","assets"],"source":"stdin","timestamp":"2026-04-01T09:00:00Z"},'
+    '{"id":"IRP-2026-04-05-013","type":"decision","what":"Multi-brand theming via token sets — not separate codebases per brand","why":"Two brands requested separate codebases. Token sets from IRP-2026-01-15-002 cover 90% of brand differentiation via mode switching. Maintaining separate codebases would triple release overhead. References IRP-2026-02-05-005 multi-mode foundation.","confidence":"high","tags":["multi-brand","tokens","architecture"],"source":"slack","timestamp":"2026-04-05T11:00:00Z"},'
+    '{"id":"IRP-2026-04-10-014","type":"decision","what":"Accessibility audit runs on every PR — no merge without WCAG AA pass","why":"Enterprise legal flagged WCAG compliance as a contractual requirement in Q1 SOWs. IRP-2026-02-01-004 Radix foundation makes automated WCAG AA achievable. Rejected spot-audits — too easy to slip under deadline pressure.","confidence":"high","tags":["a11y","ci","wcag","process"],"source":"slack","timestamp":"2026-04-10T10:00:00Z"},'
+    '{"id":"IRP-2026-04-15-015","type":"decision","what":"AI-assisted design suggestions are opt-in, not surfaced by default","why":"Privacy-sensitive enterprise clients require explicit consent for AI features. Four accounts flagged opt-out fatigue with AI defaults. References IRP-2026-02-01-004 enterprise trust model. Rejected always-on — two prospects cited it as a blocker.","confidence":"high","tags":["ai","privacy","enterprise","ux"],"source":"slack","timestamp":"2026-04-15T14:00:00Z"},'
+    '{"id":"IRP-2026-04-20-016","type":"decision","what":"Component documentation lives in Storybook — Figma descriptions are summaries only","why":"Two sources of truth for component docs was causing spec drift. Storybook is canonical for behaviour, Figma for visual intent. Eliminates sync burden. References IRP-2026-02-20-007 handoff rationale and IRP-2026-02-01-004 component library direction.","confidence":"medium","tags":["docs","storybook","figma","components"],"source":"stdin","timestamp":"2026-04-20T10:00:00Z"},'
+    '{"id":"IRP-2026-04-22-017","type":"decision","what":"Semantic versioning enforced for the component library — breaking changes require a major bump","why":"Three teams were bitten by undocumented breaking changes in minor releases. References IRP-2026-02-01-004 component library direction. Rejected loose versioning — trust cost outweighed flexibility.","confidence":"high","tags":["versioning","components","process"],"source":"slack","timestamp":"2026-04-22T09:00:00Z"},'
+    '{"id":"IRP-2026-04-25-018","type":"decision","what":"Design system has a quarterly review cycle — no ad-hoc deprecations between reviews","why":"Ad-hoc deprecations were disrupting product team sprints without warning. A quarterly cadence gives consuming teams time to migrate. References IRP-2026-04-22-017 versioning discipline. Builds on IRP-2026-01-10-001 shared system governance model.","confidence":"medium","tags":["governance","process","design-system"],"source":"stdin","timestamp":"2026-04-25T11:00:00Z"}]'
+)
+
 def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     output_arg = getattr(args, "output", None)
     force = bool(getattr(args, "force", False))
+    demo = bool(getattr(args, "demo", False))
 
-    output_path = Path(output_arg) if output_arg else (project_root / "GRAPH.html")
+    if demo:
+        decisions = _SAMPLE_DECISIONS
+        default_name = "GRAPH-demo.html"
+    else:
+        ledger = read_ledger(irp_dir)
+        decisions = [row for row in ledger if _is_decision(row)]
+        default_name = "GRAPH.html"
+        if not decisions:
+            return {
+                "command": "export.graph",
+                "status": "empty",
+                "text": (
+                    "No decisions found in .irp/ledger.jsonl\n\n"
+                    "Capture your first decision with:\n"
+                    "  irp capture\n\n"
+                    "Or explore a populated example (18 decisions, 22 edges):\n"
+                    "  irp export graph --demo"
+                ),
+            }
+
+    output_path = Path(output_arg) if output_arg else (project_root / default_name)
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
-
-    ledger = read_ledger(irp_dir)
-    decisions = [row for row in ledger if _is_decision(row)]
 
     if output_path.exists() and not force:
         return {
@@ -353,14 +392,16 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "Command: export graph",
         "",
     ]
+    demo_note = " (sample data — your ledger is not modified)" if demo else ""
+    regen_cmd = "  irp export graph --demo --force" if demo else "  irp export graph --force"
     text = "\n".join(header + [
         f"Wrote {output_path}",
-        f"Nodes:  {len(decisions)} decision(s)",
+        f"Nodes:  {len(decisions)} decision(s){demo_note}",
         f"Edges:  {edge_count} provenance reference(s) with animated particles",
         "",
         "Open in any browser. Drag to orbit · scroll to zoom · click to inspect.",
         "Regenerate any time with:",
-        "  irp export graph --force",
+        regen_cmd,
     ])
 
     return {
