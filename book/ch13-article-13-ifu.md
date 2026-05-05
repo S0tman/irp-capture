@@ -93,6 +93,12 @@ Article 13 requires decision traceability between the IFU and the deployment. Wh
 
 IRP ties each decision record to the IFU version active when the decision was made. The IFU is not a filed document — it is a versioned artefact in the same ledger as the decision. That linkage is what makes Article 12 and Article 13 coherent together: the decision record carries both the AI recommendation and the documented basis on which the Deployer was expected to act.
 
+Decisions that document scope, intended use, capabilities, and limitations — the content of a compliant IFU — are surfaced specifically as Article 13 evidence by `irp export evidence`. If a decision records "Agent scope limited to Swedish and Norwegian SME applicants with registered VAT number — no consumer credit," that is an IFU statement in structured form. The evidence package extracts those decisions and presents them as the transparency record Article 13 requires.
+
+```bash
+irp export evidence   # Article 13 section lists scope and transparency decisions
+```
+
 ---
 
 ## The Essentials

@@ -307,6 +307,46 @@ High false positive rate (>30%) means the stopword list needs tuning. High miss 
 
 The goal is "catch 80-90% of real conflicts with <20% false positives." Perfect accuracy is impossible (keywords are imperfect), but reasonable accuracy is achievable.
 
+## From Check to Guard: Enforcement at the Commit Layer
+
+`irp check` is a manual step — you ask, it answers. `irp guard` takes the same logic and makes it automatic: a pre-commit hook that runs conflict detection against every `git commit`, without you having to remember to ask.
+
+```bash
+# Install once per project
+irp guard install
+
+# From that point on, every commit is checked automatically
+git commit -m "switch authentication library"
+# IRP guard: ⚠ Warning
+#   Decision:   IRP-2026-03-14-002
+#   What:       Use JWT for stateless auth across all services
+#   Matched on: auth, authentication, library
+```
+
+The same keyword overlap algorithm runs. The same severity model applies:
+
+- **Clear** — no overlap with any active decision. Silent pass.
+- **Warning** (1–2 tokens) — weak signal. Printed, but the commit goes through.
+- **Conflict** (3+ tokens) — strong overlap. Exit code 10. Still non-blocking by default.
+
+The non-blocking default is intentional and mirrors `irp check`'s philosophy: **information without coercion.** The hook warns, the human decides.
+
+For teams that want enforcement — a hard stop on commits that touch settled decisions — the opt-in is one environment variable:
+
+```bash
+IRP_GUARD_BLOCK=1 git commit -m "switch authentication library"
+# IRP guard: ✗ Conflict — commit aborted
+```
+
+This design means `irp guard` can be installed into any project immediately, without disrupting existing workflows. Teams start in warn mode, observe the signal quality, and enable blocking when they trust the detection.
+
+```bash
+irp guard status   # Is the hook installed?
+irp guard run      # Run the check manually (what the hook calls)
+```
+
+The relationship between `check` and `guard` is the relationship between asking a question and having the question asked for you. Both use the same engine. Guard just removes the human memory requirement.
+
 ## Summary: Validation Without Blocking
 
 Check is IRP's conflict detection system. It's:
@@ -347,3 +387,8 @@ Next chapter: how does a real tool (Figma) integrate IRP into its workflow?
 - **Problem solved:** Team can evaluate conflicts and decide how to handle
 - **How to adapt:** Return conflict details (what matched, why). Let team make decision.
 - **Pitfall to watch:** Don't force a single resolution pattern. Teams need flexibility.
+
+**Pattern 6: Automated Guard at the Commit Layer**
+- **Problem solved:** Manual checks depend on human memory. Teams forget to run `irp check` before committing.
+- **How to adapt:** Pre-commit hook runs the same detection automatically. Warn-only by default, opt-in blocking via environment variable.
+- **Pitfall to watch:** Don't make the guard blocking by default. Warn mode lets teams calibrate false positive rates before enabling enforcement.

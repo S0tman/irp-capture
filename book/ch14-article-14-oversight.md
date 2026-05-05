@@ -97,6 +97,14 @@ At scale, manual tracking of human engagement does not work. A team processing h
 
 This is the requirement Article 14 creates and that IRP addresses: the human decision must be a captured artefact in the same record as the AI recommendation. Not reconstructed from secondary sources. Not asserted after the fact. Generated at the moment of review, linked to the AI output, and retained with integrity. At any meaningful scale, this is the only way the oversight record can exist.
 
+The `confirmed_by` field in every IRP ledger entry is the human oversight anchor. It records who confirmed the decision — the natural person who approved, constrained, or governed what the AI system was permitted to do. `irp export evidence` surfaces every entry with a `confirmed_by` value as an Article 14 oversight event.
+
+```bash
+irp export evidence   # Article 14 section lists human oversight events
+```
+
+Beyond evidence generation, `irp guard` addresses the other side of Article 14: preventing decisions from being silently undone. A deployment constraint documented in the ledger — an escalation policy, a scope boundary, an override requirement — is a governed decision. `irp guard` installs a pre-commit hook that detects when a code or configuration change is about to contradict that constraint. The human oversight record does not protect itself. Guard is the mechanism that defends it.
+
 ---
 
 ## The Essentials

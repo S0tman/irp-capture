@@ -106,6 +106,10 @@ The steering wheel is yours. The question is whether you can prove it.
 
 5. **The assessment is the start.** Understanding your current position — role, risk tier, obligation gaps, fine exposure — is the prerequisite for everything else. Start with the systems that carry the most risk. What you do next takes longer. Start now.
 
+6. **The evidence package is the proof.** A decision record without structured evidence is compliance in practice but not on paper. `irp export evidence` converts an existing IRP ledger into a document that maps your decisions to Articles 12, 13, and 14 — the traceability record, the transparency record, and the human oversight record in a single structured output. If you have been capturing decisions, run it. If you have not, the `--demo` flag shows you what it looks like when you do.
+
+7. **Guard the decisions you made.** Compliance is not a one-time documentation exercise. Every commit is an opportunity to undo a governed decision silently. `irp guard install` adds a pre-commit hook that detects when staged changes contradict active decisions. It does not block by default — it warns. The warning is enough to catch the problem before it becomes a gap in your audit trail.
+
 ---
 
 *All information is provided for educational purposes and does not constitute legal advice. For advice specific to your organisation's situation, consult a qualified legal practitioner.*

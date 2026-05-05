@@ -111,6 +111,15 @@ The ledger is the audit trail. The audit trail is the compliance evidence.
 
 If your decision record gap is significant, closing it is your first compliance priority.
 
+Once the record exists, `irp export evidence` generates a structured Article 12 evidence package directly from the ledger — every decision timestamped, sequenced, and presented as a traceable audit trail. One command. No manual assembly.
+
+```bash
+irp export evidence          # generates EVIDENCE.md from your ledger
+irp export evidence --demo   # try with a built-in high-risk AI scenario
+```
+
+The output names each decision, shows what was decided and why, records who confirmed it, and presents the full set as the Article 12 record it is. That document is what you hand an auditor. The ledger is what you point to as the source of truth.
+
 ---
 
 ## The Essentials
