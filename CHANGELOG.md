@@ -4,6 +4,15 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.6.4] — 2026-05-05
+
+### Added — `irp export evidence` · EU AI Act evidence package
+### Added — `irp guard` · Pre-commit conflict detection
+
+See [Unreleased] entries above for full detail.
+
+---
+
 ## [0.6.3] — 2026-05-01
 
 ### Added — `irp stats` · Local activation dashboard
