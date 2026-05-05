@@ -28,6 +28,7 @@ from typing import Any
 
 from irp.core.store import read_ledger
 from irp.core.commands.graph import run_export_graph
+from irp.core.commands.evidence import run_export_evidence
 
 # ── header copy ──────────────────────────────────────────────────────────────
 
@@ -328,6 +329,8 @@ def run_export(project_root: Path, irp_dir: Path, args) -> dict:
     action = getattr(args, "export_action", None)
     if action == "context":
         return _run_export_context(project_root, irp_dir, args)
+    if action == "evidence":
+        return run_export_evidence(project_root, irp_dir, args)
     return {
         "command": "export",
         "status": "error",

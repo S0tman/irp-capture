@@ -5,6 +5,14 @@
 tools/.env
 tools/.env.local
 
+# IRP regenerable exports (use irp export ... --force to recreate)
+GRAPH.html
+GRAPH-demo.html
+EVIDENCE.md
+EVIDENCE-demo.md
+AGENTS.md
+DECISIONS.md
+
 # Python
 __pycache__/
 *.py[cod]

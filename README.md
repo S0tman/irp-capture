@@ -320,11 +320,19 @@ irp export graph
 
 # Try a populated example without touching your ledger (18 decisions, 22 edges)
 irp export graph --demo
+
+# Export EU AI Act evidence package (Art. 12, 13, 14)
+irp export evidence
+
+# Try with built-in Nordic lending platform sample (10 decisions)
+irp export evidence --demo
 ```
 
 `AGENTS.md` derives single-line constraints from your decisions, each citing its source IRP id. Drop it in any project root and agents know not just *what* the rules are, but *where they came from*.
 
 `DECISIONS.md` renders your full decision history newest-first — confidence, tags, source, reasoning. Readable by any collaborator who doesn't run IRP.
+
+`EVIDENCE.md` maps every ledger decision to EU AI Act articles — Art. 12 (logging and traceability), Art. 14 (human oversight events), and Art. 13 (transparency and scope). One command, structured evidence package, no manual assembly. Try the built-in Nordic lending platform sample with `--demo`.
 
 `GRAPH.html` renders all decisions as a self-contained interactive 3D force globe. Nodes are colour-coded by confidence (green / amber / red). Animated particles travel along provenance edges — every IRP id cross-reference in a `why` field becomes a directed edge. No server required — open in any browser.
 
@@ -336,11 +344,38 @@ irp export graph --demo
 
 Both context files ship read-only (`chmod 444`) by default. They are regenerable at any time. The ledger remains the source of truth.
 
+### Guard: pre-commit conflict detection
+
+`irp guard` watches your commits and warns when staged changes touch something your decisions already settled.
+
+```bash
+# Install once per project
+irp guard install
+
+# Check manually (what the hook calls)
+irp guard run
+
+# Show hook status
+irp guard status
+```
+
+The hook is warn-only by default — it prints a conflict notice but never aborts a commit. To make it blocking:
+
+```bash
+IRP_GUARD_BLOCK=1 git commit -m "your message"
+```
+
+Severity levels:
+- **Conflict** (3+ token overlap with an active decision) → exit 10, warn or block
+- **Warning** (1–2 tokens) → informational only
+- **Clear** → silent pass
+
 ```
 The missing layer in the AI tool stack:
   AGENTS.md       ← what to do
   IRP ledger      ← why those rules exist
   GRAPH.html      ← how decisions connect
+  irp guard       ← catches decisions being undone
 ```
 
 ---
@@ -457,6 +492,10 @@ Start capturing from day one, even if the entries are simple.
 | Export human decision log | `irp export context --target decisions.md` |
 | Export interactive 3D graph | `irp export graph` |
 | Export graph with sample data | `irp export graph --demo` |
+| Export EU AI Act evidence package | `irp export evidence` |
+| Export evidence with sample data | `irp export evidence --demo` |
+| Install pre-commit guard hook | `irp guard install` |
+| Check staged changes manually | `irp guard run` |
 | JSON output | Add `--json` to any command |
 
 ---

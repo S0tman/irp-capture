@@ -14,6 +14,7 @@ from irp.core.commands.demo import run_demo
 from irp.core.commands.bootstrap import run_bootstrap
 from irp.core.commands.doctor import run_doctor
 from irp.core.commands.export import run_export
+from irp.core.commands.guard import run_guard
 from irp.core.commands.inherit import run_inherit
 from irp.core.commands.stats import run_stats
 from irp.core.commands.why import run_why
@@ -96,6 +97,36 @@ def build_parser() -> argparse.ArgumentParser:
     # ── doctor ────────────────────────────────────────────────────────────────
     p = sub.add_parser("doctor", help="Check installation health and environment")
     p.add_argument("--json", action="store_true")
+
+    # ── guard ─────────────────────────────────────────────────────────────────
+    p_guard = sub.add_parser(
+        "guard",
+        help="Pre-commit hook — check staged changes against IRP decisions",
+    )
+    guard_sub = p_guard.add_subparsers(dest="guard_action", required=True)
+
+    p_guard_install = guard_sub.add_parser(
+        "install",
+        help="Install IRP guard as a git pre-commit hook",
+    )
+    p_guard_install.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing hook",
+    )
+    p_guard_install.add_argument("--json", action="store_true")
+
+    p_guard_run = guard_sub.add_parser(
+        "run",
+        help="Check staged diff against active decisions (called by hook or manually)",
+    )
+    p_guard_run.add_argument("--json", action="store_true")
+
+    p_guard_status = guard_sub.add_parser(
+        "status",
+        help="Show whether the IRP guard hook is installed",
+    )
+    p_guard_status.add_argument("--json", action="store_true")
 
     # ── bootstrap ─────────────────────────────────────────────────────────────
     p_boot = sub.add_parser(
@@ -194,6 +225,28 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_export_graph.add_argument("--json", action="store_true")
 
+    p_export_evidence = export_sub.add_parser(
+        "evidence",
+        help="Export EU AI Act evidence package (Art. 12, 13, 14) from decision ledger",
+    )
+    p_export_evidence.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output file path (default: EVIDENCE.md in project root)",
+    )
+    p_export_evidence.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing output file",
+    )
+    p_export_evidence.add_argument(
+        "--demo",
+        action="store_true",
+        help="Generate evidence package from built-in sample data (Nordic lending platform) — does not touch your ledger",
+    )
+    p_export_evidence.add_argument("--json", action="store_true")
+
     return parser
 
 def print_result(result: dict, as_json: bool) -> None:
@@ -222,6 +275,7 @@ def main() -> int:
             "stats":     run_stats,
             "doctor":    run_doctor,
             "export":    run_export,
+            "guard":     run_guard,
         }
         result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
         print_result(result, getattr(args, "json", False))
