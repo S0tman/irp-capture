@@ -616,6 +616,89 @@ Two views, one substrate.
 
 ---
 
+## EU AI Act Evidence Package: Decisions as Compliance Artefacts
+
+`irp export context` and `irp export graph` make decisions portable — readable by agents, humans, and visual tools. `irp export evidence` makes decisions *legally legible* — structured as a compliance evidence package that maps your decision ledger to the specific articles of the EU AI Act.
+
+```bash
+irp export evidence              # generates EVIDENCE.md from your ledger
+irp export evidence --demo       # generates EVIDENCE-demo.md from built-in sample data
+irp export evidence --force      # overwrite existing file
+```
+
+The output is a structured Markdown document divided into three sections:
+
+**Article 12 — Logging and Traceability.** Every decision in the ledger qualifies. The append-only ledger, the timestamp chain, the human-confirmed record — these are the structural properties Article 12 is looking for. The evidence package surfaces all of them, with every decision listed and its confirming metadata shown.
+
+**Article 14 — Human Oversight Events.** Decisions where a human confirmation is recorded (the `confirmed_by` field) are surfaced specifically as oversight events. These are the moments where a natural person confirmed, approved, constrained, or governed what the AI system was permitted to do. That is the definition of human oversight under Article 14. The evidence package makes those moments explicit.
+
+**Article 13 — Transparency and Instructions for Use.** Decisions that document scope, intended use, limitations, or capabilities are surfaced here. A decision that says "Agent scope limited to Swedish and Norwegian SME applicants with registered VAT number — no consumer credit" is an IFU statement in structured form. The evidence package extracts those decisions and presents them as transparency evidence.
+
+Each section ends with a coverage summary. The footer is honest: what the package covers, and what it does not.
+
+```
+| Article | Requirement              | Records | Status     |
+|---------|--------------------------|---------|------------|
+| Art. 12 | Logging and traceability | 10      | ✅ Covered |
+| Art. 14 | Human oversight evidence | 10      | ✅ Covered |
+| Art. 13 | Transparency / scope     | 9       | ✅ Covered |
+```
+
+### The --demo flag
+
+Every export command ships with a `--demo` flag that generates output from a built-in sample dataset without touching your ledger. For `irp export evidence`, the sample is a Nordic SME lending platform — a loan pre-screening AI agent classified as high-risk under Annex III point 5(b). Ten decisions, spanning deployment approval, risk classification, escalation policy, override logging, quarterly retraining, and a Fundamental Rights Impact Assessment. Realistic enough to show a prospect exactly what the evidence package looks like for a regulated AI deployment.
+
+```bash
+irp export evidence --demo
+# Writes EVIDENCE-demo.md — does not read or modify your ledger
+```
+
+### Design invariants
+
+The same rules apply as all IRP export commands:
+
+- **No new schema.** Reads `.irp/ledger.jsonl` only.
+- **No LLM calls. No inference.** Article mapping is deterministic: keyword heuristics for Art. 13, `confirmed_by` field presence for Art. 14, every decision for Art. 12.
+- **Always regenerable.** The ledger is canonical; `EVIDENCE.md` is a projection.
+- **Read-only by default.** Ships `chmod 444`. Override with `--writable`.
+
+### The positioning
+
+The evidence package does not replace what EU AI Act compliance requires. It addresses a specific gap: organisations that have been capturing decisions — the reasoning behind deployments, constraints, oversight design, escalation policies — but have no structured way to present that record to a regulator or auditor. The evidence package converts an existing IRP ledger into a document an auditor can read.
+
+If your decision record gap is significant, `irp export evidence --demo` shows you what the gap costs and what closing it produces.
+
+---
+
+## Guard: Pre-Commit Conflict Detection
+
+Export commands make decisions portable. Guard makes the decisions *sticky* — it catches attempts to commit changes that contradict what was already decided.
+
+```bash
+irp guard install    # installs .git/hooks/pre-commit once per project
+irp guard run        # what the hook calls; also callable manually
+irp guard status     # is the hook installed?
+```
+
+The hook runs on every `git commit`. It reads the staged diff, extracts added lines, and scores them against all active decisions in the ledger — picking the best match, not the first. Three severity levels:
+
+- **Clear** — no overlap. Silent. Commit proceeds.
+- **Warning ⚠** — 1–2 token overlap. Printed to terminal. Commit proceeds.
+- **Conflict ✗** — 3+ token overlap. Printed to terminal with the matched decision, what it says, and why it was captured. Exit code 10. Commit still proceeds unless blocking is enabled.
+
+The warn-only default is deliberate. Teams install the hook on day one, observe what it surfaces, and calibrate. False positives are visible but non-disruptive. When the team trusts the signal, they enable blocking:
+
+```bash
+IRP_GUARD_BLOCK=1 git commit -m "change authentication approach"
+# ✗ Conflict — commit aborted
+```
+
+The hook also reads the commit message alongside the staged diff. A commit message that says "revert the auth decision from last sprint" is a signal just as much as the code change itself.
+
+Guard is the enforcement surface for everything the ledger captures. Decisions are not just recorded — they are defended at the moment a change is about to undo them. This is the missing link between passive documentation and active governance.
+
+---
+
 ## Future: Event Webhooks
 
 IRP currently is request-driven (sensors POST decisions, tools GET decisions). A future enhancement could add event webhooks: "When a decision is captured, notify these endpoints." This would enable CI/CD pipelines to react to architecture decisions automatically. But for now, tools pull decisions via REST API or use the MCP protocol, and respond accordingly.
@@ -635,7 +718,7 @@ A healthy IRP system shows steady ledger growth, active check usage, and high co
 
 ## Summary: Extensibility Through Simplicity
 
-IRP's extensibility comes from seven principles:
+IRP's extensibility comes from nine principles:
 
 1. **Portable format:** Decisions are JSON, easily transported
 2. **REST API:** Any tool can query decisions via HTTP
@@ -644,17 +727,20 @@ IRP's extensibility comes from seven principles:
 5. **Local-first:** Source of truth is local, tools are integrators not owners
 6. **Deterministic projection:** Decisions export to portable files (AGENTS.md, DECISIONS.md) with full provenance — no LLM calls, no inference, always regenerable
 7. **Visual lineage:** The full decision ledger renders as an interactive 3D graph — nodes are decisions, edges are provenance cross-references, clusters reveal architectural patterns over time
+8. **Compliance evidence:** The ledger maps to EU AI Act articles deterministically — Art. 12 (traceability), Art. 13 (transparency), Art. 14 (human oversight) — and generates a structured evidence package on demand
+9. **Commit-layer enforcement:** A pre-commit hook catches decisions being undone before they are committed — warn-only by default, opt-in blocking via environment variable
 
 These principles enable:
 - Multi-tool capture (Figma, Slack, CLI, agents via MCP, etc.)
 - Multi-tool querying (REST API, MCP tools, collab.py, direct file access)
-- Conflict detection across tools
+- Conflict detection across tools, at capture time and at commit time
 - Context injection into external AI models
 - Portable working context for agents and humans who don't query an API
 - Visual inspection of decision lineage and provenance clusters
+- Structured compliance evidence for regulated AI deployments
 - Minimal coupling, maximum flexibility
 
-Next chapter: patterns and synthesis—what can you apply to your own decisions?
+Next chapter: patterns and synthesis — what can you apply to your own decisions?
 
 ## Apply This
 
@@ -692,3 +778,13 @@ Next chapter: patterns and synthesis—what can you apply to your own decisions?
 - **Problem solved:** Text lists of decisions don't reveal how decisions *relate* — which ones constrain later ones, which domains cluster, which early architectural choices propagate forward
 - **How to adapt:** Derive edges structurally (regex on cross-references in `why` fields); use a force-directed 3D layout so clusters emerge without any manual grouping; keep it a build artefact regenerated from the same substrate
 - **Pitfall to watch:** Don't treat the graph as the source of truth. Edges should be derived, not authored. If you let people draw edges manually, the provenance chain breaks.
+
+**Pattern 8: Deterministic Compliance Evidence**
+- **Problem solved:** Regulated teams have decision records but no structured way to present them to an auditor or regulator
+- **How to adapt:** Map decisions to regulatory articles using keyword heuristics and structured fields (`confirmed_by` for Art. 14); generate output deterministically with no LLM calls; include a coverage summary and honest scope disclaimer
+- **Pitfall to watch:** Don't claim the evidence package constitutes legal compliance. It covers decision provenance. Full compliance requires additional technical documentation. Say so clearly in the output.
+
+**Pattern 9: Commit-Layer Guard**
+- **Problem solved:** Decisions captured in the ledger can be silently undone by a commit that nobody checks against them
+- **How to adapt:** Pre-commit hook runs the same conflict detection as `irp check` against staged diff and commit message; warn-only default; opt-in blocking via environment variable
+- **Pitfall to watch:** Don't block by default. Teams need to calibrate false positive rates before trusting the enforcement. Warn mode is not a weakness — it is how adoption happens.
