@@ -496,6 +496,8 @@ Start capturing from day one, even if the entries are simple.
 | Export evidence with sample data | `irp export evidence --demo` |
 | Install pre-commit guard hook | `irp guard install` |
 | Check staged changes manually | `irp guard run` |
+| Run execution governance critique | `python3 tools/collab.py --mode critique "proposal"` |
+| Critique with web search | `python3 tools/collab.py --mode critique --tools web_search "..."` |
 | JSON output | Add `--json` to any command |
 
 ---
@@ -558,6 +560,9 @@ IRP focuses on the second.
 | Slack sensor | Available |
 | Discord sensor | Live — v0 |
 | Figma plugin | Live — v0 |
+| MCP server (`irp-mcp`) | Available |
+| Execution governance (`collab.py --mode critique`) | Available — v2 |
+| Agent middleware SDK (`irp.sdk`) | Available — v0 |
 | Git hook | Live — warn mode (enforce coming) |
 | PR bot | Live — warn-only |
 | pip package | Live — v0.5.0 |
