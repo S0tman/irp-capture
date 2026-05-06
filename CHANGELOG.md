@@ -4,12 +4,63 @@ All notable changes to irp-capture are documented here.
 
 ---
 
+## [0.6.5] — 2026-05-06
+
+### Added — `tools/collab.py` v2 · Execution governance layer
+
+- `--mode critique` — evaluates a proposed action against Anthropic's safe agents framework
+  (five principles: human_control, transparency, value_alignment, privacy, security).
+  Returns structured JSON: `{verdict: CLEAR|WARN|BLOCK, principle_flags, reasoning, defer_question}`
+- Exit code 2 on BLOCK verdict — pipeline-gateable (`if [ $? -eq 2 ]; then ...`)
+- Default transport: chat completions + `response_format:json_object` — works with any key
+- `--tools web_search` — routes via OpenAI Responses API with `web_search_preview`
+- IRP context injected into harness — active ledger decisions checked against the proposal
+- Colour-coded verdict output (`✓ CLEAR` / `⚠ WARN` / `✗ BLOCK`) to stderr; JSON to stdout
+- `defer_question` surfaces on WARN or BLOCK for human review
+- Default model upgraded `gpt-4o` → `gpt-4.1`
+- `--mode collab` (default) fully backward-compatible with v1
+
+### Added — `irp/sdk.py` · Agent Middleware SDK
+
+- `IRP` class: no-dependency programmatic layer for agent orchestration code
+- `irp.why(id=None)` — current decision context
+- `irp.check(proposal)` — conflict detection; returns `IRPResult` with `.has_conflict`
+- `irp.guard(action="run"|"install"|"status")` — git staged-diff safety gate
+- `irp.capture(what, why, confidence, source, tags)` — write to ledger
+- `irp.gate(proposal)` — convenience wrapper for the pre-execution gate
+- `IRPResult` dataclass: `.ok`, `.has_conflict`, `.exit_code` for pipeline use
+- `irp/__init__.py`, `irp/core/__init__.py` — `irp/` is now an importable package
+
+---
+
 ## [0.6.4] — 2026-05-05
 
 ### Added — `irp export evidence` · EU AI Act evidence package
+
+- New `irp export evidence` command generates a structured Markdown evidence package mapping ledger decisions to EU AI Act articles:
+  - **Art. 12** — all decisions qualify (logging and traceability)
+  - **Art. 14** — decisions with `confirmed_by` field or oversight keywords (human oversight events)
+  - **Art. 13** — decisions containing scope/use/limitation keywords (transparency and IFU)
+- `irp export evidence --demo` generates `EVIDENCE-demo.md` from a built-in Nordic SME lending platform scenario (10 decisions, Annex III 5(b) high-risk classification) — does not touch the ledger
+- Output is `EVIDENCE.md` by default; `--force` to overwrite; `--output PATH` to redirect
+- File written `chmod 444` (read-only) by default; `--json` for machine-readable output
+- Evidence summary table at end of document shows per-article coverage status
+- Per-decision reasoning preserved — not just outcomes, but the why behind each compliance record
+- `EVIDENCE.md` and `EVIDENCE-demo.md` added to `.gitignore` (regenerable artifacts)
+
 ### Added — `irp guard` · Pre-commit conflict detection
 
-See [Unreleased] entries above for full detail.
+- New `irp guard` command with three subcommands:
+  - `irp guard install` — writes `.git/hooks/pre-commit`; detects and refuses to clobber existing non-IRP hooks; `--force` to overwrite
+  - `irp guard run` — reads staged diff + commit message, scores against all active decisions, reports highest-overlap match; used as the hook body and callable manually
+  - `irp guard status` — reports whether the IRP hook is installed, and whether it's executable
+- Severity model (v0 — token overlap):
+  - **conflict** (3+ tokens): exit 10, printed as `✗ Conflict` — triggers `IRP_GUARD_BLOCK` abort if set
+  - **warning** (1–2 tokens): exit 0, printed as `⚠ Warning` — informational only, never blocks
+  - **clear** (0 tokens): silent exit 0
+- Hook is warn-only by default. Set `IRP_GUARD_BLOCK=1` to abort commits on conflict
+- Scores all active decisions and picks the best match (not first match)
+- Checks both staged diff added-lines and `COMMIT_EDITMSG` for broader signal
 
 ---
 
