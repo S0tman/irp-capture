@@ -1,19 +1,29 @@
-"""irp export evidence — EU AI Act decision provenance evidence package.
+"""irp export evidence — pluggable compliance evidence package.
 
-Generates a structured Markdown document mapping IRP ledger entries to EU AI Act
-Articles 12 (logging), 13 (transparency), and 14 (human oversight).
+Generates a structured Markdown document mapping IRP ledger entries to a
+compliance framework's requirements. The EU AI Act (Art. 12/13/14) is the
+default; SOC 2, GDPR, and ISO 42001 are built-in alternatives.
+
+Usage:
+    irp export evidence                            # EU AI Act (default)
+    irp export evidence --framework euaiact
+    irp export evidence --framework soc2
+    irp export evidence --framework gdpr
+    irp export evidence --framework iso42001
+    irp export evidence --framework custom --config path/to/framework.json
+    irp export evidence --demo                     # built-in sample data
 
 Design rules:
   - No LLM calls. No inference. Deterministic mapping only.
-  - All decisions qualify as Article 12 evidence (append-only, timestamped, human-confirmed).
-  - Article 14 evidence: every decision with a confirmed_by field is a human oversight event.
-  - Article 13 evidence: decisions about scope, use, limitations (keyword heuristic).
-  - --demo flag: uses built-in sample data, never touches the ledger.
+  - Each framework defines sections; each section declares which decisions
+    qualify via keywords, confirmed_by, or an all-qualify flag.
+  - The framework schema is open — custom frameworks load from JSON.
+  - --demo uses built-in sample data, never touches the ledger.
   - Output is always regenerable. The ledger remains the source of truth.
   - Does not constitute legal advice.
 
-IRP decision: IRP-2026-05-04-002 (irp export evidence as pre-sales gate for
-regulated industry conversations).
+IRP decisions: IRP-2026-05-05-001 (evidence as pre-sales gate),
+               IRP-2026-05-04-002 (regulated industry conversations).
 """
 from __future__ import annotations
 
@@ -22,101 +32,333 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from irp.core.store import read_ledger
+from store import read_ledger
 
-# ── article keyword heuristics ────────────────────────────────────────────────
 
-# Article 13 — transparency / IFU: decisions about what the system does,
-# its scope, intended use, limitations, and how deployers should use it.
-_ART13_KEYWORDS = {
-    "intended use", "use case", "scope", "limitation", "capability",
-    "purpose", "deploy", "user", "customer", "model", "system",
-    "transparency", "ifu", "instruction", "disclosure", "inform",
-    "document", "specification", "constraint", "boundary",
-}
+# ── framework schema ──────────────────────────────────────────────────────────
+#
+# A framework is a dict with:
+#   id         str           machine name
+#   name       str           display name
+#   sections   list[Section] ordered list of evidence sections
+#   disclaimer str (opt)     override the standard legal disclaimer
+#   gaps       list[str]     "What this record does not cover" bullets
+#
+# A Section is a dict with:
+#   id                    str           machine name ("art12", "cc7.2", …)
+#   name                  str           display heading
+#   intro                 str           requirement explanation paragraph
+#   keywords              list[str]     word fragments matched in what+why
+#   all_qualify           bool (opt)    every decision qualifies
+#   confirmed_by_qualifies bool (opt)   confirmed_by field makes it qualify
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Article 14 — human oversight: decisions about agent control, approval
-# chains, escalation, human review, and intervention rights.
-_ART14_KEYWORDS = {
-    "agent", "automat", "human", "oversight", "approv", "review",
-    "confirm", "escalat", "intervene", "halt", "stop", "override",
-    "monitor", "supervise", "control", "audit", "verify", "check",
-    "sign off", "sign-off", "authoris", "authoriz", "responsible",
-}
-
-def _article_tags(entry: dict[str, Any]) -> list[str]:
-    """Return which EU AI Act articles this decision is evidence for."""
-    text = (
-        (entry.get("decision") or entry.get("what") or "") + " " +
-        (entry.get("why") or "")
-    ).lower()
-
-    tags = ["Art. 12"]  # every decision qualifies
-
-    if entry.get("confirmed_by"):
-        tags.append("Art. 14")
-    else:
-        for kw in _ART14_KEYWORDS:
-            if kw in text:
-                tags.append("Art. 14")
-                break
-
-    for kw in _ART13_KEYWORDS:
-        if kw in text:
-            tags.append("Art. 13")
-            break
-
-    return tags
-
-def _decision_text(entry: dict[str, Any]) -> str:
-    return (entry.get("decision") or entry.get("what") or "").strip()
-
-def _why_text(entry: dict[str, Any]) -> str:
-    return (entry.get("why") or "").strip()
-
-def _format_ts(ts: str) -> str:
-    if not ts:
-        return "—"
-    return ts[:10] if len(ts) >= 10 else ts
-
-# ── document builder ──────────────────────────────────────────────────────────
-
-_DISCLAIMER = (
+_STANDARD_DISCLAIMER = (
     "> **Note:** This document was generated from an IRP decision ledger. "
     "IRP provides an append-only, human-confirmed record of decisions governing AI deployments. "
     "This document supports compliance assessment but does not constitute legal advice. "
     "Consult a qualified legal practitioner for advice specific to your organisation."
 )
 
-_ART12_INTRO = """\
-Article 12 requires that high-risk AI systems maintain logs sufficient to trace \
-their operation. IRP provides an append-only, timestamped, human-confirmed decision \
-ledger. Every entry below was captured at the moment the decision was made and cannot \
-be modified after the fact. This satisfies the core logging and traceability requirement.
+_EUAIACT_FRAMEWORK: dict[str, Any] = {
+    "id": "euaiact",
+    "name": "EU AI Act (Art. 12 · 13 · 14)",
+    "sections": [
+        {
+            "id": "art12",
+            "name": "Article 12 — Logging and Traceability",
+            "intro": (
+                "Article 12 requires that high-risk AI systems maintain logs sufficient "
+                "to trace their operation. IRP provides an append-only, timestamped, "
+                "human-confirmed decision ledger. Every entry below was captured at the "
+                "moment the decision was made and cannot be modified after the fact. "
+                "This satisfies the core logging and traceability requirement.\n\n"
+                "**What this record demonstrates:**\n"
+                "- Each governing decision is timestamped and sequenced\n"
+                "- Each decision records who confirmed it (human oversight anchor)\n"
+                "- Decisions are append-only — no entry can be retroactively altered\n"
+                "- The reasoning behind each decision is preserved, not just the outcome"
+            ),
+            "all_qualify": True,
+        },
+        {
+            "id": "art14",
+            "name": "Article 14 — Human Oversight",
+            "intro": (
+                "Article 14 requires that high-risk AI systems be designed to allow "
+                "effective human oversight. The following decisions document human "
+                "oversight events: cases where a natural person confirmed, approved, "
+                "constrained, or governed what the AI system was permitted to do. "
+                "The `confirmed_by` field on each entry is the human oversight anchor."
+            ),
+            "confirmed_by_qualifies": True,
+            "keywords": [
+                "agent", "automat", "human", "oversight", "approv", "review",
+                "confirm", "escalat", "intervene", "halt", "stop", "override",
+                "monitor", "supervise", "control", "audit", "verify", "check",
+                "sign off", "sign-off", "authoris", "authoriz", "responsible",
+            ],
+        },
+        {
+            "id": "art13",
+            "name": "Article 13 — Transparency and Instructions for Use",
+            "intro": (
+                "Article 13 requires providers to ensure AI systems are sufficiently "
+                "transparent to deployers. The following decisions document scope, "
+                "intended use, capabilities, limitations, and governance constraints — "
+                "the information a deployer needs to understand and correctly use the system."
+            ),
+            "keywords": [
+                "intended use", "use case", "scope", "limitation", "capability",
+                "purpose", "deploy", "user", "customer", "model", "system",
+                "transparency", "ifu", "instruction", "disclosure", "inform",
+                "document", "specification", "constraint", "boundary",
+            ],
+        },
+    ],
+    "gaps": [
+        "Model safety validation or bias testing",
+        "Legal risk classification of the AI system",
+        "Conformity assessment (Art. 43)",
+        "Training data quality evidence",
+        "Registration in the EU AI Act database (Art. 49)",
+    ],
+}
 
-**What this record demonstrates:**
-- Each governing decision is timestamped and sequenced
-- Each decision records who confirmed it (human oversight anchor)
-- Decisions are append-only — no entry can be retroactively altered
-- The reasoning behind each decision is preserved, not just the outcome\
-"""
+_SOC2_FRAMEWORK: dict[str, Any] = {
+    "id": "soc2",
+    "name": "SOC 2 Type II (CC7.2 · CC6.1 · CC4.1)",
+    "sections": [
+        {
+            "id": "cc7.2",
+            "name": "CC7.2 — System Monitoring",
+            "intro": (
+                "CC7.2 requires that the entity monitors system components and "
+                "operations for anomalies that may indicate malicious acts, natural "
+                "disasters, or errors affecting the entity's ability to meet its objectives. "
+                "IRP decision records demonstrate that system-level monitoring and "
+                "operational constraints have been captured, documented, and confirmed."
+            ),
+            "all_qualify": True,
+        },
+        {
+            "id": "cc6.1",
+            "name": "CC6.1 — Logical and Physical Access Controls",
+            "intro": (
+                "CC6.1 requires that logical access to systems and data is managed to "
+                "protect against threats from sources outside and inside the entity. "
+                "The following decisions document access control decisions, permission "
+                "boundaries, authentication policies, and user-level constraints."
+            ),
+            "keywords": [
+                "access", "permission", "auth", "user", "role", "privilege",
+                "restrict", "allow", "deny", "credential", "token", "key",
+                "identity", "account", "login", "password", "scope",
+            ],
+        },
+        {
+            "id": "cc4.1",
+            "name": "CC4.1 — Risk Assessment",
+            "intro": (
+                "CC4.1 requires that the entity identifies, selects, and develops "
+                "risk assessment activities. The following decisions document risk "
+                "identification, impact assessments, mitigation choices, and threat "
+                "evaluations that governed system design and operational decisions."
+            ),
+            "keywords": [
+                "risk", "assess", "impact", "evaluate", "threat", "mitigat",
+                "vulnerability", "exposure", "hazard", "likelihood", "severity",
+                "acceptable", "unacceptable", "tradeoff",
+            ],
+        },
+    ],
+    "gaps": [
+        "SOC 2 Trust Service Criteria beyond CC7.2, CC6.1, CC4.1",
+        "Technical security controls and penetration testing evidence",
+        "Vendor management documentation",
+        "Incident response procedures",
+        "Employee background check and training records",
+    ],
+}
 
-_ART14_INTRO = """\
-Article 14 requires that high-risk AI systems be designed to allow effective \
-human oversight. The following decisions document human oversight events: cases \
-where a natural person confirmed, approved, constrained, or governed what the \
-AI system was permitted to do. The `confirmed_by` field on each entry is the \
-human oversight anchor.\
-"""
+_GDPR_FRAMEWORK: dict[str, Any] = {
+    "id": "gdpr",
+    "name": "GDPR (Art. 30 · 22 · 5)",
+    "sections": [
+        {
+            "id": "art30",
+            "name": "Article 30 — Records of Processing Activities",
+            "intro": (
+                "Article 30 requires controllers and processors to maintain records "
+                "of their processing activities. IRP decision records document the "
+                "governance decisions that defined processing scope, purpose, and constraints. "
+                "Every decision is timestamped, sourced, and human-confirmed — "
+                "satisfying the traceability requirement of Art. 30."
+            ),
+            "all_qualify": True,
+        },
+        {
+            "id": "art22",
+            "name": "Article 22 — Automated Decision-Making",
+            "intro": (
+                "Article 22 restricts automated individual decision-making with legal "
+                "or similarly significant effects. The following decisions document "
+                "constraints and safeguards placed on automated or AI-driven processing "
+                "that affects data subjects, and the human oversight mechanisms designed "
+                "to ensure meaningful intervention rights."
+            ),
+            "confirmed_by_qualifies": True,
+            "keywords": [
+                "automat", "decision", "profil", "model", "agent", "infer",
+                "predict", "classif", "score", "recommend", "individual",
+                "subject", "data", "process", "algorithm",
+            ],
+        },
+        {
+            "id": "art5",
+            "name": "Article 5 — Accountability and Data Principles",
+            "intro": (
+                "Article 5(2) requires that the controller be responsible for and able "
+                "to demonstrate compliance with the GDPR data principles. The following "
+                "decisions document accountability assignments, data governance choices, "
+                "and principle-aligned constraints on system behaviour."
+            ),
+            "confirmed_by_qualifies": True,
+            "keywords": [
+                "account", "responsible", "owner", "govern", "lawful", "fair",
+                "purpose", "minimal", "accurate", "retention", "integrity",
+                "confidential", "privacy", "data protection",
+            ],
+        },
+    ],
+    "gaps": [
+        "GDPR Articles beyond Art. 30, 22, and 5",
+        "Data subject rights fulfilment procedures",
+        "Data Processing Agreements (DPAs) with processors",
+        "Data Protection Impact Assessments (DPIAs)",
+        "Cross-border transfer mechanisms",
+    ],
+}
 
-_ART13_INTRO = """\
-Article 13 requires providers to ensure AI systems are sufficiently transparent \
-to deployers. The following decisions document scope, intended use, capabilities, \
-limitations, and governance constraints — the information a deployer needs to \
-understand and correctly use the system.\
-"""
+_ISO42001_FRAMEWORK: dict[str, Any] = {
+    "id": "iso42001",
+    "name": "ISO 42001 AI Management System (6.1 · 8.4 · 9.1)",
+    "sections": [
+        {
+            "id": "6.1",
+            "name": "Clause 6.1 — AI Risk Management",
+            "intro": (
+                "ISO 42001 Clause 6.1 requires that organisations plan actions to address "
+                "AI risks and opportunities. The following decisions document risk "
+                "identification, impact analysis, mitigation strategies, and the "
+                "governance constraints designed to manage AI-related risks."
+            ),
+            "keywords": [
+                "risk", "threat", "assess", "mitigat", "impact", "hazard",
+                "likelihood", "severity", "control", "safeguard", "barrier",
+                "prevent", "reduce", "acceptable", "residual",
+            ],
+        },
+        {
+            "id": "8.4",
+            "name": "Clause 8.4 — Documentation of AI System Information",
+            "intro": (
+                "ISO 42001 Clause 8.4 requires that documented information about "
+                "the AI system be maintained. IRP provides the append-only evidence "
+                "substrate for this requirement — every decision is documented with "
+                "its rationale at the time of capture."
+            ),
+            "all_qualify": True,
+        },
+        {
+            "id": "9.1",
+            "name": "Clause 9.1 — Monitoring, Measurement and Evaluation",
+            "intro": (
+                "ISO 42001 Clause 9.1 requires organisations to evaluate AI system "
+                "performance, including monitoring for drift, degradation, and bias. "
+                "The following decisions document monitoring choices, measurement "
+                "criteria, evaluation thresholds, and performance governance constraints."
+            ),
+            "keywords": [
+                "monitor", "metric", "measure", "evaluat", "perform", "drift",
+                "degrad", "bias", "accuracy", "precision", "recall", "threshold",
+                "benchmark", "baseline", "kpi", "indicator",
+            ],
+        },
+    ],
+    "gaps": [
+        "ISO 42001 clauses beyond 6.1, 8.4, and 9.1",
+        "AI system design specifications and architecture documentation",
+        "Supplier and third-party AI system evaluations",
+        "Competence and awareness records",
+        "Internal audit documentation",
+    ],
+}
 
-def _format_entry_full(entry: dict[str, Any], show_articles: bool = True) -> str:
+_BUILTIN_FRAMEWORKS: dict[str, dict[str, Any]] = {
+    "euaiact":  _EUAIACT_FRAMEWORK,
+    "soc2":     _SOC2_FRAMEWORK,
+    "gdpr":     _GDPR_FRAMEWORK,
+    "iso42001": _ISO42001_FRAMEWORK,
+}
+
+_DEFAULT_FRAMEWORK = "euaiact"
+
+
+# ── decision → section matching ───────────────────────────────────────────────
+
+def _matches_section(entry: dict[str, Any], section: dict[str, Any]) -> bool:
+    """Return True if this entry qualifies as evidence for this section."""
+    if section.get("all_qualify"):
+        return True
+
+    if section.get("confirmed_by_qualifies") and entry.get("confirmed_by"):
+        return True
+
+    keywords = section.get("keywords") or []
+    if not keywords:
+        return False
+
+    text = (
+        (entry.get("decision") or entry.get("what") or "") + " " +
+        (entry.get("why") or "")
+    ).lower()
+
+    return any(kw in text for kw in keywords)
+
+
+def _section_tags(entry: dict[str, Any], framework: dict[str, Any]) -> list[str]:
+    """Return section names this entry qualifies for."""
+    return [
+        s["name"] for s in framework.get("sections", [])
+        if _matches_section(entry, s)
+    ]
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _decision_text(entry: dict[str, Any]) -> str:
+    return (entry.get("decision") or entry.get("what") or "").strip()
+
+
+def _why_text(entry: dict[str, Any]) -> str:
+    return (entry.get("why") or "").strip()
+
+
+def _format_ts(ts: str) -> str:
+    if not ts:
+        return "—"
+    return ts[:10] if len(ts) >= 10 else ts
+
+
+def _truncate(text: str, limit: int = 300) -> str:
+    text = (text or "").strip().replace("\n", " ")
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+# ── document builder ──────────────────────────────────────────────────────────
+
+def _format_entry_full(entry: dict[str, Any]) -> str:
     irp_id = entry.get("id", "unknown")
     ts = _format_ts(str(entry.get("timestamp", "")))
     decision = _decision_text(entry)
@@ -124,15 +366,13 @@ def _format_entry_full(entry: dict[str, Any], show_articles: bool = True) -> str
     confirmed_by = entry.get("confirmed_by", "")
     source = entry.get("source", "")
     context = entry.get("context", "")
-    articles = _article_tags(entry)
 
-    lines = [f"### {irp_id}"]
-    lines.append("")
+    lines = [f"### {irp_id}", ""]
 
     if decision:
-        lines.append(f"**Decision:** {decision}")
+        lines.append(f"**Decision:** {_truncate(decision)}")
     if why:
-        lines.append(f"**Reasoning:** {why}")
+        lines.append(f"**Reasoning:** {_truncate(why)}")
 
     meta = []
     if ts and ts != "—":
@@ -143,8 +383,6 @@ def _format_entry_full(entry: dict[str, Any], show_articles: bool = True) -> str
         meta.append(f"Source: {source}")
     if context:
         meta.append(f"Context: {context}")
-    if show_articles:
-        meta.append(f"Evidence for: {' · '.join(articles)}")
 
     if meta:
         lines.append("")
@@ -153,132 +391,138 @@ def _format_entry_full(entry: dict[str, Any], show_articles: bool = True) -> str
     lines.append("")
     return "\n".join(lines)
 
+
 def _build_evidence_md(
     decisions: list[dict[str, Any]],
+    framework: dict[str, Any],
     project_root: Path,
     demo: bool = False,
 ) -> str:
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    fw_name = framework.get("name", framework.get("id", "custom"))
+    fw_id = framework.get("id", "custom")
 
-    # Date range
     timestamps = [str(e.get("timestamp", ""))[:10] for e in decisions if e.get("timestamp")]
     date_range = f"{min(timestamps)} to {max(timestamps)}" if timestamps else "—"
 
-    # Source summary
     sources = sorted({e.get("source", "unknown") for e in decisions if e.get("source")})
     confirmed_count = sum(1 for e in decisions if e.get("confirmed_by"))
 
-    # Article buckets
-    art12 = decisions  # all
-    art14 = [e for e in decisions if "Art. 14" in _article_tags(e)]
-    art13 = [e for e in decisions if "Art. 13" in _article_tags(e)]
-
+    sections = framework.get("sections", [])
+    sections_covered = " · ".join(s["id"] for s in sections)
     source_note = " *(built-in sample data — does not reflect your ledger)*" if demo else ""
+
+    disclaimer = framework.get("disclaimer") or _STANDARD_DISCLAIMER
 
     parts: list[str] = []
 
     parts.append(f"""\
 # AI Agent Governance — Evidence Report
-## EU AI Act Decision Provenance Record{source_note}
+## {fw_name} — Decision Provenance Record{source_note}
 
 | | |
 |---|---|
 | Generated | {generated_at} |
+| Framework | {fw_name} |
 | Project | {project_root} |
 | Total decisions | {len(decisions)} |
 | Human-confirmed | {confirmed_count} |
 | Date range | {date_range} |
 | Sources | {', '.join(sources) if sources else '—'} |
-| Articles covered | Art. 12 · Art. 13 · Art. 14 |
+| Sections covered | {sections_covered} |
 
-{_DISCLAIMER}
+{disclaimer}
 
 ---
 """)
 
-    # ── Art. 12 ──────────────────────────────────────────────────────────────
-    parts.append(f"""\
-## Article 12 — Logging and Traceability
+    # ── per-section evidence blocks ───────────────────────────────────────────
+    for section in sections:
+        sid = section.get("id", "?")
+        sname = section.get("name", sid)
+        intro = section.get("intro", "")
+        qualified = [e for e in decisions if _matches_section(e, section)]
 
-{_ART12_INTRO}
+        parts.append(f"## {sname}\n\n")
+        if intro:
+            parts.append(f"{intro}\n\n")
+        parts.append(f"**Decisions on record: {len(qualified)}**\n\n")
 
-**Decisions on record: {len(art12)}**
+        if qualified:
+            for entry in qualified:
+                parts.append(_format_entry_full(entry))
+        else:
+            parts.append(
+                f"*No decisions qualified for this section. "
+                f"Capture decisions relevant to {sid} to populate this section.*\n\n"
+            )
 
-""")
-    for entry in art12:
-        parts.append(_format_entry_full(entry, show_articles=False))
-
-    parts.append("---\n")
-
-    # ── Art. 14 ──────────────────────────────────────────────────────────────
-    parts.append(f"""\
-## Article 14 — Human Oversight
-
-{_ART14_INTRO}
-
-**Human oversight events on record: {len(art14)}**
-
-""")
-    if art14:
-        for entry in art14:
-            parts.append(_format_entry_full(entry, show_articles=False))
-    else:
-        parts.append(
-            "*No decisions in the ledger contain explicit human oversight evidence. "
-            "Capture decisions with `confirmed_by` set to populate this section.*\n\n"
-        )
-
-    parts.append("---\n")
-
-    # ── Art. 13 ──────────────────────────────────────────────────────────────
-    parts.append(f"""\
-## Article 13 — Transparency and Instructions for Use
-
-{_ART13_INTRO}
-
-**Transparency decisions on record: {len(art13)}**
-
-""")
-    if art13:
-        for entry in art13:
-            parts.append(_format_entry_full(entry, show_articles=False))
-    else:
-        parts.append(
-            "*No decisions in the ledger were identified as scope or transparency decisions. "
-            "Capture decisions about intended use, system limitations, or deployment constraints "
-            "to populate this section.*\n\n"
-        )
-
-    parts.append("---\n")
+        parts.append("---\n")
 
     # ── summary table ─────────────────────────────────────────────────────────
+    table_rows = []
+    for section in sections:
+        sid = section.get("id", "?")
+        sname = section.get("name", sid)
+        qualified = [e for e in decisions if _matches_section(e, section)]
+        status = "✅ Covered" if qualified else "⚠️ No decisions"
+        table_rows.append(f"| {sid} | {sname} | {len(qualified)} | {status} |")
+
+    table = "\n".join(table_rows)
+    gaps = framework.get("gaps") or []
+    gap_bullets = "\n".join(f"- {g}" for g in gaps)
+
     parts.append(f"""\
 ## Evidence Summary
 
-| Article | Requirement | Records | Status |
+| Section | Requirement | Records | Status |
 |---|---|---|---|
-| Art. 12 | Logging and traceability | {len(art12)} | {'✅ Covered' if art12 else '⚠️ No decisions'} |
-| Art. 14 | Human oversight evidence | {len(art14)} | {'✅ Covered' if art14 else '⚠️ Add confirmed_by'} |
-| Art. 13 | Transparency / scope | {len(art13)} | {'✅ Covered' if art13 else '⚠️ Capture scope decisions'} |
+{table}
 
-**What this record does not cover:**
-- Model safety validation or bias testing
-- Legal risk classification of the AI system
-- Conformity assessment (Art. 43)
-- Training data quality evidence
-- Registration in the EU AI Act database (Art. 49)
+""")
+    if gap_bullets:
+        parts.append(
+            f"**What this record does not cover:**\n{gap_bullets}\n\n"
+            "This evidence package covers decision provenance and human oversight records only. "
+            "For full compliance certification, additional documentation is required.\n\n"
+        )
 
-This evidence package covers decision provenance and human oversight records only.
-For full EU AI Act compliance, additional technical documentation is required.
-
+    parts.append(f"""\
 ---
 
-*Generated by IRP (Intent Record Protocol) — irp export evidence*
-*Regenerate: `irp export evidence --force`*
+*Generated by IRP (Intent Record Protocol) — irp export evidence --framework {fw_id}*
+*Regenerate: `irp export evidence --framework {fw_id} --force`*
 *Source of truth: `.irp/ledger.jsonl`*
 """)
 
     return "".join(parts)
+
+
+# ── custom framework loader ───────────────────────────────────────────────────
+
+def _load_custom_framework(config_path: Path) -> dict[str, Any] | str:
+    """Load a custom framework JSON. Returns the framework dict or an error string."""
+    if not config_path.exists():
+        return f"Custom framework config not found: {config_path}"
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return f"Invalid JSON in framework config: {exc}"
+
+    # Basic validation.
+    if not isinstance(data, dict):
+        return "Framework config must be a JSON object."
+    if not data.get("sections"):
+        return "Framework config must have a 'sections' list with at least one section."
+    for i, sec in enumerate(data["sections"]):
+        if not sec.get("name"):
+            return f"Section {i} is missing a 'name' field."
+
+    # Fill defaults.
+    data.setdefault("id", "custom")
+    data.setdefault("name", data.get("id", "Custom Framework"))
+    return data
+
 
 # ── sample data ───────────────────────────────────────────────────────────────
 
@@ -323,7 +567,7 @@ _SAMPLE_DECISIONS_JSON = """[
     "id": "IRP-2026-03-18-001",
     "timestamp": "2026-03-18",
     "decision": "Agent must display confidence score and top three contributing factors on every recommendation",
-    "why": "Art. 13 transparency requirement. Loan officers cannot make informed oversight decisions without understanding what drove the recommendation. Rejected: displaying score only (insufficient for meaningful review).",
+    "why": "Art. 13 transparency requirement. Loan officers cannot make informed oversight decisions without understanding what drove the recommendation. Rejected: displaying score only.",
     "confirmed_by": "product.lead",
     "source": "cli",
     "context": "Nordic SME lending platform — transparency design"
@@ -375,8 +619,10 @@ _SAMPLE_DECISIONS_JSON = """[
   }
 ]"""
 
+
 def _load_sample_decisions() -> list[dict[str, Any]]:
     return json.loads(_SAMPLE_DECISIONS_JSON)
+
 
 # ── public entry point ────────────────────────────────────────────────────────
 
@@ -385,14 +631,55 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
     output_arg = getattr(args, "output", None)
     force = bool(getattr(args, "force", False))
     as_json = bool(getattr(args, "json", False))
+    framework_id = (getattr(args, "framework", None) or _DEFAULT_FRAMEWORK).lower()
+    config_arg = getattr(args, "config", None)
 
-    # Resolve output path
-    default_name = "EVIDENCE-demo.md" if demo else "EVIDENCE.md"
-    output_path = Path(output_arg) if output_arg else (project_root / default_name)
+    # ── 1. Resolve framework ──────────────────────────────────────────────────
+    if framework_id == "custom":
+        if not config_arg:
+            msg = (
+                "Usage: irp export evidence --framework custom --config path/to/framework.json\n"
+                "The --config flag is required when using --framework custom."
+            )
+            return {"command": "export.evidence", "status": "error", "text": msg}
+
+        config_path = Path(config_arg)
+        if not config_path.is_absolute():
+            config_path = (project_root / config_path).resolve()
+
+        result = _load_custom_framework(config_path)
+        if isinstance(result, str):
+            return {"command": "export.evidence", "status": "error", "text": result}
+        framework = result
+
+    elif framework_id in _BUILTIN_FRAMEWORKS:
+        framework = _BUILTIN_FRAMEWORKS[framework_id]
+
+    else:
+        valid = ", ".join(_BUILTIN_FRAMEWORKS) + ", custom"
+        return {
+            "command": "export.evidence",
+            "status": "error",
+            "text": (
+                f"Unknown framework: {framework_id!r}\n"
+                f"Valid values: {valid}\n"
+                "For custom frameworks: irp export evidence --framework custom --config path/to/framework.json"
+            ),
+        }
+
+    # ── 2. Resolve output path ────────────────────────────────────────────────
+    fw_id = framework.get("id", "custom")
+    if output_arg:
+        output_path = Path(output_arg)
+    elif demo:
+        output_path = project_root / f"EVIDENCE-{fw_id}-demo.md"
+    else:
+        output_path = project_root / f"EVIDENCE-{fw_id}.md"
+
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
 
-    # Load decisions
+    # ── 3. Load decisions ─────────────────────────────────────────────────────
     if demo:
         decisions = _load_sample_decisions()
     else:
@@ -408,21 +695,18 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
             "Capture one with `irp capture`, or run `irp export evidence --demo` "
             "to see a sample evidence package for a regulated AI deployment."
         )
-        if as_json:
-            return {"command": "export.evidence", "status": "empty", "text": nudge}
         return {"command": "export.evidence", "status": "empty", "text": nudge}
 
-    # Build document
-    body = _build_evidence_md(decisions, project_root, demo=demo)
+    # ── 4. Build document ─────────────────────────────────────────────────────
+    body = _build_evidence_md(decisions, framework, project_root, demo=demo)
 
     header = [
         "IRP V1.5 dispatcher",
         f"Project: {project_root}",
-        f"Command: export evidence{'  [demo]' if demo else ''}",
+        f"Command: export evidence --framework {fw_id}{'  [demo]' if demo else ''}",
         "",
     ]
 
-    # Check existing
     if output_path.exists() and not force:
         text = "\n".join(header + [
             f"Refusing to overwrite existing file: {output_path}",
@@ -432,10 +716,11 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
             "command": "export.evidence",
             "status": "exists",
             "output_path": str(output_path),
+            "framework": fw_id,
             "text": text,
         }
 
-    # Write
+    # ── 5. Write ──────────────────────────────────────────────────────────────
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.exists():
         try:
@@ -444,45 +729,46 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
             pass
 
     output_path.write_text(body, encoding="utf-8")
-
     try:
         output_path.chmod(0o444)
     except OSError:
         pass
 
-    art14_count = sum(1 for e in decisions if "Art. 14" in _article_tags(e))
-    art13_count = sum(1 for e in decisions if "Art. 13" in _article_tags(e))
+    # ── 6. Summary ────────────────────────────────────────────────────────────
+    sections = framework.get("sections", [])
+    section_summary = " · ".join(
+        f"{s['id']}: {sum(1 for e in decisions if _matches_section(e, s))}"
+        for s in sections
+    )
 
     summary_lines = [
         f"Wrote {output_path}",
-        f"Decisions: {len(decisions)} total · {art14_count} Art. 14 · {art13_count} Art. 13",
+        f"Framework: {framework.get('name', fw_id)}",
+        f"Decisions: {len(decisions)} total → {section_summary}",
         "Lock:    file is read-only — `chmod +w` to override",
         "",
         "Regenerate any time with:",
-        f"  irp export evidence --force{' --demo' if demo else ''}",
+        f"  irp export evidence --framework {fw_id} --force{' --demo' if demo else ''}",
     ]
     if demo:
-        summary_lines.append("")
-        summary_lines.append(
+        summary_lines.extend([
+            "",
             "This is sample data. Run `irp export evidence` (without --demo) "
-            "to generate a report from your actual ledger."
-        )
+            "to generate a report from your actual ledger.",
+        ])
 
     text = "\n".join(header + summary_lines)
 
-    result = {
+    return {
         "command": "export.evidence",
         "status": "ok",
         "output_path": str(output_path),
+        "framework": fw_id,
         "decision_count": len(decisions),
-        "art12_count": len(decisions),
-        "art14_count": art14_count,
-        "art13_count": art13_count,
+        "section_counts": {
+            s["id"]: sum(1 for e in decisions if _matches_section(e, s))
+            for s in sections
+        },
         "demo": demo,
         "text": text,
     }
-
-    if as_json:
-        return result
-
-    return result

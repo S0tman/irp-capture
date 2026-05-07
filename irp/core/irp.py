@@ -7,20 +7,26 @@ import json
 import sys
 from pathlib import Path
 
-from irp.core.store import ensure_irp_dir
-from irp.core.commands.capture import run_capture
-from irp.core.commands.check import run_check
-from irp.core.commands.demo import run_demo
-from irp.core.commands.bootstrap import run_bootstrap
-from irp.core.commands.doctor import run_doctor
-from irp.core.commands.export import run_export
-from irp.core.commands.guard import run_guard
-from irp.core.commands.inherit import run_inherit
-from irp.core.commands.stats import run_stats
-from irp.core.commands.why import run_why
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+from store import ensure_irp_dir
+from commands.capture import run_capture
+from commands.check import run_check
+from commands.config import run_config
+from commands.craft import run_craft
+from commands.defer import run_defer
+from commands.demo import run_demo
+from commands.bootstrap import run_bootstrap
+from commands.export import run_export
+from commands.guard import run_guard
+from commands.inherit import run_inherit
+from commands.why import run_why
+
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="irp", description="IRP — Intent Record Protocol")
+    parser = argparse.ArgumentParser(prog="irp", description="IRP project-local dispatcher")
     sub = parser.add_subparsers(dest="command", required=True)
 
     # ── inherit ──────────────────────────────────────────────────────────────
@@ -41,6 +47,71 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("check", help="Check a proposal against the project bridge")
     p.add_argument("proposal", type=str, help="Proposal text to check")
     p.add_argument("--json", action="store_true")
+
+    # ── config ────────────────────────────────────────────────────────────────
+    p_cfg = sub.add_parser("config", help="Read and write project-level IRP settings (.irp/config.json)")
+    cfg_sub = p_cfg.add_subparsers(dest="config_action", required=True)
+
+    p_cfg_get = cfg_sub.add_parser("get", help="Show IRP project settings")
+    p_cfg_get.add_argument("key", nargs="?", type=str, default=None,
+                           help="Optional key to show (e.g. control_level)")
+    p_cfg_get.add_argument("--json", action="store_true")
+
+    p_cfg_set = cfg_sub.add_parser("set", help="Set an IRP project setting")
+    p_cfg_set.add_argument("key", type=str, help="Key to set (e.g. control_level)")
+    p_cfg_set.add_argument("value", type=str, help="Value (e.g. easy, medium, advanced)")
+    p_cfg_set.add_argument("--json", action="store_true")
+
+    # ── craft ─────────────────────────────────────────────────────────────────
+    p_craft = sub.add_parser(
+        "craft",
+        help="Capture, list, and export individual craft knowledge (.irp/craft.jsonl)",
+    )
+    craft_sub = p_craft.add_subparsers(dest="craft_action", required=True)
+
+    p_craft_add = craft_sub.add_parser("add", help="Add a craft knowledge entry")
+    p_craft_add.add_argument(
+        "--category", type=str, default=None,
+        choices=["preference", "configuration", "gotcha", "way-of-working"],
+        metavar="CATEGORY",
+        help="Category: preference, configuration, gotcha, way-of-working",
+    )
+    p_craft_add.add_argument(
+        "--what", type=str, default=None,
+        help="The craft knowledge (non-interactive when combined with --category)",
+    )
+    p_craft_add.add_argument(
+        "--context", type=str, default=None,
+        help="Optional context (project, tool, situation)",
+    )
+    p_craft_add.add_argument("--json", action="store_true")
+
+    p_craft_list = craft_sub.add_parser("list", help="List craft entries")
+    p_craft_list.add_argument(
+        "--category", type=str, default=None,
+        choices=["preference", "configuration", "gotcha", "way-of-working"],
+        metavar="CATEGORY",
+        help="Filter by category",
+    )
+    p_craft_list.add_argument("--json", action="store_true")
+
+    p_craft_export = craft_sub.add_parser("export", help="Export craft knowledge to CRAFT.md")
+    p_craft_export.add_argument(
+        "--category", type=str, default=None,
+        choices=["preference", "configuration", "gotcha", "way-of-working"],
+        metavar="CATEGORY",
+        help="Export only this category (writes CRAFT-<category>.md by default)",
+    )
+    p_craft_export.add_argument(
+        "--output", type=str, default=None,
+        help="Output file path (default: CRAFT.md in project root)",
+    )
+    p_craft_export.add_argument("--force", action="store_true", help="Overwrite existing file")
+    p_craft_export.add_argument(
+        "--writable", action="store_true",
+        help="Leave exported file writable (default: chmod 444 read-only)",
+    )
+    p_craft_export.add_argument("--json", action="store_true")
 
     # ── demo ─────────────────────────────────────────────────────────────────
     p_demo = sub.add_parser("demo", help="Demo utilities (generate synthetic threads + ledger entries)")
@@ -85,18 +156,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_demo_gen.add_argument("--json", action="store_true")
 
-    # ── stats ─────────────────────────────────────────────────────────────────
-    p = sub.add_parser("stats", help="Show your local activation pattern — capture cadence, sensors, tags")
-    p.add_argument(
-        "--demo",
-        action="store_true",
-        help="Show stats for built-in sample dataset (18 decisions) — does not touch your ledger",
+    # ── defer ─────────────────────────────────────────────────────────────────
+    p_defer = sub.add_parser(
+        "defer",
+        help="Resolve a WARN/BLOCK critique and capture the human decision",
     )
-    p.add_argument("--json", action="store_true")
-
-    # ── doctor ────────────────────────────────────────────────────────────────
-    p = sub.add_parser("doctor", help="Check installation health and environment")
-    p.add_argument("--json", action="store_true")
+    p_defer.add_argument(
+        "question",
+        nargs="?",
+        type=str,
+        default=None,
+        help="The defer question to resolve (omit to read critique JSON from stdin)",
+    )
+    p_defer.add_argument("--json", action="store_true")
 
     # ── guard ─────────────────────────────────────────────────────────────────
     p_guard = sub.add_parser(
@@ -109,11 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
         "install",
         help="Install IRP guard as a git pre-commit hook",
     )
-    p_guard_install.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite existing hook",
-    )
+    p_guard_install.add_argument("--force", action="store_true", help="Overwrite existing hook")
     p_guard_install.add_argument("--json", action="store_true")
 
     p_guard_run = guard_sub.add_parser(
@@ -176,7 +244,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_export_ctx = export_sub.add_parser(
         "context",
-        help="Export decision-derived working context (e.g. AGENTS.md, DECISIONS.md)",
+        help="Export decision-derived working context (e.g. AGENTS.md)",
     )
     p_export_ctx.add_argument(
         "--target",
@@ -189,7 +257,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=str,
         default=None,
-        help="Output file path (default: AGENTS.md or DECISIONS.md in project root)",
+        help="Output file path (default: AGENTS.md in project root)",
     )
     p_export_ctx.add_argument(
         "--force",
@@ -202,6 +270,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Leave the exported file writable (default: chmod 444 read-only)",
     )
     p_export_ctx.add_argument("--json", action="store_true")
+
+    p_export_decisions = export_sub.add_parser(
+        "decisions",
+        help="Export DECISIONS.md — human-readable decision log (newest-first)",
+    )
+    p_export_decisions.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output file path (default: DECISIONS.md in project root)",
+    )
+    p_export_decisions.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing output file",
+    )
+    p_export_decisions.add_argument(
+        "--writable",
+        action="store_true",
+        help="Leave the exported file writable (default: chmod 444 read-only)",
+    )
+    p_export_decisions.add_argument(
+        "--demo",
+        action="store_true",
+        help="Generate from built-in sample data — does not touch your ledger",
+    )
+    p_export_decisions.add_argument("--json", action="store_true")
 
     p_export_graph = export_sub.add_parser(
         "graph",
@@ -219,21 +314,64 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing output file",
     )
     p_export_graph.add_argument(
+        "--from",
+        dest="from_date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Show decisions from this date (inclusive). Nodes outside range are dimmed.",
+    )
+    p_export_graph.add_argument(
+        "--to",
+        dest="to_date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Show decisions up to this date (inclusive). Nodes outside range are dimmed.",
+    )
+    p_export_graph.add_argument(
+        "--project",
+        dest="project",
+        type=str,
+        default=None,
+        metavar="TAG",
+        help="Scope to decisions tagged with this value (case-insensitive).",
+    )
+    p_export_graph.add_argument(
         "--demo",
         action="store_true",
-        help="Generate graph from built-in sample data (18 decisions, 22 edges) — does not touch your ledger",
+        help="Generate from built-in sample data — does not touch your ledger",
     )
     p_export_graph.add_argument("--json", action="store_true")
 
     p_export_evidence = export_sub.add_parser(
         "evidence",
-        help="Export EU AI Act evidence package (Art. 12, 13, 14) from decision ledger",
+        help="Export compliance evidence package from decision ledger (EU AI Act, SOC 2, GDPR, ISO 42001)",
+    )
+    p_export_evidence.add_argument(
+        "--framework",
+        type=str,
+        default="euaiact",
+        choices=["euaiact", "soc2", "gdpr", "iso42001", "custom"],
+        metavar="FRAMEWORK",
+        help=(
+            "Compliance framework to map decisions against. "
+            "Built-in: euaiact (default), soc2, gdpr, iso42001. "
+            "Custom: pass 'custom' with --config path/to/framework.json"
+        ),
+    )
+    p_export_evidence.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Path to custom framework JSON (required when --framework custom)",
     )
     p_export_evidence.add_argument(
         "--output",
         type=str,
         default=None,
-        help="Output file path (default: EVIDENCE.md in project root)",
+        help="Output file path (default: EVIDENCE-<framework>.md in project root)",
     )
     p_export_evidence.add_argument(
         "--force",
@@ -249,6 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
+
 def print_result(result: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
@@ -256,6 +395,7 @@ def print_result(result: dict, as_json: bool) -> None:
         print(result["text"])
     else:
         print(json.dumps(result, indent=2, ensure_ascii=False))
+
 
 def main() -> int:
     parser = build_parser()
@@ -270,15 +410,19 @@ def main() -> int:
             "capture":   run_capture,
             "why":       run_why,
             "check":     run_check,
+            "config":    run_config,
+            "craft":     run_craft,
+            "defer":     run_defer,
             "demo":      run_demo,
             "bootstrap": run_bootstrap,
-            "stats":     run_stats,
-            "doctor":    run_doctor,
             "export":    run_export,
             "guard":     run_guard,
         }
         result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
         print_result(result, getattr(args, "json", False))
+        # exit 10 = conflict detected (warn-only signal for hook consumers)
+        # exit 0  = clean
+        # exit 1  = reserved for errors (handled in except block below)
         return 10 if result.get("status") == "conflict" else 0
 
     except KeyboardInterrupt:
@@ -287,6 +431,7 @@ def main() -> int:
     except Exception as e:
         print(f"IRP error: {e}", file=sys.stderr)
         return 1
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

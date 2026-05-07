@@ -1,6 +1,8 @@
 """IRP graph export — renders decision ledger as an interactive 3D force graph.
 
     irp export graph --output GRAPH.html
+    irp export graph --from 2026-05-01 --to 2026-05-31
+    irp export graph --project irp-capture
 
 Design rules:
   - No new schema. Reads .irp/ledger.jsonl only.
@@ -9,6 +11,7 @@ Design rules:
   - Single self-contained HTML — 3d-force-graph (Three.js/WebGL) via CDN.
   - Drag to orbit the globe. Scroll to zoom. Click to inspect.
   - Animated particles travel along provenance edges.
+  - Date/project filters dim out-of-range nodes without removing them.
 """
 from __future__ import annotations
 
@@ -18,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from irp.core.store import read_ledger
+from store import read_ledger
 
 IRP_ID_RE = re.compile(r"\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b")
 
@@ -67,7 +70,7 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
 <body>
 <header>
   <h1>IRP Decision Graph</h1>
-  <span class="meta">__GENERATED_AT__ &middot; __DECISION_COUNT__ decisions &middot; __EDGE_COUNT__ provenance edges</span>
+  <span class="meta">__GENERATED_AT__ &middot; __DECISION_COUNT__ decisions &middot; __EDGE_COUNT__ provenance edges__FILTER_BADGE__</span>
   <div class="legend">
     <div class="li"><div class="dot" style="background:#22c55e"></div>high</div>
     <div class="li"><div class="dot" style="background:#f59e0b"></div>medium</div>
@@ -89,7 +92,7 @@ const idSet = new Set(decisions.map(d => d.id));
 const byId = Object.fromEntries(decisions.map(d => [d.id, d]));
 
 const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
-const nodeColor = d => d.id === lockedId ? '#D3D3D3' : (CONF_COLOR[d.confidence] || '#6b7280');
+const nodeColor = d => d.id === lockedId ? '#D3D3D3' : d.dimmed ? '#2d3748' : (CONF_COLOR[d.confidence] || '#6b7280');
 
 // Build provenance edges from IRP id cross-refs in why fields
 const edgeSet = new Set();
@@ -171,7 +174,7 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
     </div>`;
   })
   .nodeColor(nodeColor)
-  .nodeVal(d => (d.confidence === 'high' ? 6 : d.confidence === 'medium' ? 4 : 3))
+  .nodeVal(d => d.dimmed ? 1 : (d.confidence === 'high' ? 6 : d.confidence === 'medium' ? 4 : 3))
   .nodeOpacity(0.92)
 
   // Links / provenance edges
@@ -292,10 +295,12 @@ nodes.forEach(node => {
 </html>
 """
 
+
 def _is_decision(entry: dict[str, Any]) -> bool:
     if entry.get("type") == "decision":
         return True
     return bool(entry.get("what")) and bool(entry.get("why")) and entry.get("type") in (None, "")
+
 
 def _count_edges(decisions: list[dict[str, Any]]) -> int:
     id_set = {d["id"] for d in decisions}
@@ -308,6 +313,7 @@ def _count_edges(decisions: list[dict[str, Any]]) -> int:
                 seen.add(key)
                 count += 1
     return count
+
 
 _SAMPLE_DECISIONS: list[dict[str, Any]] = json.loads(
     '[{"id":"IRP-2026-01-10-001","type":"decision","what":"Adopt a shared design token system across all product surfaces","why":"Every team was maintaining separate colour and spacing values, causing visual drift and expensive rework at every brand refresh. Foundational decision that gates IRP-2026-01-15-002 and IRP-2026-02-01-004.","confidence":"high","tags":["design-system","tokens","brand"],"source":"slack","timestamp":"2026-01-10T09:00:00Z"},'
@@ -330,10 +336,40 @@ _SAMPLE_DECISIONS: list[dict[str, Any]] = json.loads(
     '{"id":"IRP-2026-04-25-018","type":"decision","what":"Design system has a quarterly review cycle — no ad-hoc deprecations between reviews","why":"Ad-hoc deprecations were disrupting product team sprints without warning. A quarterly cadence gives consuming teams time to migrate. References IRP-2026-04-22-017 versioning discipline. Builds on IRP-2026-01-10-001 shared system governance model.","confidence":"medium","tags":["governance","process","design-system"],"source":"stdin","timestamp":"2026-04-25T11:00:00Z"}]'
 )
 
+
+def _parse_date(date_str: str | None) -> str | None:
+    """Validate and normalise a YYYY-MM-DD date string. Returns None on invalid input."""
+    if not date_str:
+        return None
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+        return date_str
+    except ValueError:
+        return None
+
+
+def _node_in_range(entry: dict[str, Any], from_date: str | None, to_date: str | None, project: str | None) -> bool:
+    """Return True if this entry falls within all active filters."""
+    ts = (entry.get("timestamp") or "")[:10]  # YYYY-MM-DD slice
+    if from_date and ts and ts < from_date:
+        return False
+    if to_date and ts and ts > to_date:
+        return False
+    if project:
+        tags = [t.lower() for t in (entry.get("tags") or [])]
+        if project.lower() not in tags:
+            return False
+    return True
+
+
 def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     output_arg = getattr(args, "output", None)
     force = bool(getattr(args, "force", False))
     demo = bool(getattr(args, "demo", False))
+    from_date = _parse_date(getattr(args, "from_date", None))
+    to_date = _parse_date(getattr(args, "to_date", None))
+    project = getattr(args, "project", None) or None
+    has_filter = bool(from_date or to_date or project)
 
     if demo:
         decisions = _SAMPLE_DECISIONS
@@ -355,6 +391,15 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
                 ),
             }
 
+    # Apply dimming: mark nodes outside the active filter range.
+    # Out-of-range nodes are kept for context but rendered small and dark.
+    if has_filter:
+        decisions = [
+            {**d, "dimmed": not _node_in_range(d, from_date, to_date, project)}
+            for d in decisions
+        ]
+    in_range_count = sum(1 for d in decisions if not d.get("dimmed"))
+
     output_path = Path(output_arg) if output_arg else (project_root / default_name)
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
@@ -371,6 +416,24 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
             ),
         }
 
+    # Build filter badge for the HTML header.
+    filter_parts: list[str] = []
+    if from_date:
+        filter_parts.append(f"from {from_date}")
+    if to_date:
+        filter_parts.append(f"to {to_date}")
+    if project:
+        filter_parts.append(f"project:{project}")
+    if filter_parts:
+        filter_badge = (
+            f" &nbsp;&middot;&nbsp; <span style='color:#60a5fa'>"
+            f"{in_range_count} in range</span>"
+            f" <span style='color:#374151'>({' '.join(filter_parts)})"
+            f" · {len(decisions) - in_range_count} dimmed</span>"
+        )
+    else:
+        filter_badge = ""
+
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     edge_count = _count_edges(decisions)
     decisions_json = json.dumps(decisions, ensure_ascii=False)
@@ -380,6 +443,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         .replace("__GENERATED_AT__", generated_at)
         .replace("__DECISION_COUNT__", str(len(decisions)))
         .replace("__EDGE_COUNT__", str(edge_count))
+        .replace("__FILTER_BADGE__", filter_badge)
         .replace("__DECISIONS_JSON__", decisions_json)
     )
 
@@ -393,11 +457,21 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "",
     ]
     demo_note = " (sample data — your ledger is not modified)" if demo else ""
+    if has_filter:
+        dimmed_count = len(decisions) - in_range_count
+        filter_note = f"  Filter: {', '.join(filter_parts)} → {in_range_count} in range, {dimmed_count} dimmed"
+    else:
+        filter_note = None
     regen_cmd = "  irp export graph --demo --force" if demo else "  irp export graph --force"
+
+    detail_lines = [f"Nodes:  {len(decisions)} decision(s){demo_note}"]
+    if filter_note:
+        detail_lines.append(filter_note)
+    detail_lines.append(f"Edges:  {edge_count} provenance reference(s) with animated particles")
+
     text = "\n".join(header + [
         f"Wrote {output_path}",
-        f"Nodes:  {len(decisions)} decision(s){demo_note}",
-        f"Edges:  {edge_count} provenance reference(s) with animated particles",
+    ] + detail_lines + [
         "",
         "Open in any browser. Drag to orbit · scroll to zoom · click to inspect.",
         "Regenerate any time with:",
@@ -409,6 +483,8 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "status": "ok",
         "output_path": str(output_path),
         "decision_count": len(decisions),
+        "in_range_count": in_range_count if has_filter else len(decisions),
         "edge_count": edge_count,
+        "filters": {"from_date": from_date, "to_date": to_date, "project": project},
         "text": text,
     }
