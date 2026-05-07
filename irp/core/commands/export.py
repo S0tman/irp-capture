@@ -1,6 +1,7 @@
 """IRP export — turn decision lineage into portable working context.
 
 Subcommands:
+  export decisions                        (US-007 shorthand)
   export context --target agents.md
   export context --target decisions.md
 
@@ -26,9 +27,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from irp.core.store import read_ledger
-from irp.core.commands.graph import run_export_graph
-from irp.core.commands.evidence import run_export_evidence
+from store import read_ledger, read_config
+from commands.graph import run_export_graph, _SAMPLE_DECISIONS as _GRAPH_SAMPLE
+from commands.evidence import run_export_evidence
+
 
 # ── header copy ──────────────────────────────────────────────────────────────
 
@@ -52,7 +54,41 @@ irp export context --target agents.md
 
 Generated: {generated_at}
 Source: {decision_count} confirmed decision(s) from `.irp/ledger.jsonl`
+control_level: {control_level}
 """
+
+# ── control-level behavioral sections ────────────────────────────────────────
+
+_CONTROL_LEVEL_SECTIONS: dict[str, str] = {
+    "easy": """\
+## Agent control level: easy
+
+- **Gate behaviour:** Pause only on `BLOCK` verdicts. `WARN` verdicts are advisory — log them but continue.
+- **Defer vocabulary:** Use plain, conversational language. Example: *"Quick check — should [X] happen here?"*
+- **Audit trail:** Omit IRP identifiers from inline messages. Reference them only in generated files.
+- **Principle flags:** Do not surface principle-flag names to end users. Use plain equivalents (e.g. "privacy concern" not "principle: privacy").
+""",
+    "medium": """\
+## Agent control level: medium
+
+- **Gate behaviour:** Pause on `WARN` and `BLOCK` verdicts. WARN = ask; BLOCK = halt.
+- **Defer vocabulary:** Standard IRP language. Example: *"IRP defer required: [question]"*
+- **Audit trail:** Show IRP ID and verdict on defer prompts. Skip full reasoning by default.
+- **Principle flags:** Surface flagged principle names (e.g. "Human Control", "Privacy") on WARN and above.
+""",
+    "advanced": """\
+## Agent control level: advanced
+
+- **Gate behaviour:** All gates active. `WARN`, `BLOCK`, and principle-flag checks each surface a defer prompt.
+- **Defer vocabulary:** Full technical IRP vocabulary. Example: *"IRP DEFER ⚠ WARN — [question] (principles: Human Control, Transparency)"*
+- **Audit trail:** Show IRP ID, verdict, principle flags, and up to 3 relevant decision IDs on every defer prompt.
+- **Principle flags:** Always surface the full flag list with human-readable labels.
+- **Relevant decisions:** Show keyword-matched past decisions alongside every defer question.
+""",
+}
+
+_CONTROL_LEVEL_DEFAULT = "advanced"
+
 
 _FOOTER_TEMPLATE = """
 ---
@@ -68,6 +104,7 @@ effect unless a later IRP decision overrides them. Always check `irp inherit`
 for the latest active context before assuming a rule still applies.
 """
 
+
 # ── deterministic conversion ─────────────────────────────────────────────────
 
 # Common decision prefixes that are safe to strip when forming a rule.
@@ -81,6 +118,7 @@ _STRIPPABLE_PREFIXES = (
     "Adopted ",
 )
 
+
 def _is_decision(entry: dict[str, Any]) -> bool:
     """A ledger row counts as a decision if its type is 'decision' or
     if it has both `what` and `why` populated (defensive default for
@@ -88,6 +126,7 @@ def _is_decision(entry: dict[str, Any]) -> bool:
     if entry.get("type") == "decision":
         return True
     return bool(entry.get("what")) and bool(entry.get("why")) and entry.get("type") in (None, "")
+
 
 def _derive_rule(entry: dict[str, Any]) -> str | None:
     """Convert a decision's `what` field into a single-line agent rule.
@@ -132,11 +171,13 @@ def _derive_rule(entry: dict[str, Any]) -> str | None:
 
     return cleaned
 
+
 def _truncate(text: str, limit: int = 240) -> str:
     text = (text or "").strip().replace("\n", " ")
     if len(text) <= limit:
         return text
     return text[: limit - 1].rstrip() + "…"
+
 
 def _format_relevant_decision(entry: dict[str, Any]) -> str:
     """One bullet for the 'Relevant decisions' section."""
@@ -153,19 +194,28 @@ def _format_relevant_decision(entry: dict[str, Any]) -> str:
         line += f"\n  - *Why:* {why}"
     return line
 
+
 def _format_constraint(entry: dict[str, Any], rule: str) -> str:
     irp_id = entry.get("id", "unknown")
     return f"- **{rule}** *(Source: {irp_id})*"
 
-def _build_agents_md(decisions: list[dict[str, Any]]) -> str:
+
+def _build_agents_md(decisions: list[dict[str, Any]], control_level: str = "advanced") -> str:
     """Render the AGENTS.md body from a list of decision entries."""
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    level = control_level if control_level in _CONTROL_LEVEL_SECTIONS else _CONTROL_LEVEL_DEFAULT
 
     parts: list[str] = []
     parts.append(_HEADER_TEMPLATE.format(
         generated_at=generated_at,
         decision_count=len(decisions),
+        control_level=level,
     ))
+
+    # Inject the control-level behavioral directives before the constraints.
+    parts.append("\n---\n\n")
+    parts.append(_CONTROL_LEVEL_SECTIONS[level])
+    parts.append("\n")
 
     if not decisions:
         parts.append(
@@ -214,6 +264,7 @@ def _build_agents_md(decisions: list[dict[str, Any]]) -> str:
 
     return "".join(parts)
 
+
 # ── DECISIONS.md builder ────────────────────────────────────────────────────
 
 _DECISIONS_HEADER_TEMPLATE = """# DECISIONS.md
@@ -221,10 +272,10 @@ _DECISIONS_HEADER_TEMPLATE = """# DECISIONS.md
 > **This file is generated.** Do not edit manually — changes will be overwritten.
 >
 > Source of truth: `.irp/ledger.jsonl`
-> Regenerate: `irp export context --target decisions.md`
+> Regenerate: `irp export decisions`
 >
 > Generated: {generated_at}
-> {decision_count} decision(s) — newest first
+> {decision_count} decision(s) — newest first{demo_note}
 
 ---
 """
@@ -243,11 +294,19 @@ irp why --id IRP-YYYY-MM-DD-NNN
 ```bash
 irp capture
 ```
+
+*To regenerate this file:*
+
+```bash
+irp export decisions --force
+```
 """
+
 
 def _confidence_badge(confidence: str) -> str:
     badges = {"high": "🟢 high", "medium": "🟡 medium", "low": "🔴 low"}
     return badges.get((confidence or "").lower(), confidence or "")
+
 
 def _source_label(entry: dict[str, Any]) -> str:
     src = entry.get("source", "")
@@ -258,6 +317,7 @@ def _source_label(entry: dict[str, Any]) -> str:
         scenario = entry.get("scenario", "")
         return f"demo · {scenario}" if scenario else "demo"
     return src or "—"
+
 
 def _format_decision_entry(entry: dict[str, Any]) -> str:
     irp_id = entry.get("id", "unknown")
@@ -297,14 +357,17 @@ def _format_decision_entry(entry: dict[str, Any]) -> str:
 
     return "\n".join(lines)
 
-def _build_decisions_md(decisions: list[dict[str, Any]]) -> str:
+
+def _build_decisions_md(decisions: list[dict[str, Any]], demo: bool = False) -> str:
     """Render DECISIONS.md — newest-first decision log."""
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    demo_note = " · sample data (--demo)" if demo else ""
 
     parts: list[str] = []
     parts.append(_DECISIONS_HEADER_TEMPLATE.format(
         generated_at=generated_at,
         decision_count=len(decisions),
+        demo_note=demo_note,
     ))
 
     if not decisions:
@@ -322,13 +385,18 @@ def _build_decisions_md(decisions: list[dict[str, Any]]) -> str:
 
     return "".join(parts)
 
+
 # ── public entry point ───────────────────────────────────────────────────────
 
 def run_export(project_root: Path, irp_dir: Path, args) -> dict:
     """Dispatch on args.export_action."""
     action = getattr(args, "export_action", None)
+    if action == "decisions":
+        return _run_export_decisions(project_root, irp_dir, args)
     if action == "context":
         return _run_export_context(project_root, irp_dir, args)
+    if action == "graph":
+        return run_export_graph(project_root, irp_dir, args)
     if action == "evidence":
         return run_export_evidence(project_root, irp_dir, args)
     return {
@@ -337,12 +405,99 @@ def run_export(project_root: Path, irp_dir: Path, args) -> dict:
         "text": f"Unknown export action: {action}",
     }
 
+
+def _run_export_decisions(project_root: Path, irp_dir: Path, args) -> dict:
+    """irp export decisions — dedicated shorthand for DECISIONS.md generation.
+
+    Equivalent to `irp export context --target decisions.md` but with a cleaner
+    surface, --demo support, and `irp export decisions` as the canonical regen cmd.
+    """
+    output_arg = getattr(args, "output", None)
+    force = bool(getattr(args, "force", False))
+    writable = bool(getattr(args, "writable", False))
+    demo = bool(getattr(args, "demo", False))
+
+    output_path = Path(output_arg) if output_arg else (project_root / "DECISIONS.md")
+    if not output_path.is_absolute():
+        output_path = (project_root / output_path).resolve()
+
+    if demo:
+        decisions = _GRAPH_SAMPLE
+    else:
+        ledger = read_ledger(irp_dir)
+        decisions = [row for row in ledger if _is_decision(row)]
+
+    body = _build_decisions_md(decisions, demo=demo)
+
+    header = [
+        "IRP V1.5 dispatcher",
+        f"Project: {project_root}",
+        "Command: export decisions",
+        "",
+    ]
+
+    if output_path.exists() and not force:
+        demo_note = " (sample data)" if demo else ""
+        text = "\n".join(header + [
+            f"Refusing to overwrite existing file: {output_path}",
+            "Re-run with --force, or pass --output PATH to write elsewhere.",
+            "",
+            f"Would have written {len(decisions)} decision(s){demo_note}.",
+        ])
+        return {
+            "command": "export.decisions",
+            "status": "exists",
+            "output_path": str(output_path),
+            "decision_count": len(decisions),
+            "text": text,
+        }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    if output_path.exists():
+        try:
+            output_path.chmod(0o644)
+        except OSError:
+            pass
+    output_path.write_text(body, encoding="utf-8")
+    if not writable:
+        try:
+            output_path.chmod(0o444)
+        except OSError:
+            pass
+
+    demo_note = " (sample data — your ledger is not modified)" if demo else ""
+    regen_cmd = "  irp export decisions --demo --force" if demo else "  irp export decisions --force"
+    lock_note = (
+        "Lock:    file is writable (--writable was passed)"
+        if writable
+        else "Lock:    file is read-only — pass --writable on next export to override"
+    )
+    text = "\n".join(header + [
+        f"Wrote {output_path}",
+        f"Source:  {len(decisions)} decision(s) from .irp/ledger.jsonl{demo_note}",
+        f"Listed:  {len(decisions)} decision(s) newest-first",
+        lock_note,
+        "",
+        "Regenerate any time with:",
+        regen_cmd,
+    ])
+    return {
+        "command": "export.decisions",
+        "status": "ok",
+        "output_path": str(output_path),
+        "decision_count": len(decisions),
+        "demo": demo,
+        "text": text,
+    }
+
+
 _TARGET_DEFAULTS = {
     "agents.md":    "AGENTS.md",
     "decisions.md": "DECISIONS.md",
 }
 
 _SUPPORTED_TARGETS = ", ".join(_TARGET_DEFAULTS)
+
 
 def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
     target = getattr(args, "target", None)
@@ -368,7 +523,9 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
 
     # Build target-specific body.
     if target == "agents.md":
-        body = _build_agents_md(decisions)
+        cfg = read_config(irp_dir)
+        control_level = cfg.get("control_level", "advanced")
+        body = _build_agents_md(decisions, control_level=control_level)
     else:  # decisions.md
         body = _build_decisions_md(decisions)
 
@@ -424,12 +581,15 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
             pass
 
     if target == "agents.md":
+        cfg = read_config(irp_dir)
+        control_level = cfg.get("control_level", "advanced")
         rule_count = sum(1 for d in decisions if _derive_rule(d))
         detail_lines = [
             f"Derived: {rule_count} rule(s) under 'Working constraints'",
             f"Listed:  {len(decisions)} decision(s) under 'Relevant decisions'",
+            f"Control: control_level = {control_level}",
         ]
-        result_extra = {"rule_count": rule_count}
+        result_extra = {"rule_count": rule_count, "control_level": control_level}
         regen_cmd = f"  irp export context --target {target}"
     else:
         rule_count = None
@@ -437,7 +597,8 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
             f"Listed:  {len(decisions)} decision(s) newest-first",
         ]
         result_extra = {}
-        regen_cmd = f"  irp export context --target {target}"
+        # Prefer the dedicated shorthand command for DECISIONS.md
+        regen_cmd = "  irp export decisions --force"
 
     lock_note = (
         "Lock:    file is writable (--writable was passed)"
