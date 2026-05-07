@@ -313,16 +313,24 @@ IRP decisions travel with your work. Export them as portable files that any agen
 irp export context --target agents.md
 
 # Export human-readable decision log (DECISIONS.md)
-irp export context --target decisions.md
+irp export decisions
 
 # Export interactive 3D decision graph (GRAPH.html)
 irp export graph
 
+# Scope graph to a date range or project tag
+irp export graph --from 2026-01-01 --to 2026-06-30
+irp export graph --project irp-capture
+
 # Try a populated example without touching your ledger (18 decisions, 22 edges)
 irp export graph --demo
 
-# Export EU AI Act evidence package (Art. 12, 13, 14)
-irp export evidence
+# Export compliance evidence package
+irp export evidence                                  # EU AI Act (default)
+irp export evidence --framework soc2                 # SOC 2
+irp export evidence --framework gdpr                 # GDPR
+irp export evidence --framework iso42001             # ISO 42001
+irp export evidence --framework custom --config framework.json  # your own mapping
 
 # Try with built-in Nordic lending platform sample (10 decisions)
 irp export evidence --demo
@@ -332,7 +340,7 @@ irp export evidence --demo
 
 `DECISIONS.md` renders your full decision history newest-first — confidence, tags, source, reasoning. Readable by any collaborator who doesn't run IRP.
 
-`EVIDENCE.md` maps every ledger decision to EU AI Act articles — Art. 12 (logging and traceability), Art. 14 (human oversight events), and Art. 13 (transparency and scope). One command, structured evidence package, no manual assembly. Try the built-in Nordic lending platform sample with `--demo`.
+`EVIDENCE-<framework>.md` maps every ledger decision to compliance controls — EU AI Act Art. 12/13/14, SOC 2 CC7.2/CC6.1/CC4.1, GDPR Art. 30/22/5, or ISO 42001 6.1/8.4/9.1. One command, structured evidence package, no manual assembly. Bring your own framework via `--config` for custom internal audit mappings. Try the built-in Nordic lending platform sample with `--demo`.
 
 `GRAPH.html` renders all decisions as a self-contained interactive 3D force globe. Nodes are colour-coded by confidence (green / amber / red). Animated particles travel along provenance edges — every IRP id cross-reference in a `why` field becomes a directed edge. No server required — open in any browser.
 
