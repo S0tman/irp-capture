@@ -20,6 +20,7 @@ from commands.defer import run_defer
 from commands.demo import run_demo
 from commands.bootstrap import run_bootstrap
 from commands.export import run_export
+from commands.find import run_find
 from commands.guard import run_guard
 from commands.inherit import run_inherit
 from commands.why import run_why
@@ -112,6 +113,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Leave exported file writable (default: chmod 444 read-only)",
     )
     p_craft_export.add_argument("--json", action="store_true")
+
+    # ── find ─────────────────────────────────────────────────────────────────
+    p = sub.add_parser("find", help="Search ledger and craft entries by keyword or regex")
+    p.add_argument("query", type=str, help="Search term (plain text or regex)")
+    p.add_argument("--ledger-only", action="store_true", dest="ledger_only",
+                   help="Search only the decision ledger")
+    p.add_argument("--craft-only", action="store_true", dest="craft_only",
+                   help="Search only the craft entries")
+    p.add_argument("--graph", action="store_true",
+                   help="Open matched entries as an interactive graph in the browser")
+    p.add_argument("--json", action="store_true")
 
     # ── demo ─────────────────────────────────────────────────────────────────
     p_demo = sub.add_parser("demo", help="Demo utilities (generate synthetic threads + ledger entries)")
@@ -409,6 +421,7 @@ def main() -> int:
             "inherit":   run_inherit,
             "capture":   run_capture,
             "why":       run_why,
+            "find":      run_find,
             "check":     run_check,
             "config":    run_config,
             "craft":     run_craft,
