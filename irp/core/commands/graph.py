@@ -47,8 +47,8 @@ h1{font-size:14px;font-weight:600;color:#f9fafb}
 .node-label{position:absolute;pointer-events:none;transform:translate(-50%,-140%);font:bold 9px ui-monospace,"SF Mono",monospace;color:rgba(229,231,235,0.82);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
 #graph:active{cursor:grabbing}
 #graph canvas{display:block}
-#detail{width:320px;border-left:1px solid #1f2937;padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;flex-shrink:0;background:#0a0c12;z-index:10}
-#detail.empty{align-items:center;justify-content:center;color:#4b5563;font-size:13px;text-align:center;gap:8px}
+#overlay{position:fixed;display:none;background:#111827;border:1px solid #374151;border-radius:9px;padding:14px 16px;max-width:380px;z-index:100;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.6)}
+#overlay.locked{pointer-events:auto;border-color:#60a5fa;box-shadow:0 0 0 1px #60a5fa,0 6px 28px rgba(0,0,0,.85)}
 .did{font-size:11px;font-weight:700;color:#6b7280;font-family:monospace;letter-spacing:.03em}
 .dwhat{font-size:14px;font-weight:600;color:#f9fafb;line-height:1.45}
 .dwhy{font-size:12px;color:#9ca3af;line-height:1.55}
@@ -78,11 +78,11 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
     <div class="li"><div class="dot" style="background:#6b7280"></div>unknown</div>
   </div>
 </header>
-<div class="hint"><strong>Drag</strong> to orbit &nbsp;&middot;&nbsp; <strong>Scroll</strong> to zoom &nbsp;&middot;&nbsp; <strong>Hover</strong> a node to inspect &nbsp;&middot;&nbsp; <strong>Click references</strong> in tooltip to follow lineage &nbsp;&middot;&nbsp; <strong>Right-drag</strong> to pan</div>
+<div class="hint"><strong>Drag</strong> to orbit &nbsp;&middot;&nbsp; <strong>Scroll</strong> to zoom &nbsp;&middot;&nbsp; <strong>Hover</strong> to preview &nbsp;&middot;&nbsp; <strong>Click node</strong> to lock details &nbsp;&middot;&nbsp; <strong>Click reference links</strong> to follow lineage &nbsp;&middot;&nbsp; <strong>Right-drag</strong> to pan</div>
 <div class="main">
   <div id="graph"></div>
-  <div id="detail" class="empty"><span>Hover a node to inspect</span><span style="font-size:11px;color:#374151">Click references in the tooltip<br>to follow provenance lineage</span></div>
 </div>
+<div id="overlay"></div>
 <footer><span>Source: .irp/ledger.jsonl &nbsp;&middot;&nbsp; Edges = IRP id cross-references in <em>why</em> fields &nbsp;&middot;&nbsp; <code>irp export graph --force</code> to regenerate</span><a id="toggle-labels" onclick="toggleLabels()">Hide IDs</a></footer>
 
 <script>
@@ -109,9 +109,29 @@ decisions.forEach(d => {
 
 const nodes = decisions.map(d => ({ ...d }));
 
-// ── Detail panel ──────────────────────────────────────────────────────────
-const detail = document.getElementById('detail');
+// ── Floating overlay ──────────────────────────────────────────────────────
 let lockedId = null;
+let overlayLocked = false;
+let cursorX = 0, cursorY = 0;
+const overlay = document.getElementById('overlay');
+
+window.addEventListener('mousemove', e => {
+  cursorX = e.clientX; cursorY = e.clientY;
+  if (!overlayLocked && overlay.style.display === 'block') positionOverlay();
+});
+
+function positionOverlay() {
+  const margin = 14;
+  const ow = Math.min(380, window.innerWidth - margin * 2);
+  let left = cursorX + 18;
+  let top  = cursorY - 18;
+  if (left + ow > window.innerWidth  - margin) left = cursorX - ow - 18;
+  const oh = overlay.offsetHeight || 200;
+  if (top + oh > window.innerHeight - margin) top = window.innerHeight - oh - margin;
+  if (top < margin) top = margin;
+  overlay.style.left = left + 'px';
+  overlay.style.top  = top  + 'px';
+}
 
 function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -123,29 +143,39 @@ function shortId(id) {
 }
 function badgeClass(c) { return {high:'bh',medium:'bm',low:'bl'}[c]||'bu'; }
 
-function showDetail(d) {
+function buildOverlayContent(d) {
   const refs = [...new Set((d.why||'').match(IRP_RE)||[])].filter(r=>idSet.has(r)&&r!==d.id);
-  detail.className = '';
-  detail.innerHTML = `
+  return `
     <div class="did">${esc(d.id)}</div>
-    <div class="dwhat">${esc(d.what)}</div>
+    <div class="dwhat">${esc(d.what||'')}</div>
     <div class="dmeta">
       <span class="badge ${badgeClass(d.confidence)}">${d.confidence||'unknown'}</span>
       ${(d.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+      ${d.timestamp?`<span style="font-size:10px;color:#4b5563;margin-left:auto">${esc(String(d.timestamp).slice(0,10))}</span>`:''}
     </div>
-    <div><div class="dsec">Why</div><div class="dwhy">${esc(d.why)||'&mdash;'}</div></div>
-    <div><div class="dsec">Source &middot; Date</div><div class="dsrc">${esc(d.source)||'&mdash;'} &middot; ${esc(d.timestamp)}</div></div>
+    ${d.why?`<div><div class="dsec">Why</div><div class="dwhy">${esc(d.why)}</div></div>`:''}
+    ${d.source?`<div><div class="dsec">Source</div><div class="dsrc">${esc(d.source)}</div></div>`:''}
     ${refs.length?`<div><div class="dsec">References</div><div class="refs">${
-      refs.map(r=>`<span class="rl" onclick="focusNode('${r}')">${r}</span>`).join('')
+      refs.map(r=>`<span class="rl" onclick="event.stopPropagation();focusNode('${r}')">${r}</span>`).join('')
     }</div></div>`:''}
+    ${overlayLocked?`<div style="margin-top:8px;font-size:10px;color:#374151">Click node again or background to dismiss</div>`:'<div style="margin-top:8px;font-size:10px;color:#374151">Click to lock &middot; links become clickable</div>'}
   `;
 }
 
-function clearDetail() {
+function showOverlay(d, locked) {
+  overlayLocked = locked;
+  overlay.innerHTML = buildOverlayContent(d);
+  overlay.style.display = 'block';
+  overlay.className = locked ? 'locked' : '';
+  if (!locked) positionOverlay();
+}
+
+function clearOverlay() {
   lockedId = null;
+  overlayLocked = false;
+  overlay.style.display = 'none';
+  overlay.className = '';
   Graph.nodeColor(nodeColor);
-  detail.className = 'empty';
-  detail.innerHTML = '<span>Click a node to inspect</span>';
 }
 
 // ── 3D Graph ──────────────────────────────────────────────────────────────
@@ -155,24 +185,8 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
   .backgroundColor('#0f1117')
   .graphData({ nodes, links })
 
-  // Nodes
-  .nodeLabel(d => {
-    const e = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const confColor = {high:'#22c55e',medium:'#f59e0b',low:'#ef4444'}[d.confidence||''] || '#6b7280';
-    const tags = (d.tags||[]).map(t=>`<span style="background:#1f2937;color:#9ca3af;padding:1px 5px;border-radius:3px;font-size:10px;font-family:monospace">${e(t)}</span>`).join(' ');
-    const refs = [...new Set((d.why||'').match(IRP_RE)||[])].filter(r=>idSet.has(r)&&r!==d.id);
-    return `<div style="font:12px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111827;color:#e5e7eb;padding:11px 13px;border-radius:9px;border:1px solid #374151;max-width:380px;white-space:normal;box-shadow:0 4px 20px rgba(0,0,0,.6)">
-      <div style="font-size:10px;color:#6b7280;font-family:monospace;letter-spacing:.04em;margin-bottom:5px">${e(d.id)}</div>
-      <div style="font-weight:600;font-size:13px;color:#f9fafb;margin-bottom:7px">${e(d.what)}</div>
-      ${d.why?`<div style="font-size:11px;color:#9ca3af;margin-bottom:8px;padding-top:6px;border-top:1px solid #1f2937"><span style="color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Why</span><br>${e(d.why)}</div>`:''}
-      ${refs.length?`<div style="padding-top:6px;border-top:1px solid #1f2937;margin-bottom:6px"><span style="color:#6b7280;font-size:10px;text-transform:uppercase;letter-spacing:.06em">References</span><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">${refs.map(r=>`<span onclick="event.stopPropagation();focusNode('${r}')" style="color:#60a5fa;font-size:10px;font-family:monospace;cursor:pointer;text-decoration:underline;padding:1px 4px;border-radius:3px;background:#1e3a5f">${e(r)}</span>`).join('')}</div></div>`:''}
-      <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-        ${d.confidence?`<span style="color:${confColor};font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${e(d.confidence)}</span>`:''}
-        ${tags}
-        ${d.timestamp?`<span style="color:#4b5563;font-size:10px;margin-left:auto">${e(String(d.timestamp).slice(0,10))}</span>`:''}
-      </div>
-    </div>`;
-  })
+  // Nodes — no library tooltip; overlay handles all interaction
+  .nodeLabel(() => '')
   .nodeColor(nodeColor)
   .nodeVal(d => d.dimmed ? 1 : (d.confidence === 'high' ? 6 : d.confidence === 'medium' ? 4 : 3))
   .nodeOpacity(0.92)
@@ -192,12 +206,12 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
   .onNodeClick((node, event) => {
     event && event.stopPropagation();
     if (lockedId === node.id) {
-      clearDetail();
+      clearOverlay();
     } else {
       lockedId = node.id;
       Graph.nodeColor(nodeColor);
-      showDetail(node);
-      // Animate camera towards clicked node
+      positionOverlay();
+      showOverlay(node, true);
       const dist = 120;
       const distRatio = 1 + dist / Math.hypot(node.x||1, node.y||1, node.z||1);
       Graph.cameraPosition(
@@ -207,7 +221,7 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
       );
     }
   })
-  .onBackgroundClick(() => clearDetail());
+  .onBackgroundClick(() => clearOverlay());
 
 // ── Inertia + idle auto-rotation ─────────────────────────────────────────────
 const controls = Graph.controls();
@@ -227,14 +241,16 @@ function resetIdle() {
 graphEl.addEventListener('pointerdown', resetIdle);
 graphEl.addEventListener('wheel', resetIdle);
 
-// Stop rotation immediately on node hover; resume idle countdown on leave
+// Stop rotation on hover; show preview overlay (unless a node is locked)
 Graph.onNodeHover(node => {
   nodeHovered = !!node;
   if (nodeHovered) {
     controls.autoRotate = false;
     clearTimeout(idleTimer);
+    if (!overlayLocked) showOverlay(node, false);
   } else {
     resetIdle();
+    if (!overlayLocked) { overlay.style.display = 'none'; }
   }
 });
 
@@ -245,13 +261,13 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// ── Focus a node by id (called from ref links) ────────────────────────────
+// ── Focus a node by id (called from reference links in overlay) ───────────
 function focusNode(id) {
   const node = nodes.find(n => n.id === id);
   if (!node) return;
   lockedId = id;
   Graph.nodeColor(nodeColor);
-  showDetail(node);
+  showOverlay(node, true);
   const dist = 120;
   const distRatio = 1 + dist / Math.hypot(node.x||1, node.y||1, node.z||1);
   Graph.cameraPosition(
@@ -294,6 +310,35 @@ nodes.forEach(node => {
 </body>
 </html>
 """
+
+
+def build_graph_html(
+    decisions: list[dict[str, Any]],
+    filter_badge: str = "",
+    title_suffix: str = "",
+) -> str:
+    """Render a self-contained graph HTML from a pre-built decisions list.
+
+    Nodes with ``dimmed=True`` are rendered small and dark (causal context).
+    Nodes without that flag are full-brightness (matched / in-focus).
+    """
+    from datetime import datetime, timezone as _tz
+    generated_at = datetime.now(_tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    edge_count = _count_edges(decisions)
+    decisions_json = json.dumps(decisions, ensure_ascii=False)
+
+    title = f"IRP Decision Graph{(' — ' + title_suffix) if title_suffix else ''}"
+    html = (
+        _HTML_TEMPLATE
+        .replace("<title>IRP Decision Graph</title>", f"<title>{title}</title>")
+        .replace("<h1>IRP Decision Graph</h1>", f"<h1>{title}</h1>")
+        .replace("__GENERATED_AT__", generated_at)
+        .replace("__DECISION_COUNT__", str(len(decisions)))
+        .replace("__EDGE_COUNT__", str(edge_count))
+        .replace("__FILTER_BADGE__", filter_badge)
+        .replace("__DECISIONS_JSON__", decisions_json)
+    )
+    return html
 
 
 def _is_decision(entry: dict[str, Any]) -> bool:
