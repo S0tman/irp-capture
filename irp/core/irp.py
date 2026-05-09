@@ -24,6 +24,7 @@ from commands.find import run_find
 from commands.docs import run_docs
 from commands.resolve import run_resolve
 from commands.gate import run_gate, _exit_code as _gate_exit_code
+from commands.watch import run_watch
 from commands.guard import run_guard
 from commands.inherit import run_inherit
 from commands.why import run_why
@@ -70,6 +71,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_gate.add_argument("--scope", type=str, default=None, help="Limit check to decisions mentioning this scope")
     p_gate.add_argument("--strict", action="store_true",
                         help="Treat warn as block (exit 20 instead of 10)")
+
+    # ── watch ─────────────────────────────────────────────────────────────────
+    p_watch = sub.add_parser(
+        "watch",
+        help="Streaming gate — read actions line-by-line from stdin or file, emit one JSON verdict per line",
+    )
+    p_watch.add_argument("--input", type=str, default=None, metavar="FILE",
+                         help="Read actions from FILE instead of stdin")
+    p_watch.add_argument("--tag", type=str, default=None,
+                         help="Limit evaluation to decisions with this tag")
+    p_watch.add_argument("--scope", type=str, default=None,
+                         help="Limit evaluation to decisions mentioning this scope")
+    p_watch.add_argument("--strict", action="store_true",
+                         help="Treat warn as block (exit 20 instead of 10)")
 
     # ── config ────────────────────────────────────────────────────────────────
     p_cfg = sub.add_parser("config", help="Read and write project-level IRP settings (.irp/config.json)")
@@ -471,6 +486,7 @@ def main() -> int:
             "find":      run_find,
             "check":     run_check,
             "gate":      run_gate,
+            "watch":     run_watch,
             "config":    run_config,
             "craft":     run_craft,
             "defer":     run_defer,
@@ -487,6 +503,13 @@ def main() -> int:
         if args.command == "gate":
             print(json.dumps(result, ensure_ascii=False))
             return result.get("exit_code", 0)
+
+        # watch emits its own lines; return worst exit code from payload
+        if args.command == "watch":
+            exit_code = result.get("_watch_exit", 0)
+            if result.get("error"):
+                print(f"IRP watch error: {result['error']}", file=sys.stderr)
+            return exit_code
 
         print_result(result, getattr(args, "json", False))
         # exit 10 = conflict detected (warn-only signal for hook consumers)
