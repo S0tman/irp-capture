@@ -25,6 +25,7 @@ from commands.docs import run_docs
 from commands.resolve import run_resolve
 from commands.gate import run_gate, _exit_code as _gate_exit_code
 from commands.watch import run_watch
+from commands.mod import run_mod
 from commands.guard import run_guard
 from commands.inherit import run_inherit
 from commands.why import run_why
@@ -71,6 +72,29 @@ def build_parser() -> argparse.ArgumentParser:
     p_gate.add_argument("--scope", type=str, default=None, help="Limit check to decisions mentioning this scope")
     p_gate.add_argument("--strict", action="store_true",
                         help="Treat warn as block (exit 20 instead of 10)")
+
+    # ── mod ───────────────────────────────────────────────────────────────────
+    p_mod = sub.add_parser(
+        "mod",
+        help="Living mod — supersede or retire decisions, view recent changes",
+    )
+    mod_sub = p_mod.add_subparsers(dest="mod_action", required=True)
+
+    p_mod_sup = mod_sub.add_parser("supersede", help="Replace a decision with a new one")
+    p_mod_sup.add_argument("target_id", type=str, help="IRP ID to supersede (e.g. IRP-2026-04-01-001)")
+    p_mod_sup.add_argument("--decision", type=str, required=True, help="New decision text")
+    p_mod_sup.add_argument("--reason", type=str, required=True, help="Why this supersedes the old one")
+    p_mod_sup.add_argument("--confidence", type=str, default="high",
+                           choices=["low", "medium", "high"], help="Confidence level (default: high)")
+    p_mod_sup.add_argument("--json", action="store_true")
+
+    p_mod_ret = mod_sub.add_parser("retire", help="Retire a decision (no replacement)")
+    p_mod_ret.add_argument("target_id", type=str, help="IRP ID to retire")
+    p_mod_ret.add_argument("--reason", type=str, required=True, help="Why this decision is retired")
+    p_mod_ret.add_argument("--json", action="store_true")
+
+    p_mod_list = mod_sub.add_parser("list", help="Show recent mod events (supersessions, retirements)")
+    p_mod_list.add_argument("--json", action="store_true")
 
     # ── watch ─────────────────────────────────────────────────────────────────
     p_watch = sub.add_parser(
@@ -487,6 +511,7 @@ def main() -> int:
             "check":     run_check,
             "gate":      run_gate,
             "watch":     run_watch,
+            "mod":       run_mod,
             "config":    run_config,
             "craft":     run_craft,
             "defer":     run_defer,
