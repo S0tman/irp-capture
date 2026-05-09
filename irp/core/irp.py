@@ -23,6 +23,7 @@ from commands.export import run_export
 from commands.find import run_find
 from commands.docs import run_docs
 from commands.resolve import run_resolve
+from commands.gate import run_gate, _exit_code as _gate_exit_code
 from commands.guard import run_guard
 from commands.inherit import run_inherit
 from commands.why import run_why
@@ -58,6 +59,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_res.add_argument("--scope", type=str, default=None, help="Filter to decisions mentioning this scope")
     p_res.add_argument("--top", type=int, default=3, metavar="N", help="Show top N conflicts (default: 3)")
     p_res.add_argument("--json", action="store_true")
+
+    # ── gate ──────────────────────────────────────────────────────────────────
+    p_gate = sub.add_parser(
+        "gate",
+        help="Runtime gate — evaluate an action against active decisions (machine-readable JSON)",
+    )
+    p_gate.add_argument("query", type=str, help="Action or proposal to evaluate")
+    p_gate.add_argument("--tag", type=str, default=None, help="Limit check to decisions with this tag")
+    p_gate.add_argument("--scope", type=str, default=None, help="Limit check to decisions mentioning this scope")
+    p_gate.add_argument("--strict", action="store_true",
+                        help="Treat warn as block (exit 20 instead of 10)")
 
     # ── config ────────────────────────────────────────────────────────────────
     p_cfg = sub.add_parser("config", help="Read and write project-level IRP settings (.irp/config.json)")
@@ -458,6 +470,7 @@ def main() -> int:
             "why":       run_why,
             "find":      run_find,
             "check":     run_check,
+            "gate":      run_gate,
             "config":    run_config,
             "craft":     run_craft,
             "defer":     run_defer,
@@ -469,6 +482,12 @@ def main() -> int:
             "guard":     run_guard,
         }
         result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
+
+        # gate uses its own 0/10/20 exit code semantics — read from payload
+        if args.command == "gate":
+            print(json.dumps(result, ensure_ascii=False))
+            return result.get("exit_code", 0)
+
         print_result(result, getattr(args, "json", False))
         # exit 10 = conflict detected (warn-only signal for hook consumers)
         # exit 0  = clean
