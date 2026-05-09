@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from store import append_craft_entry, next_craft_id, read_craft
+from store import append_craft_entry, append_ledger_entry, next_craft_id, read_craft
 
 # ── categories ────────────────────────────────────────────────────────────────
 
@@ -239,9 +239,14 @@ def _prompt_craft_add(category_arg: str | None, what_arg: str | None,
     return {"category": category, "what": what, "context": context}
 
 
-def _capture_craft(irp_dir: Path, category: str, what: str,
-                   context: str) -> dict[str, Any]:
-    """Write a new entry to .irp/craft.jsonl."""
+def _capture_craft(
+    irp_dir: Path,
+    category: str,
+    what: str,
+    context: str,
+    source_irps: list[str] | None = None,
+) -> dict[str, Any]:
+    """Write a new entry to .irp/craft.jsonl and a ledger event to .irp/ledger.jsonl."""
     existing = read_craft(irp_dir)
     craft_id = next_craft_id(existing)
     contributor = os.environ.get("USER") or os.environ.get("USERNAME") or "user"
@@ -256,8 +261,28 @@ def _capture_craft(irp_dir: Path, category: str, what: str,
     }
     if context:
         entry["context"] = context
+    if source_irps:
+        entry["source_irps"] = source_irps
 
     append_craft_entry(irp_dir, entry)
+
+    # ── audit trail: every craft mutation produces a ledger event ─────────────
+    ledger_event: dict[str, Any] = {
+        "type": "craft_event",
+        "action": "add",
+        "craft_id": craft_id,
+        "category": category,
+        "what": what,
+        "timestamp": timestamp,
+        "contributor": contributor,
+    }
+    if context:
+        ledger_event["context"] = context
+    if source_irps:
+        ledger_event["source_irps"] = source_irps
+
+    append_ledger_entry(irp_dir, ledger_event)
+
     return entry
 
 
@@ -268,6 +293,8 @@ def _run_craft_add(project_root: Path, irp_dir: Path, args) -> dict[str, Any]:
     category_arg = getattr(args, "category", None)
     what_arg = getattr(args, "what", None)
     context_arg = getattr(args, "context", None)
+    # --irp accepts one or more IRP IDs that this craft entry traces back to
+    source_irps: list[str] = getattr(args, "irp", None) or []
 
     # Non-interactive path: all required fields provided.
     if category_arg and what_arg:
@@ -280,16 +307,26 @@ def _run_craft_add(project_root: Path, irp_dir: Path, args) -> dict[str, Any]:
                     f"Valid: {', '.join(CATEGORIES)}"
                 ),
             }
-        entry = _capture_craft(irp_dir, category_arg, what_arg.strip(),
-                               (context_arg or "").strip())
+        entry = _capture_craft(
+            irp_dir, category_arg, what_arg.strip(),
+            (context_arg or "").strip(),
+            source_irps=source_irps or None,
+        )
         craft_id = entry["id"]
         label = _CATEGORY_LABELS[category_arg]
-        text = f"  ✓ Craft entry captured  {craft_id}\n  Category: {label}\n  What: {what_arg}"
+        irp_note = f"\n  Sources:  {', '.join(source_irps)}" if source_irps else ""
+        text = (
+            f"  ✓ Craft entry captured  {craft_id}\n"
+            f"  Category: {label}\n"
+            f"  What: {what_arg}"
+            f"{irp_note}"
+        )
         return {
             "command": "craft.add",
             "status": "ok",
             "craft_id": craft_id,
             "category": category_arg,
+            "source_irps": source_irps,
             "text": text,
         }
 
@@ -305,8 +342,11 @@ def _run_craft_add(project_root: Path, irp_dir: Path, args) -> dict[str, Any]:
     if result is None:
         return {"command": "craft.add", "status": "cancelled", "text": "Cancelled."}
 
-    entry = _capture_craft(irp_dir, result["category"], result["what"],
-                           result.get("context", ""))
+    entry = _capture_craft(
+        irp_dir, result["category"], result["what"],
+        result.get("context", ""),
+        source_irps=source_irps or None,
+    )
     craft_id = entry["id"]
     label = _CATEGORY_LABELS[result["category"]]
 
@@ -319,8 +359,10 @@ def _run_craft_add(project_root: Path, irp_dir: Path, args) -> dict[str, Any]:
         f"  Category: {label}",
         f"  What:     {result['what']}",
         *([f"  Context:  {result['context']}"] if result.get("context") else []),
+        *([f"  Sources:  {', '.join(source_irps)}"] if source_irps else []),
         "",
         "  Run `irp craft list` to review, `irp craft export` to write CRAFT.md.",
+        "  Ledger event written to .irp/ledger.jsonl.",
     ])
 
     return {
@@ -328,6 +370,7 @@ def _run_craft_add(project_root: Path, irp_dir: Path, args) -> dict[str, Any]:
         "status": "ok",
         "craft_id": craft_id,
         "category": result["category"],
+        "source_irps": source_irps,
         "text": text,
     }
 

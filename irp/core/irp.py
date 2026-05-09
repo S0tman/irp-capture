@@ -95,6 +95,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--context", type=str, default=None,
         help="Optional context (project, tool, situation)",
     )
+    p_craft_add.add_argument(
+        "--irp", type=str, nargs="+", default=None,
+        metavar="IRP_ID",
+        help="Source IRP decision ID(s) this craft entry traces back to (e.g. IRP-2026-05-09-004)",
+    )
     p_craft_add.add_argument("--json", action="store_true")
 
     p_craft_list = craft_sub.add_parser("list", help="List craft entries")
