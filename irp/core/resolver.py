@@ -127,7 +127,7 @@ def _entry_to_conflict(entry: dict[str, Any], score: int, matched_on: list[str])
     )
 
 
-# ── supersession ─────────────────────────────────────────────────────────────
+# ── supersession and retirement ───────────────────────────────────────────────
 
 def build_supersession_map(ledger: list[dict[str, Any]]) -> set[str]:
     """Return the set of IRP IDs that have been superseded by a later entry."""
@@ -142,6 +142,17 @@ def build_supersession_map(ledger: list[dict[str, Any]]) -> set[str]:
     return superseded
 
 
+def build_retirement_set(ledger: list[dict[str, Any]]) -> set[str]:
+    """Return the set of IRP IDs that have been explicitly retired."""
+    retired: set[str] = set()
+    for entry in ledger:
+        if entry.get("type") == "retirement":
+            target = entry.get("id")
+            if target:
+                retired.add(target)
+    return retired
+
+
 def active_decisions(
     ledger: list[dict[str, Any]],
     tag: str | None = None,
@@ -150,13 +161,15 @@ def active_decisions(
     """
     Return (active_entries, superseded_count).
 
-    active_entries: decisions not superseded, optionally filtered by tag/scope.
-    superseded_count: total number of superseded decisions (before tag filter).
+    active_entries: decisions not superseded or retired, optionally filtered by tag/scope.
+    superseded_count: total number of excluded decisions (superseded + retired).
     """
     superseded = build_supersession_map(ledger)
+    retired = build_retirement_set(ledger)
+    excluded = superseded | retired
     decisions = [e for e in ledger if e.get("type") == "decision"]
-    superseded_count = sum(1 for d in decisions if d.get("id", "") in superseded)
-    active = [d for d in decisions if d.get("id", "") not in superseded]
+    superseded_count = sum(1 for d in decisions if d.get("id", "") in excluded)
+    active = [d for d in decisions if d.get("id", "") not in excluded]
 
     if tag:
         tag_lower = tag.lower()
