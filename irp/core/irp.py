@@ -473,7 +473,11 @@ def main() -> int:
         # exit 10 = conflict detected (warn-only signal for hook consumers)
         # exit 0  = clean
         # exit 1  = reserved for errors (handled in except block below)
-        return 10 if result.get("status") == "conflict" else 0
+        has_conflict = (
+            result.get("status") == "conflict"
+            or result.get("verdict") in ("warn", "block")
+        )
+        return 10 if has_conflict else 0
 
     except KeyboardInterrupt:
         print("IRP cancelled.", file=sys.stderr)
