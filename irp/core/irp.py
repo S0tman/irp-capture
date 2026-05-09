@@ -21,6 +21,8 @@ from commands.demo import run_demo
 from commands.bootstrap import run_bootstrap
 from commands.export import run_export
 from commands.find import run_find
+from commands.docs import run_docs
+from commands.resolve import run_resolve
 from commands.guard import run_guard
 from commands.inherit import run_inherit
 from commands.why import run_why
@@ -45,9 +47,17 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
 
     # ── check ─────────────────────────────────────────────────────────────────
-    p = sub.add_parser("check", help="Check a proposal against the project bridge")
+    p = sub.add_parser("check", help="Check a proposal against active decisions (via resolver)")
     p.add_argument("proposal", type=str, help="Proposal text to check")
     p.add_argument("--json", action="store_true")
+
+    # ── resolve ───────────────────────────────────────────────────────────────
+    p_res = sub.add_parser("resolve", help="Query the Decision Resolver — ranked conflicts with provenance")
+    p_res.add_argument("query", type=str, help="Proposal or action to resolve")
+    p_res.add_argument("--tag", type=str, default=None, help="Filter to decisions with this tag")
+    p_res.add_argument("--scope", type=str, default=None, help="Filter to decisions mentioning this scope")
+    p_res.add_argument("--top", type=int, default=3, metavar="N", help="Show top N conflicts (default: 3)")
+    p_res.add_argument("--json", action="store_true")
 
     # ── config ────────────────────────────────────────────────────────────────
     p_cfg = sub.add_parser("config", help="Read and write project-level IRP settings (.irp/config.json)")
@@ -247,6 +257,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_boot.add_argument("--json", action="store_true")
 
+    # ── docs ─────────────────────────────────────────────────────────────────
+    p_docs = sub.add_parser(
+        "docs",
+        help="Pull/push iCloud strategic docs to/from /tmp staging area",
+    )
+    docs_sub = p_docs.add_subparsers(dest="docs_action", required=True)
+
+    p_docs_pull = docs_sub.add_parser("pull", help="Copy iCloud docs → /tmp")
+    p_docs_pull.add_argument("--file", type=str, default=None,
+                             help="Specific filename (default: all known docs)")
+    p_docs_pull.add_argument("--json", action="store_true")
+
+    p_docs_push = docs_sub.add_parser("push", help="Copy /tmp docs → iCloud")
+    p_docs_push.add_argument("--file", type=str, default=None,
+                             help="Specific filename (default: all known docs)")
+    p_docs_push.add_argument("--json", action="store_true")
+
+    p_docs_list = docs_sub.add_parser("list", help="List .md files in iCloud docs folder")
+    p_docs_list.add_argument("--json", action="store_true")
+
     # ── export ───────────────────────────────────────────────────────────────
     p_export = sub.add_parser(
         "export",
@@ -428,6 +458,8 @@ def main() -> int:
             "defer":     run_defer,
             "demo":      run_demo,
             "bootstrap": run_bootstrap,
+            "docs":      run_docs,
+            "resolve":   run_resolve,
             "export":    run_export,
             "guard":     run_guard,
         }

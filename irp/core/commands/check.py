@@ -1,121 +1,89 @@
-"""irp check — lightweight bridge conflict preview.
-
-Heuristic: keyword/phrase overlap between the proposal and active decisions
-in .irp/current.json. No semantic understanding, no scoring, no embeddings.
-First matching decision only. This is a stakeholder test, not a production
-conflict engine.
-"""
+"""irp check — conflict preview powered by the Decision Resolver."""
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
-from irp.core.store import read_current
+from store import read_ledger
+from resolver import resolve as _resolve
 
-_STOPWORDS = {
-    # articles / prepositions / conjunctions
-    "a", "an", "the", "in", "to", "of", "and", "or", "for", "at", "by",
-    "on", "with", "as", "into", "from", "up", "out", "about", "per",
-    # pronouns / determiners
-    "it", "its", "this", "that", "we", "our", "they", "their", "i", "my",
-    # common verbs with no conflict signal
-    "add", "adding", "use", "using", "used", "implement", "implementing",
-    "create", "make", "get", "set", "run", "update", "build", "introduce",
-    "support", "allow", "enable", "provide", "include", "apply",
-    # modifiers / connectives
-    "will", "not", "no", "be", "is", "are", "was", "were", "have", "has",
-    "had", "can", "do", "so", "but", "if", "only", "also", "all", "new",
-    "any", "each", "both", "already", "now", "just", "more", "better",
-    "well", "good", "clear", "simple", "local", "same",
-    # too generic in this codebase to carry conflict signal
-    "state", "thread", "project", "system", "single", "scale", "version",
-    "v0", "approach", "management", "unnecessary", "complexity",
-}
+_DIVIDER = "─" * 48
 
 _SOURCE_LABELS = {
     "slack": "Slack thread",
     "stdin": "IRP Capture SKILL",
-    "cli": "IRP Capture SKILL",
+    "cli":   "IRP Capture SKILL",
 }
 
-_DIVIDER = "\u2500" * 48
-
-def _tokens(text: str) -> set[str]:
-    words = re.split(r"[\s\W]+", text.lower())
-    return {w for w in words if w and w not in _STOPWORDS}
 
 def _source_label(raw: str) -> str:
-    return _SOURCE_LABELS.get(raw, raw)
+    return _SOURCE_LABELS.get(raw, raw) if raw else ""
+
 
 def run_check(project_root: Path, irp_dir: Path, args) -> dict:
     proposal = args.proposal.strip()
-    current = read_current(irp_dir)
-    active = current.get("active", [])
+    ledger   = read_ledger(irp_dir)
+    result   = _resolve(proposal, ledger)
 
-    proposal_tokens = _tokens(proposal)
-    match = None
-    matched_words = []
-
-    for entry in reversed(active):  # newest-first: most recent decisions are most relevant
-        decision_tokens = _tokens(entry.get("what", "") + " " + entry.get("why", ""))
-        overlap = sorted(proposal_tokens & decision_tokens)
-        if overlap:
-            match = entry
-            matched_words = overlap
-            break  # first match only
-
-    if match:
+    if result.verdict == "clear":
         lines = [
-            f"Checking proposal against project bridge (.irp/current.json)...",
+            "Checking proposal against decision ledger (.irp/ledger.jsonl)...",
             "",
-            "\u26a0  Potential conflict with an active project decision",
+            "✓  No conflicts detected against active decisions.",
             "",
-            f"  Decision:   {match.get('id', '')}",
-            f"  What:       {match.get('what', '')}",
-            f"  Why:        {match.get('why', '')}",
-            f"  Source:     {_source_label(match.get('source', ''))}",
-        ]
-
-        if match.get("source") == "slack":
-            ref = match.get("source_ref", {})
-            lines.append(f"  Channel:    {ref.get('channel_id', '')}")
-            lines.append(f"  Thread:     {ref.get('thread_ts', '')}")
-
-        lines += [
-            f"  Timestamp:  {match.get('timestamp', '')}",
-            "",
-            f"  Why surfaced: proposal overlaps with an active decision in the shared project bridge.",
-            f"  Matched on:  {', '.join(matched_words)}",
+            f"  Proposal: {proposal}",
+            f"  Checked:  {result.active_count} active decision{'s' if result.active_count != 1 else ''}",
+            f"  Skipped:  {result.superseded_count} superseded",
             "",
             _DIVIDER,
-            "Source of truth: project `.irp/current.json` (shared bridge)",
+            "Source of truth: .irp/ledger.jsonl",
         ]
-
         return {
             "command": "check",
-            "status": "conflict",
+            "status": "clear",
             "proposal": proposal,
-            "match_id": match.get("id"),
-            "matched_on": matched_words,
+            "checked": result.active_count,
+            "superseded": result.superseded_count,
             "text": "\n".join(lines),
         }
 
+    # conflict or warn
+    top = result.top_match
+    icon = "⚠ " if result.verdict == "warn" else "✗ "
     lines = [
-        f"Checking proposal against project bridge (.irp/current.json)...",
+        "Checking proposal against decision ledger (.irp/ledger.jsonl)...",
         "",
-        "\u2713  No conflicts detected against active decisions in the shared project bridge.",
+        f"{icon} Potential conflict with an active decision",
         "",
-        f"  Proposal:   {proposal}",
-        f"  Checked:    {len(active)} active decision{'s' if len(active) != 1 else ''}",
+        f"  Decision:   {top.id}",
+        f"  What:       {top.decision}",
+        f"  Reasoning:  {top.reasoning[:200]}{'…' if len(top.reasoning) > 200 else ''}",
+        f"  Confidence: {top.confidence}",
+        f"  Source:     {_source_label(top.source) or top.source}",
+        f"  Timestamp:  {top.timestamp}",
+        f"  Matched on: {', '.join(top.matched_on)}",
         "",
-        _DIVIDER,
-        "Source of truth: project `.irp/current.json` (shared bridge)",
+        f"  Active checked:  {result.active_count}",
+        f"  Superseded skip: {result.superseded_count}",
     ]
+
+    if len(result.conflicts) > 1:
+        lines += [
+            "",
+            f"  Other conflicts: {len(result.conflicts) - 1} more",
+            "  Run `irp resolve \"<proposal>\"` to see all conflicts ranked.",
+        ]
+
+    lines += ["", _DIVIDER, "Source of truth: .irp/ledger.jsonl"]
 
     return {
         "command": "check",
-        "status": "clear",
+        "status": "conflict",
+        "verdict": result.verdict,
         "proposal": proposal,
-        "checked": len(active),
+        "match_id": top.id,
+        "matched_on": top.matched_on,
+        "score": result.score,
+        "checked": result.active_count,
+        "superseded": result.superseded_count,
         "text": "\n".join(lines),
     }
