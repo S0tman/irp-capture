@@ -388,6 +388,111 @@ The missing layer in the AI tool stack:
 
 ---
 
+## Decision Control Plane — runtime enforcement for AI agents
+
+The ledger captures decisions. The control plane enforces them at runtime.
+
+Three commands designed to sit inside agent loops, CI pipelines, and agentic frameworks — not just developer terminals.
+
+### irp gate — single action evaluation
+
+Evaluate any proposed action against active decisions before executing it. Designed for agentic loops: always returns JSON, never prompts.
+
+```bash
+irp gate "delete the authentication module"
+```
+
+```json
+{
+  "verdict": "block",
+  "score": 4,
+  "action": "delete the authentication module",
+  "top_match": {
+    "id": "IRP-2026-04-01-001",
+    "decision": "Do not delete the authentication module",
+    "matched_on": ["delete", "authentication", "module"]
+  },
+  "defer_question": "Should we proceed given IRP-2026-04-01-001 states: 'Do not delete the authentication module'?",
+  "exit_code": 20
+}
+```
+
+Exit codes: `0` = allow, `10` = warn, `20` = block. Distinct from `irp check` — gate is built for machine consumers, not humans.
+
+```bash
+irp gate "deploy new service"              # → exit 0, clear
+irp gate "change api response format"      # → exit 10, warn
+irp gate "delete auth module"              # → exit 20, block
+
+irp gate --strict "change api format"      # warn treated as block → exit 20
+irp gate --tag security "delete module"    # only security-tagged decisions checked
+```
+
+### irp watch — streaming gate for agent pipelines
+
+Pipe a stream of proposed actions through `irp watch`. One JSON verdict line per input line. Composable with any agent framework.
+
+```bash
+# Pipe from an agent action log
+cat proposed_actions.txt | irp watch
+
+# Or read from file directly
+irp watch --input actions.jsonl
+```
+
+```
+{"verdict": "clear",  "score": 0, "action": "deploy zeppelin service", "exit_code": 0}
+{"verdict": "warn",   "score": 1, "action": "change api endpoint",     "exit_code": 10, "defer_question": "..."}
+{"verdict": "block",  "score": 4, "action": "delete auth module",      "exit_code": 20, "defer_question": "..."}
+```
+
+Exit code reflects the worst verdict across all lines: `0` = all clear, `10` = any warn, `20` = any block.
+
+```bash
+# Accepts plain text or {"action": "..."} JSON objects — mixed formats fine
+echo '{"action": "delete auth module"}' | irp watch
+
+# --strict, --tag, --scope all propagate to every evaluation
+cat actions.txt | irp watch --strict --tag security
+```
+
+Typical integration pattern:
+
+```
+agent proposes action
+    ↓
+irp gate / irp watch
+    ↓
+exit 0 → execute
+exit 10 → surface defer_question to human
+exit 20 → block, log, escalate
+```
+
+### irp mod — living decisions
+
+Decisions change. `irp mod` makes supersession and retirement first-class operations — no manual ledger editing.
+
+```bash
+# Replace a decision with a new one
+irp mod supersede IRP-2026-04-01-001 \
+  --decision "Auth module may be split but never fully deleted" \
+  --reason "Security policy updated after Q2 review"
+
+# → {"old_id": "IRP-2026-04-01-001", "new_id": "IRP-2026-05-10-003"}
+# → Resolver immediately excludes old decision from active set
+
+# Retire a decision with no replacement
+irp mod retire IRP-2026-04-02-001 \
+  --reason "PostgreSQL migration complete — decision no longer applicable"
+
+# Review recent changes
+irp mod list
+```
+
+Both operations require `--reason`. The ledger is append-only — supersede and retire write new events, never edit existing entries. The resolver picks up the change immediately.
+
+---
+
 ## Use with Claude Code
 
 If you clone this repo or have `SKILL.md` in your project root,
@@ -496,16 +601,23 @@ Start capturing from day one, even if the entries are simple.
 | Review specific decision | `irp why --id IRP-2026-04-08-001` |
 | Capture from stdin | `irp capture --stdin` |
 | Check installation health | `irp doctor` |
+| **Gate a single action (agent runtime)** | **`irp gate "proposed action"`** |
+| **Gate with strict mode** | **`irp gate --strict "proposed action"`** |
+| **Stream actions through gate** | **`cat actions.txt \| irp watch`** |
+| **Watch from file** | **`irp watch --input actions.jsonl`** |
+| **Supersede a decision** | **`irp mod supersede IRP-ID --decision "..." --reason "..."`** |
+| **Retire a decision** | **`irp mod retire IRP-ID --reason "..."`** |
+| **List recent mod events** | **`irp mod list`** |
+| Check proposal for conflicts | `irp check "proposal text"` |
+| Resolve with ranked conflicts | `irp resolve "proposal text"` |
 | Export agent constraints | `irp export context --target agents.md` |
 | Export human decision log | `irp export context --target decisions.md` |
 | Export interactive 3D graph | `irp export graph` |
-| Export graph with sample data | `irp export graph --demo` |
 | Export EU AI Act evidence package | `irp export evidence` |
 | Export evidence with sample data | `irp export evidence --demo` |
 | Install pre-commit guard hook | `irp guard install` |
 | Check staged changes manually | `irp guard run` |
 | Run execution governance critique | `python3 tools/collab.py --mode critique "proposal"` |
-| Critique with web search | `python3 tools/collab.py --mode critique --tools web_search "..."` |
 | JSON output | Add `--json` to any command |
 
 ---
@@ -565,6 +677,10 @@ IRP focuses on the second.
 |---|---|
 | Core CLI | Available |
 | Claude Code skill | Available |
+| **Decision Resolver** | **Live — ranked conflict detection with provenance** |
+| **Runtime Gate (`irp gate`)** | **Live — machine-readable JSON, exit 0/10/20** |
+| **Streaming Gate (`irp watch`)** | **Live — pipe agent actions through gate, one verdict per line** |
+| **Living Mod (`irp mod`)** | **Live — supersede and retire decisions, resolver updates immediately** |
 | Slack sensor | Available |
 | Discord sensor | Live — v0 |
 | Figma plugin | Live — v0 |
