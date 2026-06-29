@@ -36,7 +36,7 @@ The mapping is deterministic. No AI inference. No LLM calls. Three heuristics:
 
 ### Article 12 — Logging and Traceability
 
-Every decision in the ledger qualifies. The argument is structural: each IRP entry is timestamped, sequenced, append-only, and human-confirmed. The ledger cannot be modified after the fact — each entry carries the moment it was captured, not the moment it was reviewed. This is the decision trail Article 12 is asking for.
+Every decision in the ledger qualifies. The argument is structural: each IRP entry is timestamped, sequenced, append-only by design, and human-confirmed. Official IRP commands add entries and do not edit prior ones, and each entry carries the moment it was captured, not the moment it was reviewed. This is the decision trail Article 12 is asking for. One honest caveat: append-only is an application-design property, not an independent cryptographic guarantee. A local, owner-held ledger is not tamper-proof on its own. To make a snapshot externally verifiable (proof that a given ledger state existed by a given time), anchor its digest to an external timestamp authority. See the [Trust model](../TRUST.md).
 
 The evidence package lists every decision under Article 12, with its id, date, what was decided, why, who confirmed it, and the source (CLI, Slack thread, Figma session, API call). An auditor can navigate that list. They can pick any entry and verify it against the raw ledger. The chain of custody is intact.
 

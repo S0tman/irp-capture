@@ -31,7 +31,7 @@ IRP inverts the problem. Instead of decisions being a consequence of documentati
 
 When you decide something, you capture it immediately: "Use React for the core UI. Why: team expertise, ecosystem maturity."
 
-That entry is immutable. It lives in a ledger. The ledger is the source of truth. Everything else—current.json, REST APIs, Figma integrations—derives from the ledger.
+That entry is append-only: official IRP commands never edit or delete it, and corrections are made by writing a superseding entry. It lives in a ledger. The ledger is the canonical record from which everything else (current.json, REST APIs, Figma integrations) derives. Note the precise claim: append-only is an application-design property, not an independent cryptographic guarantee. Because the ledger is local and owner-held, it is not tamper-proof on its own. See the [Trust model](../TRUST.md) for what IRP does and does not prove.
 
 Consequence: decisions are portable. A decision captured in Figma lives in `.irp/ledger.jsonl`. It can be queried from Slack, injected into an AI model's context, or referenced in a PR. The decision travels with the work.
 
@@ -56,7 +56,7 @@ This is enough. No lengthy justification, no approval chains, no metadata. Just:
 
 The `source` field indicates origin (Figma plugin, Slack, CLI, etc.). The `confidence` field indicates certainty (low/medium/high). Both enable downstream reasoning.
 
-## Core Abstraction: The Immutable Ledger
+## Core Abstraction: The Append-Only Ledger
 
 The ledger is a JSONL file: one JSON object per line.
 
@@ -132,7 +132,7 @@ This architecture reflects a principle: **decisions should be tool-independent.*
 
 ```mermaid
 graph TB
-    L["<b>Ledger</b><br/>Immutable append-only"]
+    L["<b>Ledger</b><br/>Append-only by design"]
     S["<b>Sensors</b><br/>Multi-source capture"]
     DS["<b>Derived State</b><br/>Current.json"]
     V["<b>Validation</b><br/>Conflict detection"]
@@ -155,7 +155,7 @@ Next chapter: how does IRP keep decisions in sync across tools, and what happens
 
 ## Apply This
 
-**Pattern 1: Immutable Audit Log**
+**Pattern 1: Append-Only Audit Log**
 - **Problem solved:** Lossy tool transitions, hidden history
 - **How to adapt:** Define "decision" minimally, append-only storage, version the schema
 - **Pitfall to watch:** Don't try to retroactively update history. If you need to revise, log a new entry that supersedes the old one.

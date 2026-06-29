@@ -26,7 +26,7 @@
 
 ### Three Commitments Embedded in That Thesis
 
-1. **Durable:** Decisions are immutable once logged. No hidden history, no "let's just redo this." Audit trail is permanent.
+1. **Durable:** Decisions are append-only once logged. No hidden history, no "let's just redo this." The trail grows by superseding, not by rewriting. (Durability is an application-design property, not an independent tamper-proof guarantee. See the [Trust model](../TRUST.md).)
 
 2. **Portable:** Decisions live locally (.irp/) but integrate everywhere (Figma, Slack, remote AI, REST APIs). A decision captured in Figma can inform a Claude API call, which can inform a Slack post. No re-entry friction.
 
@@ -43,7 +43,7 @@ The IRP codebase is ~1,000 LOC. You can read it. But reading code doesn't explai
 
 ### Problem 2: Cross-Cutting Patterns Aren't Obvious
 IRP touches **5 different pattern domains:**
-- **Immutable audit logs** (ledger)
+- **Append-only audit logs** (ledger)
 - **Derived state** (current.json)
 - **Conflict detection** (check algorithm)
 - **Bridge architecture** (Figma plugin pattern)

@@ -663,7 +663,7 @@ IRP focuses on the second.
 ## Design principles
 
 - **Local-first.** The ledger lives on your machine. No cloud required.
-- **Append-only.** Entries are never edited or deleted. The record is immutable.
+- **Append-only by design.** Official IRP commands add entries and never edit or delete them. Corrections are made by superseding entries, not by rewriting history. Because the ledger is local and owner-held, it is not independently tamper-proof on its own: see [Trust model](TRUST.md) for exactly what IRP does and does not prove.
 - **Human-confirmed.** No entry exists without a human confirming it.
 - **Model-agnostic.** Works with Claude, GPT, Gemini, or no AI at all.
 - **Tool-agnostic.** Any sensor can write to the same substrate.

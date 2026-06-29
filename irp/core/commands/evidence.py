@@ -56,6 +56,9 @@ from store import read_ledger
 _STANDARD_DISCLAIMER = (
     "> **Note:** This document was generated from an IRP decision ledger. "
     "IRP provides an append-only, human-confirmed record of decisions governing AI deployments. "
+    "The ledger is append-only by application design and is held by its owner: it records "
+    "decision lineage, but on its own it does not cryptographically prove that entries were not "
+    "later rewritten, nor independently prove the time at which each entry existed. "
     "This document supports compliance assessment but does not constitute legal advice. "
     "Consult a qualified legal practitioner for advice specific to your organisation."
 )
@@ -70,13 +73,15 @@ _EUAIACT_FRAMEWORK: dict[str, Any] = {
             "intro": (
                 "Article 12 requires that high-risk AI systems maintain logs sufficient "
                 "to trace their operation. IRP provides an append-only, timestamped, "
-                "human-confirmed decision ledger. Every entry below was captured at the "
-                "moment the decision was made and cannot be modified after the fact. "
-                "This satisfies the core logging and traceability requirement.\n\n"
+                "human-confirmed decision ledger. Each entry below records the time the "
+                "decision was captured. The ledger is append-only by application design: "
+                "official IRP commands add new entries and do not edit prior ones. "
+                "This supports the core logging and traceability requirement.\n\n"
                 "**What this record demonstrates:**\n"
                 "- Each governing decision is timestamped and sequenced\n"
                 "- Each decision records who confirmed it (human oversight anchor)\n"
-                "- Decisions are append-only — no entry can be retroactively altered\n"
+                "- The ledger is append-only by design: corrections are made by adding "
+                "superseding entries, not by editing history\n"
                 "- The reasoning behind each decision is preserved, not just the outcome"
             ),
             "all_qualify": True,
@@ -192,8 +197,8 @@ _GDPR_FRAMEWORK: dict[str, Any] = {
                 "Article 30 requires controllers and processors to maintain records "
                 "of their processing activities. IRP decision records document the "
                 "governance decisions that defined processing scope, purpose, and constraints. "
-                "Every decision is timestamped, sourced, and human-confirmed — "
-                "satisfying the traceability requirement of Art. 30."
+                "Every decision is timestamped, sourced, and human-confirmed, "
+                "supporting the traceability requirement of Art. 30."
             ),
             "all_qualify": True,
         },
