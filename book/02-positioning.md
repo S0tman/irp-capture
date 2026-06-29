@@ -76,7 +76,7 @@ By finishing this book, readers should be able to:
 
 3. **Apply the patterns:** Take the ledger pattern, conflict detection heuristic, or bridge architecture and adapt it to their own domain.
 
-4. **Evaluate IRP for their context:** Know whether IRP's local-first, immutable, non-blocking design fits their team or whether they need different tradeoffs.
+4. **Evaluate IRP for their context:** Know whether IRP's local-first, append-only, non-blocking design fits their team or whether they need different tradeoffs.
 
 5. **Extend the system:** Understand why a Slack sensor, REST API, or custom plugin would fit naturally into the bridge architecture (not require core changes).
 

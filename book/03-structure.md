@@ -40,7 +40,7 @@ EPILOGUE (1 chapter, ~150 lines)
    - Notion: centralized, but out of sync with code/tools
    - Comments: scattered, no structure
    - Meetings: ephemeral, hard to reference
-   - IRP's answer: immutable ledger as source of truth
+   - IRP's answer: append-only ledger as canonical record
 
 2. **Core Abstractions**
    - The ledger: append-only log, one line = one decision
@@ -63,7 +63,7 @@ EPILOGUE (1 chapter, ~150 lines)
 - Data model: entry structure (conceptual boxes)
 
 **Apply This** (5 patterns):
-1. Immutable audit log — solves: lossy tool transitions — adapt: append-only design to your decision domain — pitfall: don't try to update history
+1. Append-only audit log — solves: lossy tool transitions — adapt: append-only design to your decision domain — pitfall: don't try to update history
 2. Derived state — solves: avoid dual truth — adapt: rebuild state deterministically from log — pitfall: don't cache derived state without invalidation
 3. Sequential IDs — solves: human-readable, date-scoped querying — adapt: encode context (domain, date) in identifiers — pitfall: don't rely on uniqueness across time zones
 4. Non-blocking validation — solves: feedback without friction — adapt: warn but don't prevent — pitfall: don't let warnings become ignored
@@ -369,7 +369,7 @@ EPILOGUE (1 chapter, ~150 lines)
 
 **Body:**
 1. **Core Patterns (Recap & Generalization)**
-   - Immutable audit logs: apply to any decision domain
+   - Append-only audit logs: apply to any decision domain
    - Derived state with rebuild: avoid dual truth
    - Lightweight heuristics: explainability over sophistication
    - Non-blocking validation: inform without friction
@@ -378,7 +378,7 @@ EPILOGUE (1 chapter, ~150 lines)
 2. **Decision Survivability as a Design Goal**
    - Most systems optimize for: performance, consistency, correctness
    - IRP optimizes for: *decisions surviving system change*
-   - Consequence: design reflects this (immutable, portable, auditable)
+   - Consequence: design reflects this (append-only, portable, auditable)
    - Question for your domain: what happens to decisions when a tool dies?
 
 3. **Tradeoffs Made in IRP**
@@ -407,7 +407,7 @@ EPILOGUE (1 chapter, ~150 lines)
 - Evolution sketch: Slack sensor, comment threading, etc.
 
 **Apply This** (5 patterns):
-1. Design for survivability — solves: decisions don't disappear on tool transition — adapt: log immutably, keep portable — pitfall: don't over-engineer (simplicity matters)
+1. Design for survivability — solves: decisions don't disappear on tool transition — adapt: log append-only, keep portable — pitfall: don't over-engineer (simplicity matters)
 2. Expose rationale, not just decision — solves: future readers understand *why* — adapt: always include why/confidence fields — pitfall: don't make rationale entries so verbose they're never read
 3. Separate validation from enforcement — solves: inform teams without controlling them — adapt: validate broadly, enforce narrowly — pitfall: don't ignore validation signals
 4. Plan for evolution — solves: avoid accumulating technical debt — adapt: version data format, plan migrations — pitfall: don't change format mid-flight (breaking change)
@@ -429,7 +429,7 @@ EPILOGUE (1 chapter, ~150 lines)
 
 ### By Pattern Type
 
-- **Architectural:** immutable logs, derived state, bridge pattern, REST APIs
+- **Architectural:** append-only logs, derived state, bridge pattern, REST APIs
 - **Algorithmic:** sequential IDs, keyword overlap, tokenization, stopword filtering
 - **Process:** non-blocking validation, sensor architecture, context enrichment
 - **Integration:** plugin design, cross-engine context, API composition

@@ -52,7 +52,7 @@ A comprehensive architectural analysis of the Intent Record Protocol (IRP), expl
 
 ### The Five Core Patterns
 
-1. **Immutable Audit Log** — Decisions are append-only, never modified
+1. **Append-Only Audit Log** — Decisions are append-only; official commands never modify them
 2. **Derived State** — Current state is computed from ledger, not stored separately
 3. **Lightweight Heuristics** — Simple, explainable validation (keywords, not embeddings)
 4. **Non-Blocking Validation** — Warnings inform without preventing action

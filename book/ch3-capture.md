@@ -6,7 +6,7 @@ A decision happens. A designer finalizes a component spec. An engineer decides t
 
 At that moment, the decision is volatile. It exists in memory, maybe in Slack, maybe in a notebook. It hasn't entered the ledger yet.
 
-IRP's capture command makes that moment sticky. It pulls the decision from wherever it lives and writes it immutably to the ledger.
+IRP's capture command makes that moment sticky. It pulls the decision from wherever it lives and writes it append-only to the ledger.
 
 This chapter: how capture works, why it has two modes, and how it integrates with external tools.
 
@@ -172,7 +172,7 @@ Append mode: file position jumps to end, write appends, file is not truncated.
 
 This is atomic (on most filesystems). The line is written completely or not at all. No partial entries, no corruption.
 
-Once written, the entry is immutable. There is no "update ledger entry" command. If you need to revise, you write a new entry that supersedes the old one:
+Once written, the entry is append-only: official IRP commands never edit it. There is no "update ledger entry" command. If you need to revise, you write a new entry that supersedes the old one:
 
 ```
 {"type":"decision","id":"IRP-2026-04-12-001","what":"Use React",...}
@@ -338,6 +338,6 @@ Next chapter: once a decision is in the ledger, how does IRP detect conflicts?
 - **Pitfall to watch:** Don't change ID format. It's a breaking change.
 
 **Pattern 5: Append-Only Writes**
-- **Problem solved:** Atomicity, auditability, immutability
+- **Problem solved:** Atomicity, auditability, append-only design
 - **How to adapt:** Never update, only append. If you need to revise, log a new entry.
 - **Pitfall to watch:** Don't create large transactions. Keep writes small and fast.

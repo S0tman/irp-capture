@@ -193,7 +193,7 @@ Some industries (finance, healthcare) require audit trails and access logs.
 **Implementation:**
 - All writes to .irp/ are logged: user, timestamp, decision ID
 - Reads are logged when fetched via REST API
-- Logs are immutable (append-only, like the ledger)
+- Logs are append-only by design (like the ledger)
 - Automated retention policy (keep 7 years for compliance)
 
 **Tools:** You'll need logging infrastructure (not built into IRP). Add API logging before using IRP in regulated environments.

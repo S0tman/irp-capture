@@ -50,7 +50,7 @@ sequenceDiagram
     System->>Log: Record: recommendation, confidence, basis factors
     User->>Log: Record: human review action (approved / overridden / escalated)
     User->>Log: Record: reason for override (if applicable)
-    Log->>Log: Seal entry (tamper-evident, append-only)
+    Log->>Log: Append entry (append-only by design)
     Note over Log: Retained minimum 6 months (deployer)<br/>Longer for providers per QMS policy
 ```
 
@@ -93,13 +93,15 @@ Practical tamper-evidence does not require a blockchain or a complex cryptograph
 
 Many off-the-shelf logging solutions provide these properties. The question is whether they are applied specifically to the *decision record* rather than just the system's operational logs.
 
+One caveat matters for a local-first record like IRP's. Append-only storage and sequential integrity catch accidental loss and casual editing, but a ledger held entirely by its owner is not, on its own, tamper-evident against that owner: a motivated party with filesystem access can rewrite history and recompute any local chain. Genuine tamper-evidence depends on the third property above (the writer cannot also rewrite the log) and is achieved by anchoring a snapshot digest to an independent external witness, such as a trusted timestamp authority. IRP is append-only by application design today; external anchoring is the mechanism that makes a snapshot verifiable to an outside party. See the [Trust model](../TRUST.md).
+
 ## Why Existing Systems Fail Article 12 — and What Is Structurally Required
 
 Most organisations discover this problem at their first audit. Engineering logs show the AI ran. Database records show what it returned. Nothing shows what the human did next — because no system was built to capture that link. The AI recommendation and the human decision exist in separate systems that were never designed to speak to each other.
 
 At the volume of decisions most high-risk deployments process, this cannot be patched retrospectively. Asking reviewers to manually log their decisions alongside AI outputs does not scale beyond tens of decisions per day. The connection must be structural — built into the decision workflow itself, not added as an administrative step.
 
-This is what Article 12 structurally requires: a decision record layer that sits between the AI system and the human decision-maker, capturing both sides of every consequential event in a single, append-only record — each entry linked to the previous, so gaps and modifications are detectable. This layer is not optional infrastructure. The Act makes it mandatory. The question is only how it is implemented.
+This is what Article 12 structurally requires: a decision record layer that sits between the AI system and the human decision-maker, capturing both sides of every consequential event in a single, append-only record where each entry links to the previous, so gaps and casual modifications are detectable (independent tamper-evidence against the storage owner requires external anchoring; see the [Trust model](../TRUST.md)). This layer is not optional infrastructure. The Act makes it mandatory. The question is only how it is implemented.
 
 IRP does not replace what Article 12 requires. It extends it — from system-level logs (what the AI did) to decision-level traceability (what a human decided, and why).
 

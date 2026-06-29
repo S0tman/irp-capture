@@ -19,7 +19,7 @@ This chapter gives guidance for different scenarios.
 ## Pattern-to-Problem Matching
 
 **Problem: "Decisions disappear when tools change"**
-→ Start with **immutable audit log** (Chapter 1, ledger). JSONL format is your foundation. Everything else follows.
+→ Start with **append-only audit log** (Chapter 1, ledger). JSONL format is your foundation. Everything else follows.
 
 **Problem: "Teams re-litigate the same decisions"**
 → Add **derived state** (Chapter 2, current.json). Make recent decisions visible and queryable. Don't force teams to read the entire ledger.
@@ -40,7 +40,7 @@ This chapter gives guidance for different scenarios.
 
 ```mermaid
 graph TD
-    A["Decisions Vanish?"] -->|YES| B["Immutable Audit Log"]
+    A["Decisions Vanish?"] -->|YES| B["Append-Only Audit Log"]
     A -->|NO| C{Different Problem?}
     B --> D["Add Derived State"]
     D --> E{Conflicts Emerging?}
@@ -202,7 +202,7 @@ But if any of the above resonates, the patterns here matter.
 This book is reference material. You won't read it linearly the second time.
 
 **Looking for:**
-- **"Why JSONL instead of SQL?"** → Ch1, "Core Abstraction: The Immutable Ledger"
+- **"Why JSONL instead of SQL?"** → Ch1, "Core Abstraction: The Append-Only Ledger"
 - **"How does conflict detection work?"** → Ch2, "Conflict Detection Algorithm"
 - **"How do I capture a decision?"** → Ch3, "Interactive Capture Flow"
 - **"Why keyword matching instead of embeddings?"** → Ch4, "Why Keyword Matching"
@@ -218,7 +218,7 @@ This book is reference material. You won't read it linearly the second time.
 - **Someone evaluating IRP:** Read Ch1, Ch7 (Tradeoffs, Open Questions), Apply This sections
 
 **Search by concept:**
-- **Immutable storage:** Ch1, Ch7 (JSONL rationale)
+- **Append-only storage:** Ch1, Ch7 (JSONL rationale)
 - **Derived state:** Ch2 (current.json), Ch7 (Tradeoff table)
 - **Conflict detection:** Ch2 (algorithm), Ch4 (validation)
 - **Portability:** Ch6 (REST API, collab.py), Ch7 (Coda)
@@ -230,7 +230,7 @@ IRP started from a simple observation: **decisions vanish.**
 
 Teams choose React. Months later, they ask "why React?" No one remembers. The conversation died in Slack. The decision was lost.
 
-IRP solves this by making decisions a first-class artifact: immutable, portable, queryable. A decision captured once is captured forever. It travels with the team, informs future choices, survives tool changes.
+IRP solves this by making decisions a first-class artifact: append-only, portable, queryable. A decision captured once is captured forever. It travels with the team, informs future choices, survives tool changes.
 
 The patterns in IRP (audit logs, derived state, lightweight heuristics, non-blocking validation, bridge architecture) apply beyond decisions. Wherever you need something to survive system change—decisions, configurations, policies, practices—these patterns help.
 
@@ -244,7 +244,7 @@ That's the thesis. Apply it to your decisions.
 
 **Pattern 1: Optimize for Survivability**
 - **Problem solved:** Critical knowledge survives system changes
-- **How to adapt:** Choose portable formats, immutable storage, deterministic computation
+- **How to adapt:** Choose portable formats, append-only storage, deterministic computation
 - **Pitfall to watch:** Survivability is invisible until the system change happens. Invest before crisis.
 
 **Pattern 2: Expose Rationale, Not Just Decision**

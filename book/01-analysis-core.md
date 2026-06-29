@@ -33,7 +33,7 @@ irp/core/
 1. **Ledger (`.irp/ledger.jsonl`)**
    - Append-only log of all decisions ever made
    - One JSON object per line
-   - Immutable once written (no updates, only appends)
+   - Append-only once written (no updates, only appends)
    - Source of truth for historical context
    - Fields: type, id, what, why, confidence, timestamp, source, tags
 
@@ -63,7 +63,7 @@ irp/core/
 ## Key Abstractions
 
 ### 1. Append-Only Ledger Pattern
-- Immutable history enables audit trails and conflict forensics
+- Append-only history enables audit trails and conflict forensics
 - JSONL format: streaming-friendly, line-delimited, no corrupt-JSON risk
 - Sequential IDs encode both date and daily sequence (enables grouping)
 
