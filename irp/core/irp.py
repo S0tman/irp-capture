@@ -28,6 +28,7 @@ from commands.watch import run_watch
 from commands.mod import run_mod
 from commands.guard import run_guard
 from commands.inherit import run_inherit
+from commands.integrity import run_integrity
 from commands.why import run_why
 
 
@@ -483,6 +484,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_export_evidence.add_argument("--json", action="store_true")
 
+    # ── integrity ──────────────────────────────────────────────────────────────
+    p_int = sub.add_parser(
+        "integrity",
+        help="Deterministic integrity snapshots and offline verification",
+    )
+    int_sub = p_int.add_subparsers(dest="integrity_action", required=True)
+
+    p_int_snap = int_sub.add_parser(
+        "snapshot",
+        help="Create a deterministic, offline integrity snapshot of the ledger",
+    )
+    p_int_snap.add_argument(
+        "--allow-malformed",
+        action="store_true",
+        dest="allow_malformed",
+        help="Snapshot even if the ledger has malformed lines (records the count)",
+    )
+    p_int_snap.add_argument("--json", action="store_true")
+
+    p_int_verify = int_sub.add_parser(
+        "verify",
+        help="Verify a ledger against a snapshot (offline). Exit 10 on FAIL.",
+    )
+    p_int_verify.add_argument("snapshot", type=str, help="Path to the snapshot JSON file")
+    p_int_verify.add_argument(
+        "--ledger",
+        type=str,
+        default=None,
+        help="Ledger path to verify (default: .irp/ledger.jsonl)",
+    )
+    p_int_verify.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -521,6 +554,7 @@ def main() -> int:
             "resolve":   run_resolve,
             "export":    run_export,
             "guard":     run_guard,
+            "integrity": run_integrity,
         }
         result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
 

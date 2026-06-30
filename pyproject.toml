@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "irp-capture"
-version = "0.6.4"
+version = "0.7.0"
 description = "An append-only ledger that records why decisions were made."
 readme = "README.md"
 license = "MIT"
@@ -27,6 +27,7 @@ api = ["fastapi>=0.100", "uvicorn>=0.20"]
 mcp = ["mcp>=1.0"]
 mempalace = ["chromadb>=0.5"]
 sovereign = ["chromadb>=0.5"]
+integrity = ["rfc8785>=0.1.2"]
 
 [project.scripts]
 irp = "irp.core.irp:main"
