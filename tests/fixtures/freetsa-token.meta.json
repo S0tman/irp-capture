@@ -1,0 +1,6 @@
+{
+  "message": "irp-pr2b-test-vector-v1",
+  "digest_hex": "a0b6c3b339cbc4ac933982a3ec6f39e614646c4f140eacae8f84ea424c6a4bec",
+  "tsa_url": "https://freetsa.org/tsr",
+  "note": "Real RFC 3161 token over sha256('irp-pr2b-test-vector-v1'). Offline test fixture."
+}

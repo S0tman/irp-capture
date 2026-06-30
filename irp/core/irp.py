@@ -12,6 +12,7 @@ if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
 from store import ensure_irp_dir
+from commands.attest import run_attest
 from commands.capture import run_capture
 from commands.check import run_check
 from commands.config import run_config
@@ -516,6 +517,40 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_int_verify.add_argument("--json", action="store_true")
 
+    # ── attest ─────────────────────────────────────────────────────────────────
+    p_att = sub.add_parser(
+        "attest",
+        help="Anchor a snapshot to an external RFC 3161 timestamp authority, and verify",
+    )
+    att_sub = p_att.add_subparsers(dest="attest_action", required=True)
+
+    p_att_create = att_sub.add_parser(
+        "create",
+        help="Timestamp a snapshot digest at a TSA (network) and store a detached receipt",
+    )
+    p_att_create.add_argument("snapshot", type=str, help="Path to the snapshot JSON file")
+    p_att_create.add_argument(
+        "--tsa-url",
+        type=str,
+        default=None,
+        dest="tsa_url",
+        help="RFC 3161 TSA URL (default: freetsa.org — a demo provider, not a configured trust root)",
+    )
+    p_att_create.add_argument("--json", action="store_true")
+
+    p_att_verify = att_sub.add_parser(
+        "verify",
+        help="Verify a snapshot's external timestamp receipt (offline)",
+    )
+    p_att_verify.add_argument("snapshot", type=str, help="Path to the snapshot JSON file")
+    p_att_verify.add_argument(
+        "--receipt",
+        type=str,
+        default=None,
+        help="Path to the .tsr token (default: auto-locate by snapshot id)",
+    )
+    p_att_verify.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -555,6 +590,7 @@ def main() -> int:
             "export":    run_export,
             "guard":     run_guard,
             "integrity": run_integrity,
+            "attest":    run_attest,
         }
         result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
 

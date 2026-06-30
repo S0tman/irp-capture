@@ -1,7 +1,20 @@
 # PR2 — Deterministic Integrity Snapshots + External Timestamp Anchoring
 
-Status: PR2a (snapshot) in progress. PR2b (attestation) follows.
+Status: PR2a (snapshot) and PR2b (RFC 3161 attestation) shipped.
 Origin: Allen Smith's trust challenge (see `TRUST.md`). Converged design (Claude + GPT double diamond, 2026-06-30).
+
+## PR2b — RFC 3161 attestation (shipped)
+
+`irp attest create <snapshot> [--tsa-url URL]` sends only the snapshot digest to a TSA (network) and stores a detached receipt under `.irp/integrity/receipts/`: the DER token (`<id>.tsr`) plus `<id>.receipt.json` (tsa_url, genTime, accuracy, policy, serial, token_sha256, anchored digest).
+
+`irp attest verify <snapshot>` is offline given the token. It chains: (1) the manifest still hashes to the stored `snapshot_digest`; (2) an RFC 3161 token binds exactly that digest; (3) the token's message-digest attribute matches the TSTInfo content; (4) the TSA signature over the signed attributes is valid using the certificate embedded in the token.
+
+Implementation notes (validated against real freetsa, fixture in `tests/fixtures/`):
+- ASN.1/CMS via `asn1crypto`, signature via `cryptography`. Handles **both RSA and ECDSA** signers (freetsa signs ECDSA). signedAttrs are re-encoded as SET OF (tag 0x31) for verification; the message-digest is taken over `TSTInfo.parsed.dump()`.
+- **Trust honesty:** a valid signature is reported, but certificate-path validation to a trust root is the verifier's policy and is NOT performed without configured roots (reported as `trust-root validation: NOT PERFORMED`). No trust root is ever baked in. The default `freetsa.org` is a demo provider, not an implicit trust root.
+- Output flips the attestation layer to `external witness: PRESENT`, `genTime` + accuracy, while keeping `completeness: NOT GUARANTEED` and `underlying claim truth: NOT ASSESSED`.
+
+Deferred to a later (BSL) module: qualified/eIDAS TSA integration, dual-TSA, re-timestamping, long-term revocation (CRL/OCSP) and archival. The MIT verifier here is the open, neutral evidence tool.
 
 ## Goal
 
