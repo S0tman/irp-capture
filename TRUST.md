@@ -62,15 +62,23 @@ IRP must never reduce these to a single `trusted: true`. A verifier should be to
 - "Satisfies" a legal requirement (use "supports")
 - "Proves" the time or the identity or the underlying fact
 
-## Roadmap toward external verifiability
+## What IRP can prove to an outside verifier today
 
-The honest path to answering an outside verifier (a regulator, an auditor, a public authority):
+For answering a regulator, an auditor, or a public authority, two capabilities are shipped:
 
-1. **Deterministic snapshots.** Canonicalise the ledger (RFC 8785), compute a stable digest, verify offline. Proves: this supplied state has not changed since the snapshot. (Shipped: `irp integrity snapshot` / `irp integrity verify`.)
-2. **External timestamp anchoring.** Submit only the digest to an RFC 3161 timestamp authority, store the detached receipt. Proves: this digest existed no later than the witnessed time. (Shipped: `irp attest create` / `irp attest verify`.)
-3. **Optional signatures and publication provenance.** Deferred until a concrete verifier requires them.
+- **Deterministic snapshots** (`irp integrity snapshot` / `irp integrity verify`). Canonicalise the ledger (RFC 8785), compute a stable digest, verify offline. Proves: the supplied ledger state has not changed since the snapshot. (Trust level 3.)
+- **External timestamp anchoring** (`irp attest create` / `irp attest verify`). Submit only the digest to an RFC 3161 timestamp authority and store a detached receipt. Proves: that digest existed no later than the witnessed time. (Trust level 4.)
 
-Steps 1 and 2 are now shipped, so IRP can reach trust level 4 (externally witnessed existence) for any snapshot you choose to anchor. The base claim for an un-anchored ledger remains levels 1 and 2: a readable, append-only, human-confirmed record of decisions, held by its owner.
+So for any snapshot you choose to anchor, IRP reaches **trust level 4: externally witnessed existence**. An un-anchored ledger sits at levels 1 and 2: a readable, append-only, human-confirmed record held by its owner.
+
+## Roadmap (not yet built)
+
+Everything below is deferred until a concrete verifier requires it. None of it is needed to reach level 4.
+
+1. **Authenticated authorship (level 5).** Sign a snapshot with a recognised identity, so a verifier learns *who* produced it, not just *when* it existed. Until this lands, `confirmed_by` stays a metadata assertion, not proof of identity.
+2. **Publication provenance.** Bind a published artifact (a PDF report, an evidence bundle) to a snapshot digest, C2PA-style, so an exported document is verifiably tied to the exact ledger state it came from.
+3. **Enterprise-grade anchoring** (the source-available / BSL layer). Qualified / eIDAS timestamp authorities, dual-TSA redundancy, automatic re-timestamping before certificate expiry, and revocation checking (CRL / OCSP) with long-term archival.
+4. **Snapshot continuity.** Chain successive snapshots via `previous_snapshot_digest` to detect gaps across the snapshots a verifier is shown. (This still cannot reveal an undisclosed later tail — see the completeness limit below.)
 
 ## What even a valid timestamp does not prove
 
