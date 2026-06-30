@@ -23,7 +23,11 @@ So:
 - **A local hash chain proves internal consistency, not originality.** It catches accidental corruption. It does **not** stop a motivated owner from rewriting history.
 - **A local timestamp proves only that the record contains a timestamp claim.** It does **not** independently prove when the record existed. Changing the device clock changes the claim.
 
-The only way to make "this ledger state existed no later than time T" verifiable to an outside party is to anchor the snapshot's digest to an **external witness** (for example an RFC 3161 timestamp authority). After anchoring, the owner can still edit the local file, but they cannot produce an external anchor for the rewritten version dated to the original time. The external witness does the trust work. (This external anchoring is planned, not yet shipped. See "Roadmap" below.)
+The only way to make "this ledger state existed no later than time T" verifiable to an outside party is to anchor the snapshot's digest to an **external witness** (for example an RFC 3161 timestamp authority). After anchoring, the owner can still edit the local file, but they cannot produce an external anchor for the rewritten version dated to the original time. The external witness does the trust work.
+
+**This is now shipped.** `irp integrity snapshot` produces a deterministic, canonical snapshot of the ledger; `irp attest create` anchors that snapshot's digest to an external RFC 3161 timestamp authority and stores a detached receipt; `irp integrity verify` and `irp attest verify` re-check both offline. So Allen's challenge is answered concretely: a locally rewritten ledger is still internally consistent, but only the original snapshot was witnessed outside the owner's control before the claimed time, and that witness cannot be forged after the fact.
+
+One honesty boundary remains by design: verifying the TSA's signature is not the same as validating its certificate path to a trust root you accept. Trust-root policy is the verifier's to set; IRP never bakes one in (see the verifier's `trust-root validation: NOT PERFORMED` line).
 
 ## Seven levels of trust (do not collapse them)
 
@@ -33,8 +37,8 @@ IRP must never reduce these to a single `trusted: true`. A verifier should be to
 |------|-------|----------------------------|
 | 1 | The user asserts X happened | Yes (the user's word) |
 | 2 | The user's ledger contains a record of X | Yes |
-| 3 | The supplied ledger matches a deterministic snapshot digest | Planned (PR2) |
-| 4 | An external witness confirms that digest existed by time T | Planned (PR2) |
+| 3 | The supplied ledger matches a deterministic snapshot digest | Yes (`irp integrity verify`) |
+| 4 | An external witness confirms that digest existed by time T | Yes (`irp attest`, RFC 3161) |
 | 5 | A recognised identity signed the snapshot | Not yet (optional, later) |
 | 6 | The counterparty corroborated X | Out of scope for the ledger |
 | 7 | X is actually, factually true | No cryptography proves this |
@@ -63,10 +67,10 @@ IRP must never reduce these to a single `trusted: true`. A verifier should be to
 The honest path to answering an outside verifier (a regulator, an auditor, a public authority):
 
 1. **Deterministic snapshots.** Canonicalise the ledger (RFC 8785), compute a stable digest, verify offline. Proves: this supplied state has not changed since the snapshot. (Shipped: `irp integrity snapshot` / `irp integrity verify`.)
-2. **External timestamp anchoring.** Submit only the digest to an RFC 3161 timestamp authority, store the detached receipt. Proves: this digest existed no later than the witnessed time. (Planned: `irp attest`.)
+2. **External timestamp anchoring.** Submit only the digest to an RFC 3161 timestamp authority, store the detached receipt. Proves: this digest existed no later than the witnessed time. (Shipped: `irp attest create` / `irp attest verify`.)
 3. **Optional signatures and publication provenance.** Deferred until a concrete verifier requires them.
 
-Until those ship, IRP's claim stays at levels 1 and 2: a readable, append-only, human-confirmed record of decisions, held by its owner.
+Steps 1 and 2 are now shipped, so IRP can reach trust level 4 (externally witnessed existence) for any snapshot you choose to anchor. The base claim for an un-anchored ledger remains levels 1 and 2: a readable, append-only, human-confirmed record of decisions, held by its owner.
 
 ## What even a valid timestamp does not prove
 
