@@ -26,7 +26,7 @@
 
 ### Three Commitments Embedded in That Thesis
 
-1. **Durable:** Decisions are append-only once logged. No hidden history, no "let's just redo this." The trail grows by superseding, not by rewriting. (Durability is an application-design property, not an independent tamper-proof guarantee. See the [Trust model](../TRUST.md).)
+1. **Durable:** Decisions are append-only once logged. No hidden history, no "let's just redo this." The trail grows by superseding, not by rewriting. (Durability is an application-design property, not an independent tamper-proof guarantee. See the [Trust model](https://github.com/S0tman/irp-capture/blob/main/TRUST.md).)
 
 2. **Portable:** Decisions live locally (.irp/) but integrate everywhere (Figma, Slack, remote AI, REST APIs). A decision captured in Figma can inform a Claude API call, which can inform a Slack post. No re-entry friction.
 

@@ -40,7 +40,7 @@ export const parts: PartConfig[] = [
 ];
 
 export const chapters: ChapterConfig[] = [
-  { number: 1, slug: 'ch1-architecture', title: 'The Problem & Core Abstractions', description: 'Why decisions vanish, the ledger-as-source-of-truth pattern, and immutable audit logs' },
+  { number: 1, slug: 'ch1-architecture', title: 'The Problem & Core Abstractions', description: 'Why decisions vanish, the ledger-as-source-of-truth pattern, and append-only audit logs' },
   { number: 2, slug: 'ch2-state-conflicts', title: 'State & Conflict Detection', description: 'Derived state, the check algorithm, lightweight heuristics, and non-blocking validation' },
   { number: 3, slug: 'ch3-capture', title: 'Capturing Intent', description: 'Interactive and stdin capture modes, sensor architecture, and context enrichment' },
   { number: 4, slug: 'ch4-validation', title: 'Decision Validation', description: 'The check command, keyword-based conflict detection, and team resolution' },

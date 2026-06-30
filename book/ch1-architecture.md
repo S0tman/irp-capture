@@ -31,7 +31,7 @@ IRP inverts the problem. Instead of decisions being a consequence of documentati
 
 When you decide something, you capture it immediately: "Use React for the core UI. Why: team expertise, ecosystem maturity."
 
-That entry is append-only: official IRP commands never edit or delete it, and corrections are made by writing a superseding entry. It lives in a ledger. The ledger is the canonical record from which everything else (current.json, REST APIs, Figma integrations) derives. Note the precise claim: append-only is an application-design property, not an independent cryptographic guarantee. Because the ledger is local and owner-held, it is not tamper-proof on its own. See the [Trust model](../TRUST.md) for what IRP does and does not prove.
+That entry is append-only: official IRP commands never edit or delete it, and corrections are made by writing a superseding entry. It lives in a ledger. The ledger is the canonical record from which everything else (current.json, REST APIs, Figma integrations) derives. Note the precise claim: append-only is an application-design property, not an independent cryptographic guarantee. Because the ledger is local and owner-held, it is not tamper-proof on its own. See the [Trust model](https://github.com/S0tman/irp-capture/blob/main/TRUST.md) for what IRP does and does not prove.
 
 Consequence: decisions are portable. A decision captured in Figma lives in `.irp/ledger.jsonl`. It can be queried from Slack, injected into an AI model's context, or referenced in a PR. The decision travels with the work.
 
