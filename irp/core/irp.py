@@ -7,9 +7,24 @@ import json
 import sys
 from pathlib import Path
 
-CURRENT_DIR = Path(__file__).resolve().parent
-if str(CURRENT_DIR) not in sys.path:
-    sys.path.insert(0, str(CURRENT_DIR))
+CURRENT_DIR = Path(__file__).resolve().parent      # .../irp/core
+REPO_ROOT = CURRENT_DIR.parent.parent              # the dir that contains the `irp` package
+
+# Put REPO_ROOT ahead of irp/core so `import irp` resolves to the *package*, not
+# this script file. Run directly as `python irp/core/irp.py`, sys.path[0] is
+# irp/core, so `irp` would otherwise bind to irp/core/irp.py and shadow the real
+# package: absolute imports like `from irp.core.store import ...` (used by capture
+# and the MCP/API servers) then re-enter this script and raise a circular
+# ImportError, and `irp.integrity` (needed by `export evidence --attest`) fails to
+# import. Keeping irp/core on the path preserves the dispatcher-relative imports
+# below (`from store import`, `from commands... import`).
+for _p in (str(CURRENT_DIR), str(REPO_ROOT)):
+    if _p in sys.path:
+        sys.path.remove(_p)
+sys.path.insert(0, str(CURRENT_DIR))
+sys.path.insert(0, str(REPO_ROOT))
+
+import irp  # noqa: E402,F401  # cache the real package before the command imports below
 
 from store import ensure_irp_dir
 from commands.attest import run_attest
