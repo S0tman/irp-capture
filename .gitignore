@@ -5,6 +5,10 @@
 tools/.env
 tools/.env.local
 
+# CHANGELOG is local-only: it has carried internal/strategic entries. Keep a
+# private changelog on disk if you like, but it must never be public. (2026-07-01)
+CHANGELOG.md
+
 # IRP regenerable exports (use irp export ... --force to recreate)
 GRAPH.html
 GRAPH-demo.html
