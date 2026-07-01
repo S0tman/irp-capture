@@ -483,6 +483,24 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Generate evidence package from built-in sample data (Nordic lending platform) — does not touch your ledger",
     )
+    p_export_evidence.add_argument(
+        "--attest",
+        action="store_true",
+        help=(
+            "Anchor the package to an external RFC 3161 timestamp authority: snapshot the "
+            "ledger, timestamp it, and add an 'External timestamp' block proving the decisions "
+            "existed and were unaltered as of a date you cannot fake. Fail-closed if the TSA is "
+            "unreachable. Requires: pip install \"irp-capture[integrity]\". Cannot combine with --demo."
+        ),
+    )
+    p_export_evidence.add_argument(
+        "--tsa-url",
+        type=str,
+        default=None,
+        dest="tsa_url",
+        metavar="URL",
+        help="RFC 3161 timestamp authority URL for --attest (default: freetsa.org).",
+    )
     p_export_evidence.add_argument("--json", action="store_true")
 
     # ── integrity ──────────────────────────────────────────────────────────────

@@ -361,6 +361,64 @@ def _truncate(text: str, limit: int = 300) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+# ── external attestation (opt-in, --attest) ───────────────────────────────────
+
+_ATTEST_BLOCK = """\
+## External timestamp
+
+**The decisions in this package are externally witnessed.** A cryptographic snapshot of \
+the ledger was timestamped by an independent RFC 3161 timestamp authority. This proves the \
+decisions existed no later than the time below and have not been altered since. It answers \
+the question a regulator or counterparty is entitled to ask: how do we know these entries \
+were not written or backdated after the fact?
+
+| | |
+|---|---|
+| Snapshot id | `{snapshot_id}` |
+| Witnessed at (genTime) | {gen_time}{accuracy} |
+| Timestamp authority | {tsa_url} |
+| Ledger entries witnessed | {entry_count} |
+
+Verify offline (no network, and no need to trust this document or its author):
+
+```bash
+irp attest verify .irp/integrity/snapshots/{snapshot_id}.json
+```
+
+**What this timestamp does and does not prove.** It proves existence-by-time and integrity: \
+no backdating, no silent rewrite. It does not prove completeness, authorship, or that the \
+underlying statements are true. Trust-root validation of the authority's certificate is the \
+verifier's policy and is not performed by the open verifier; qualified/eIDAS-grade assurance \
+requires a qualified timestamp authority.
+
+---
+"""
+
+
+def _format_accuracy(accuracy_seconds) -> str:
+    if not accuracy_seconds:
+        return ""
+    return f"  (accuracy +/- {accuracy_seconds}s)"
+
+
+def _attest_ledger(irp_dir: Path, tsa_url) -> dict[str, Any]:
+    """Snapshot the ledger and anchor it to a TSA. Fail-closed: raises on any error.
+
+    Returns an attestation dict (snapshot_id, gen_time, accuracy_seconds, tsa_url,
+    entry_count, snapshot_path, receipt_path, token_path). All errors propagate so
+    the caller can refuse to write a package that falsely claims a witness.
+    """
+    from irp.integrity.attest import DEFAULT_TSA, create_attestation
+    from irp.integrity.snapshot import create_snapshot
+
+    snap = create_snapshot(irp_dir)                      # may raise LedgerIntegrityError
+    snapshot_path = Path(snap["path"])
+    att = create_attestation(irp_dir, snapshot_path, tsa_url=tsa_url or DEFAULT_TSA)
+    att["snapshot_path"] = snap["path"]
+    att["entry_count"] = snap["entry_count"]
+    return att
+
+
 # ── document builder ──────────────────────────────────────────────────────────
 
 def _format_entry_full(entry: dict[str, Any]) -> str:
@@ -402,6 +460,7 @@ def _build_evidence_md(
     framework: dict[str, Any],
     project_root: Path,
     demo: bool = False,
+    attestation: dict[str, Any] | None = None,
 ) -> str:
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     fw_name = framework.get("name", framework.get("id", "custom"))
@@ -440,6 +499,15 @@ def _build_evidence_md(
 
 ---
 """)
+
+    if attestation:
+        parts.append(_ATTEST_BLOCK.format(
+            snapshot_id=attestation["snapshot_id"],
+            gen_time=attestation["gen_time"],
+            accuracy=_format_accuracy(attestation.get("accuracy_seconds")),
+            tsa_url=attestation["tsa_url"],
+            entry_count=attestation.get("entry_count", "—"),
+        ))
 
     # ── per-section evidence blocks ───────────────────────────────────────────
     for section in sections:
@@ -638,6 +706,22 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
     as_json = bool(getattr(args, "json", False))
     framework_id = (getattr(args, "framework", None) or _DEFAULT_FRAMEWORK).lower()
     config_arg = getattr(args, "config", None)
+    attest = bool(getattr(args, "attest", False))
+    tsa_url = getattr(args, "tsa_url", None)
+
+    # --attest witnesses the real ledger; sample data is not in it, so witnessing
+    # a --demo package would misrepresent it. Refuse the combination up front.
+    if attest and demo:
+        return {
+            "command": "export.evidence",
+            "status": "error",
+            "verdict": "block",
+            "text": (
+                "--attest cannot be combined with --demo: sample data is not in your "
+                "ledger, so it cannot be externally witnessed. Run --attest against a "
+                "real evidence package, or drop --attest to preview the demo."
+            ),
+        }
 
     # ── 1. Resolve framework ──────────────────────────────────────────────────
     if framework_id == "custom":
@@ -702,16 +786,16 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
         )
         return {"command": "export.evidence", "status": "empty", "text": nudge}
 
-    # ── 4. Build document ─────────────────────────────────────────────────────
-    body = _build_evidence_md(decisions, framework, project_root, demo=demo)
-
     header = [
         "IRP V1.5 dispatcher",
         f"Project: {project_root}",
-        f"Command: export evidence --framework {fw_id}{'  [demo]' if demo else ''}",
+        f"Command: export evidence --framework {fw_id}{'  [demo]' if demo else ''}{'  [attest]' if attest else ''}",
         "",
     ]
 
+    # ── 4. Refuse to overwrite before any network work ────────────────────────
+    # Checked ahead of --attest so we never make a TSA round trip only to refuse
+    # writing the package it was meant to witness.
     if output_path.exists() and not force:
         text = "\n".join(header + [
             f"Refusing to overwrite existing file: {output_path}",
@@ -725,7 +809,54 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
             "text": text,
         }
 
-    # ── 5. Write ──────────────────────────────────────────────────────────────
+    # ── 5. Optional external attestation (fail-closed) ────────────────────────
+    # If the TSA is unreachable or integrity deps are missing, we return an error
+    # and write nothing: a package must never falsely claim an external witness.
+    attestation: dict[str, Any] | None = None
+    if attest:
+        from irp.integrity.errors import IntegrityError
+        try:
+            attestation = _attest_ledger(irp_dir, tsa_url)
+        except IntegrityError as exc:
+            return {
+                "command": "export.evidence",
+                "status": "error",
+                "verdict": "block",
+                "text": (
+                    f"--attest failed (fail-closed, no package written): {exc}\n"
+                    "If integrity dependencies are missing, install them with:\n"
+                    '  pip install "irp-capture[integrity]"'
+                ),
+            }
+        except ImportError as exc:
+            return {
+                "command": "export.evidence",
+                "status": "error",
+                "verdict": "block",
+                "text": (
+                    "--attest requires the integrity extras (fail-closed, no package written).\n"
+                    'Install them with:  pip install "irp-capture[integrity]"\n'
+                    f"({exc})"
+                ),
+            }
+        except (OSError, RuntimeError) as exc:
+            return {
+                "command": "export.evidence",
+                "status": "error",
+                "verdict": "block",
+                "text": (
+                    "--attest failed: could not obtain an external timestamp "
+                    "(fail-closed, no package written).\n"
+                    f"The timestamp authority may be unreachable: {exc}"
+                ),
+            }
+
+    # ── 6. Build document ─────────────────────────────────────────────────────
+    body = _build_evidence_md(
+        decisions, framework, project_root, demo=demo, attestation=attestation
+    )
+
+    # ── 7. Write ──────────────────────────────────────────────────────────────
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.exists():
         try:
@@ -739,7 +870,7 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
     except OSError:
         pass
 
-    # ── 6. Summary ────────────────────────────────────────────────────────────
+    # ── 8. Summary ────────────────────────────────────────────────────────────
     sections = framework.get("sections", [])
     section_summary = " · ".join(
         f"{s['id']}: {sum(1 for e in decisions if _matches_section(e, s))}"
@@ -751,10 +882,20 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
         f"Framework: {framework.get('name', fw_id)}",
         f"Decisions: {len(decisions)} total → {section_summary}",
         "Lock:    file is read-only — `chmod +w` to override",
+    ]
+    if attestation:
+        acc = _format_accuracy(attestation.get("accuracy_seconds"))
+        summary_lines.extend([
+            "",
+            f"Externally witnessed: {attestation['snapshot_id']} @ {attestation['gen_time']}{acc}",
+            f"  TSA:     {attestation['tsa_url']}",
+            f"  Verify:  irp attest verify {attestation['snapshot_path']}",
+        ])
+    summary_lines.extend([
         "",
         "Regenerate any time with:",
-        f"  irp export evidence --framework {fw_id} --force{' --demo' if demo else ''}",
-    ]
+        f"  irp export evidence --framework {fw_id} --force{' --demo' if demo else ''}{' --attest' if attest else ''}",
+    ])
     if demo:
         summary_lines.extend([
             "",
@@ -764,7 +905,7 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
 
     text = "\n".join(header + summary_lines)
 
-    return {
+    result = {
         "command": "export.evidence",
         "status": "ok",
         "output_path": str(output_path),
@@ -775,5 +916,17 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
             for s in sections
         },
         "demo": demo,
+        "attested": bool(attestation),
         "text": text,
     }
+    if attestation:
+        result["attestation"] = {
+            "snapshot_id": attestation["snapshot_id"],
+            "gen_time": attestation["gen_time"],
+            "accuracy_seconds": attestation.get("accuracy_seconds"),
+            "tsa_url": attestation["tsa_url"],
+            "snapshot_path": attestation["snapshot_path"],
+            "receipt_path": attestation.get("receipt_path"),
+            "token_path": attestation.get("token_path"),
+        }
+    return result
