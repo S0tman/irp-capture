@@ -1,6 +1,6 @@
 # IRP Trust Model
 
-This document states precisely what an IRP ledger does and does not prove. IRP is a compliance and decision-lineage tool, so it holds itself to the same standard it asks of others: never claim more than the architecture can support.
+This document states precisely what an IRP ledger does and does not prove. Precision is the point. An evidence tool that overclaims is worthless the moment it meets a serious challenge, so IRP claims only what its architecture can back, and marks the rest clearly. Everything below is either verifiable today or labelled as not-yet-built. The boundaries are not a weakness to apologise for; they are what makes the claims inside them trustworthy.
 
 ## The one-sentence claim
 
@@ -12,7 +12,7 @@ Official IRP commands add new entries and never edit or delete prior ones. Corre
 
 This is an **application-design property**. It describes how IRP behaves through its own commands. It is not a cryptographic guarantee about the underlying file. The ledger is a plain `.jsonl` file held by its owner. Anyone with filesystem access can, outside of IRP, edit a line, delete a line, reorder lines, change a timestamp, or replace the whole file.
 
-## Allen's question, answered plainly
+## The hardest question, answered plainly
 
 > "If the ledger lives on the user's machine, they can edit it and recompute the hashes, so what makes an entry trustworthy to an outside party, and how do you stop backdating?"
 
@@ -25,13 +25,13 @@ So:
 
 The only way to make "this ledger state existed no later than time T" verifiable to an outside party is to anchor the snapshot's digest to an **external witness** (for example an RFC 3161 timestamp authority). After anchoring, the owner can still edit the local file, but they cannot produce an external anchor for the rewritten version dated to the original time. The external witness does the trust work.
 
-**This is now shipped.** `irp integrity snapshot` produces a deterministic, canonical snapshot of the ledger; `irp attest create` anchors that snapshot's digest to an external RFC 3161 timestamp authority and stores a detached receipt; `irp integrity verify` and `irp attest verify` re-check both offline. So Allen's challenge is answered concretely: a locally rewritten ledger is still internally consistent, but only the original snapshot was witnessed outside the owner's control before the claimed time, and that witness cannot be forged after the fact.
+**This is shipped.** `irp integrity snapshot` produces a deterministic, canonical snapshot of the ledger; `irp attest create` anchors that snapshot's digest to an external RFC 3161 timestamp authority and stores a detached receipt; `irp integrity verify` and `irp attest verify` re-check both offline. The challenge is answered concretely: a locally rewritten ledger is still internally consistent, but only the original snapshot was witnessed outside the owner's control before the claimed time, and that witness cannot be forged after the fact.
 
-One honesty boundary remains by design: verifying the TSA's signature is not the same as validating its certificate path to a trust root you accept. Trust-root policy is the verifier's to set; IRP never bakes one in (see the verifier's `trust-root validation: NOT PERFORMED` line).
+One boundary is deliberate. Verifying the TSA's signature is not the same as validating its certificate path to a trust root you accept, and that policy belongs to the verifier, not to the tool. IRP never bakes one in, and says so in plain sight: the verifier prints `trust-root validation: NOT PERFORMED`. A tool that silently chose the trust root for you would be doing you a disservice.
 
-## Seven levels of trust (do not collapse them)
+## Seven levels of trust
 
-IRP must never reduce these to a single `trusted: true`. A verifier should be told which properties passed and which were not assessed.
+IRP reports these levels separately and never collapses them into a single `trusted: true`. A verifier is always told which properties passed and which were not assessed. Collapsing them is exactly how weaker evidence tools mislead; keeping them distinct is what makes IRP's output hold up in an audit.
 
 | Level | Claim | Does IRP provide it today? |
 |------|-------|----------------------------|
@@ -45,22 +45,24 @@ IRP must never reduce these to a single `trusted: true`. A verifier should be to
 
 `confirmed_by` and `source` are **metadata assertions**, not authenticated identity. `"confirmed_by": "johan"` records a workflow fact (a human confirmed this), not a cryptographic proof of who that human was.
 
-## What you may and may not say
+## Describing IRP accurately
 
-**Safe to say**
+This is the line between what the architecture proves and what it does not, and it doubles as a test for any owner-held decision tool: the words in the second list are false for a file that lives on the user's disk, and a serious verifier will find the gap. IRP uses the first list. External anchoring earns back the time claims, with the assumptions stated.
+
+**Accurate**
 - "Append-only by application design"
 - "Local-first, owner-held decision lineage"
 - "Inspectable: open the `.jsonl` in any editor"
 - "Human-confirmed: no entry exists without a human confirming it"
 - "Records what was decided, why, what was rejected, and who confirmed it"
 
-**Do not say** (without external anchoring and explicit assumptions)
+**Overclaiming**
 - "Immutable"
 - "Tamper-proof" / "tamper-evident"
 - "Cannot be modified" / "cannot be altered"
 - "The ledger is the truth"
-- "Satisfies" a legal requirement (use "supports")
-- "Proves" the time or the identity or the underlying fact
+- "Satisfies" a legal requirement (IRP *supports* one; it does not *satisfy* it)
+- "Proves" the time, the identity, or the underlying fact (external anchoring proves existence-by-time; nothing local does)
 
 ## What IRP can prove to an outside verifier today
 
@@ -78,7 +80,7 @@ Everything below is deferred until a concrete verifier requires it. None of it i
 1. **Authenticated authorship (level 5).** Sign a snapshot with a recognised identity, so a verifier learns *who* produced it, not just *when* it existed. Until this lands, `confirmed_by` stays a metadata assertion, not proof of identity.
 2. **Publication provenance.** Bind a published artifact (a PDF report, an evidence bundle) to a snapshot digest, C2PA-style, so an exported document is verifiably tied to the exact ledger state it came from.
 3. **Enterprise-grade anchoring** (the source-available / BSL layer). Qualified / eIDAS timestamp authorities, dual-TSA redundancy, automatic re-timestamping before certificate expiry, and revocation checking (CRL / OCSP) with long-term archival.
-4. **Snapshot continuity.** Chain successive snapshots via `previous_snapshot_digest` to detect gaps across the snapshots a verifier is shown. (This still cannot reveal an undisclosed later tail — see the completeness limit below.)
+4. **Snapshot continuity.** Chain successive snapshots via `previous_snapshot_digest` to detect gaps across the snapshots a verifier is shown. (This still cannot reveal an undisclosed later tail; see the completeness limit below.)
 
 ## What even a valid timestamp does not prove
 
@@ -88,4 +90,4 @@ External anchoring proves existence-by-time. It does not prove:
 - **Authorship.** `confirmed_by` remains a metadata assertion, not an authenticated identity, until signatures are added.
 - **Truth.** No hash, timestamp, or signature establishes that the recorded decision is factually correct.
 
-Be explicit about this with any verifier: a snapshot, even a witnessed one, answers "did this exact state exist by this time," not "is this the whole story, and is it true."
+A snapshot, even a witnessed one, answers one question precisely: did this exact state exist by this time. It does not answer whether the record is complete or whether it is true, and IRP does not pretend otherwise. Stating that boundary up front is what lets a verifier rely on everything inside it.
