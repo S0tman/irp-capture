@@ -27,7 +27,7 @@ The only way to make "this ledger state existed no later than time T" verifiable
 
 **This is shipped.** `irp integrity snapshot` produces a deterministic, canonical snapshot of the ledger; `irp attest create` anchors that snapshot's digest to an external RFC 3161 timestamp authority and stores a detached receipt; `irp integrity verify` and `irp attest verify` re-check both offline. The challenge is answered concretely: a locally rewritten ledger is still internally consistent, but only the original snapshot was witnessed outside the owner's control before the claimed time, and that witness cannot be forged after the fact.
 
-One boundary is deliberate. Verifying the TSA's signature is not the same as validating its certificate path to a trust root you accept, and that policy belongs to the verifier, not to the tool. IRP never bakes one in, and says so in plain sight: the verifier prints `trust-root validation: NOT PERFORMED`. A tool that silently chose the trust root for you would be doing you a disservice.
+One boundary is deliberate. Verifying the TSA's signature is not the same as validating its certificate path to a trust root you accept, and that policy belongs to the verifier, not to the tool. IRP never bakes one in, and says so in plain sight: the verifier prints `trust-root validation: NOT PERFORMED`. A tool that silently chose the trust root for you would be doing you a disservice. For verifiers who do want to enforce a trust-root policy, a source-available companion, [`irp-attest-pro`](https://github.com/S0tman/irp-attest-pro), performs that validation against anchors you supply. See The open core and the source-available layer, below.
 
 ## Seven levels of trust
 
@@ -73,14 +73,28 @@ For answering a regulator, an auditor, or a public authority, two capabilities a
 
 So for any snapshot you choose to anchor, IRP reaches **trust level 4: externally witnessed existence**. An un-anchored ledger sits at levels 1 and 2: a readable, append-only, human-confirmed record held by its owner.
 
+## The open core and the source-available layer
+
+Two tiers, one honest boundary, and a commitment to both.
+
+The **open core** (`irp-capture`, MIT, open forever) proves what it can and reports what it does not, including `trust-root validation: NOT PERFORMED`. It will never pick a trust root for you. Everything a verifier needs to reach level 4 lives here, at no cost and with nothing to buy.
+
+The **source-available layer** ([`irp-attest-pro`](https://github.com/S0tman/irp-attest-pro), BSL 1.1) picks up exactly at that boundary, for verifiers who want to go further:
+
+- **Shipped (0.1.0): certificate-chain and trust-root validation.** Validates the timestamp's certificate chain to anchors *you* supply, confirms every certificate was valid at the time it was issued, and requires the RFC 3161 timeStamping key usage. It turns the `NOT PERFORMED` line into a reasoned `TRUSTED` or `UNTRUSTED`, never a bare boolean. This is the difference between "witnessed" and "witnessed by an authority a regulator recognises."
+- **On the way:** qualified / eIDAS timestamp authorities, dual-TSA redundancy, automatic re-timestamping before certificate expiry, and revocation checking (CRL / OCSP) with long-term archival.
+
+You can read and self-host the source-available layer under its licence; it depends on the open core and never the other way around. The discipline is identical at both tiers: the tool tells you exactly what it validated and what it did not, and leaves the trust decision with you.
+
 ## Roadmap (not yet built)
 
 Everything below is deferred until a concrete verifier requires it. None of it is needed to reach level 4.
 
 1. **Authenticated authorship (level 5).** Sign a snapshot with a recognised identity, so a verifier learns *who* produced it, not just *when* it existed. Until this lands, `confirmed_by` stays a metadata assertion, not proof of identity.
 2. **Publication provenance.** Bind a published artifact (a PDF report, an evidence bundle) to a snapshot digest, C2PA-style, so an exported document is verifiably tied to the exact ledger state it came from.
-3. **Enterprise-grade anchoring** (the source-available / BSL layer). Qualified / eIDAS timestamp authorities, dual-TSA redundancy, automatic re-timestamping before certificate expiry, and revocation checking (CRL / OCSP) with long-term archival.
-4. **Snapshot continuity.** Chain successive snapshots via `previous_snapshot_digest` to detect gaps across the snapshots a verifier is shown. (This still cannot reveal an undisclosed later tail; see the completeness limit below.)
+3. **Snapshot continuity.** Chain successive snapshots via `previous_snapshot_digest` to detect gaps across the snapshots a verifier is shown. (This still cannot reveal an undisclosed later tail; see the completeness limit below.)
+
+(The advanced attestation features once listed here, qualified / eIDAS TSAs, dual-TSA, re-timestamping, archival, and revocation, now live in the source-available layer above, where the first of them has shipped.)
 
 ## What even a valid timestamp does not prove
 
