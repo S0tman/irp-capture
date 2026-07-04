@@ -88,7 +88,7 @@ Every chapter in this part of the book has returned to the same core question: w
 
 The answer the EU AI Act demands is not "the algorithm's" and not "nobody's." It demands a specific human being, at a specific organisation, accountable for a specific decision, with a traceable record of what they knew, what the system said, and what they chose to do.
 
-This accountability is not a bureaucratic imposition. It is the condition under which trust in AI systems can be earned — and sustained. The organisations that build this accountability into their operations now, before August 2, 2026, will not just be compliant. They will be trustworthy. In the AI market of the next decade, trustworthiness will be a structural competitive advantage.
+This accountability is not a bureaucratic imposition. It is the condition under which trust in AI systems can be earned — and sustained. The organisations that build this accountability into their operations now, before December 2, 2027, will not just be compliant. They will be trustworthy. In the AI market of the next decade, trustworthiness will be a structural competitive advantage.
 
 The steering wheel is yours. The question is whether you can prove it.
 

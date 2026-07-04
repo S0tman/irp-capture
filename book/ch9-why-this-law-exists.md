@@ -50,20 +50,20 @@ gantt
     section GPAI Models
     General-purpose AI model rules  :done, 2025-08-02, 2025-08-02
     section High-Risk (Main Wave)
-    Articles 8-15 obligations live  :active, 2026-08-02, 2026-08-02
+    Articles 8-15 obligations live  :active, 2027-12-02, 2027-12-02
     section High-Risk (Existing Products)
-    Annex I legacy systems          :2027-08-02, 2027-08-02
+    Annex I legacy systems          :2028-08-02, 2028-08-02
 ```
 
 **February 2, 2025** — the ban on unacceptable-risk AI systems took effect. Social scoring by governments, real-time biometric surveillance in public spaces, subliminal manipulation techniques — these are now prohibited outright across the EU.
 
 **August 2, 2025** — rules for general-purpose AI (GPAI) models came into force. If your organisation develops or deploys foundation models, these rules apply now.
 
-**August 2, 2026** — the date that matters most to the majority of organisations. This is when Articles 8 through 15 — the core obligations for high-risk AI systems — become enforceable. Logging, transparency, human oversight, technical documentation, conformity assessment. This is the wave most SMBs, government agencies, and enterprise deployers are racing toward.
+**December 2, 2027** — the date that matters most to the majority of organisations. This is when Articles 8 through 15 — the core obligations for high-risk AI systems — become enforceable. Logging, transparency, human oversight, technical documentation, conformity assessment. This wave was originally set for 2 August 2026; the Digital AI Omnibus, given final Council approval on 29 June 2026, deferred it to give organisations and standards bodies more time to prepare. It is the wave most SMBs, government agencies, and enterprise deployers must prepare for.
 
-**August 2, 2027** — existing high-risk AI systems already embedded in legacy products (under the Machinery Directive, Medical Device Regulation, etc.) get an additional year. But this extension does not apply to new deployments.
+**August 2, 2028** — existing high-risk AI systems already embedded in legacy products (under the Machinery Directive, Medical Device Regulation, etc.) get additional time. But this extension does not apply to new deployments.
 
-Most organisations reading this in 2026 have one relevant date: August 2, 2026. Everything in Part IV of this book is calibrated to that deadline.
+Most organisations have one relevant date: December 2, 2027. Everything in Part IV of this book is calibrated to that deadline. The date moved once already; the reason to start now did not, because evidence cannot be reconstructed after the fact.
 
 ## Who Is Driving This?
 
@@ -85,6 +85,6 @@ The steering wheel analogy runs through the entire Act. Someone must hold it. Th
 
 3. **Three pillars**: the Act regulates accountability (who is responsible), traceability (what record exists), and transparency (what affected people can know and challenge).
 
-4. **August 2, 2026 is the operative date** for the vast majority of organisations. High-risk AI system obligations (Articles 8–15) become enforceable that day.
+4. **December 2, 2027 is the operative date** for the vast majority of organisations. High-risk AI system obligations (Articles 8–15) become enforceable that day, deferred from the original 2 August 2026 by the Digital AI Omnibus.
 
 5. **Extraterritorial reach**: if your AI system affects people in the EU, you are in scope — regardless of where your company or infrastructure is located.
