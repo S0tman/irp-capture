@@ -24,7 +24,7 @@ Article 12 of the EU AI Act requires high-risk AI systems to automatically gener
 
 The critical word is *traceability*. A log that records that an event occurred is not the same as a log that enables the reconstruction of a decision. The difference is the difference between "the system ran at 14:32" and "at 14:32, the system scored applicant #4471 at 0.23 on hire-likelihood based on inputs X, Y, Z; the reviewing HR manager approved the rejection; no override reason was recorded."
 
-The first is an audit log. The second is a decision record. Article 12 requires the second.
+The first is an audit log. The second is a decision record. Structurally, Article 12 requires the second.
 
 ## The "Double-Hashed Database" Mistake
 
@@ -101,13 +101,13 @@ Most organisations discover this problem at their first audit. Engineering logs 
 
 At the volume of decisions most high-risk deployments process, this cannot be patched retrospectively. Asking reviewers to manually log their decisions alongside AI outputs does not scale beyond tens of decisions per day. The connection must be structural — built into the decision workflow itself, not added as an administrative step.
 
-This is what Article 12 structurally requires: a decision record layer that sits between the AI system and the human decision-maker, capturing both sides of every consequential event in a single, append-only record where each entry links to the previous, so gaps and casual modifications are detectable (independent tamper-evidence against the storage owner requires external anchoring; see the [Trust model](https://github.com/S0tman/irp-capture/blob/main/TRUST.md)). This layer is not optional infrastructure. The Act makes it mandatory. The question is only how it is implemented.
+This is what Article 12 structurally requires: a decision record layer that sits between the AI system and the human decision-maker, capturing both sides of every consequential event in a single, append-only record where each entry links to the previous, so gaps and casual modifications are detectable (independent tamper-evidence against the storage owner requires external anchoring; see the [Trust model](https://github.com/S0tman/irp-capture/blob/main/TRUST.md)). This layer is not optional infrastructure. In practice, the Act's traceability obligation makes it unavoidable. The question is only how it is implemented.
 
 IRP does not replace what Article 12 requires. It extends it — from system-level logs (what the AI did) to decision-level traceability (what a human decided, and why).
 
 Article 12 assumes that logging system behaviour is sufficient for traceability. In practice, regulators ask organisations to explain decisions, not just system outputs. Without capturing reasoning at the moment a decision is made, that explanation becomes a reconstruction exercise — slow, inconsistent, and often incomplete. IRP shifts this from reconstruction to capture.
 
-The IRP (Intent Record Protocol) is one implementation of this pattern: an append-only ledger that captures each material AI-assisted decision — the recommendation, the human action, the reasoning, and the timestamp — as a single structured record. Organisations can implement equivalent patterns in their own systems. But the layer must exist. Without it, Article 12 compliance is not achievable at scale.
+The IRP (Intent Record Protocol) is one implementation of this pattern: an append-only ledger that captures each material AI-assisted decision — the recommendation, the human action, the reasoning, and the timestamp — as a single structured record. Organisations can implement equivalent patterns in their own systems. But the layer must exist. In practice, Article 12 compliance is not achievable at scale without it.
 
 The ledger is the audit trail. The audit trail is the compliance evidence.
 
