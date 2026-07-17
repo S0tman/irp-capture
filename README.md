@@ -718,7 +718,7 @@ IRP focuses on the second.
 | **Runtime Gate (`irp gate`)** | **Live — machine-readable JSON, exit 0/10/20** |
 | **Streaming Gate (`irp watch`)** | **Live — pipe agent actions through gate, one verdict per line** |
 | **Living Mod (`irp mod`)** | **Live — supersede and retire decisions, resolver updates immediately** |
-| **Provenance lenses (`irp export graph --view`)** | **Live, v0.1: foundations / lineage / impact over a derived typed-edge layer. Recomputable, never evidence.** |
+| **Provenance lenses (`irp export graph --view`)** | **Live in v0.8.0: foundations / lineage / impact over a derived typed-edge layer, plus in-graph search. Recomputable, never evidence.** |
 | Slack sensor | Available |
 | Discord sensor | Live — v0 |
 | Figma plugin | Live — v0 |
@@ -727,7 +727,7 @@ IRP focuses on the second.
 | Agent middleware SDK (`irp.sdk`) | Available — v0 |
 | Git hook | Live — warn mode (enforce coming) |
 | PR bot | Live — warn-only |
-| pip package | Live — v0.5.0 |
+| pip package | Live, v0.8.0 (`pip install irp-capture`) |
 | REST API | Live — v0 (`pip install irp-capture[api]`) |
 | MCP server | Live — v0 (`pip install 'irp-capture[mcp]'`) |
 | Obsidian integration | Live — v0 (set `IRP_OBSIDIAN_VAULT`) |
