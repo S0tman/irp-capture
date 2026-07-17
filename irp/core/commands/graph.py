@@ -36,9 +36,13 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e5e7eb;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-header{padding:11px 20px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:14px;flex-shrink:0;z-index:10;position:relative}
-h1{font-size:14px;font-weight:600;color:#f9fafb}
-.meta{font-size:12px;color:#6b7280}
+header{padding:11px 20px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:14px;row-gap:8px;flex-wrap:wrap;flex-shrink:0;z-index:10;position:relative}
+h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
+.meta{font-size:12px;color:#6b7280;white-space:nowrap}
+/* The header wraps to a second row rather than squeezing, so narrow embeds
+   (the book iframe is ~760px) keep their canvas. Below 620px the timestamp
+   line is dropped: it is the least useful thing competing for the row. */
+@media (max-width:620px){.meta{display:none}}
 .legend{display:flex;gap:14px;margin-left:auto;align-items:center}
 .li{display:flex;align-items:center;gap:5px;font-size:11px;color:#9ca3af}
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}

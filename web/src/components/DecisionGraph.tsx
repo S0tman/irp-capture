@@ -53,7 +53,7 @@ export default function DecisionGraph({ className }: Props) {
 
       <iframe
         src="/demo-graph.html"
-        title="IRP Interactive Decision Graph — 18 design-system decisions with provenance edges"
+        title="IRP Interactive Decision Graph: 18 design-system decisions with provenance edges, and lenses ranking foundations, lineage and impact"
         onLoad={() => setLoaded(true)}
         style={{
           width: "100%",
