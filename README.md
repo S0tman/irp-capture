@@ -325,6 +325,11 @@ irp export graph --project irp-capture
 # Try a populated example without touching your ledger (18 decisions, 22 edges)
 irp export graph --demo
 
+# Provenance lenses: what is the reasoning resting on, and what depends on what
+irp export graph --view foundations
+irp export graph --view lineage --seed IRP-2026-04-25-018
+irp export graph --view impact --seed IRP-2026-01-10-001
+
 # Export compliance evidence package
 irp export evidence                                  # EU AI Act (default)
 irp export evidence --framework soc2                 # SOC 2
@@ -351,6 +356,33 @@ irp export evidence --demo
 - **Persistent IRP-NNN labels** float above each node; toggle via **Hide IDs / Show IDs** in the footer
 
 Both context files ship read-only (`chmod 444`) by default. They are regenerable at any time. The ledger remains the source of truth.
+
+### Provenance lenses
+
+A reference list tells you which decisions mention which. It cannot tell you which decisions *matter*. The lenses answer three questions your ledger already contains the answers to, using a random walk with restart over the decision graph, so a foundation reached through many paths outranks one that is merely cited once.
+
+```bash
+# What is the recorded reasoning resting on?
+irp export graph --view foundations
+
+# Why does this decision exist? (walks back through its antecedents)
+irp export graph --view lineage --seed IRP-2026-04-25-018
+
+# What depends on it? (blast radius, before you supersede)
+irp export graph --view impact --seed IRP-2026-01-10-001
+```
+
+| Lens | Question | Why it is useful |
+|---|---|---|
+| **foundations** | What is everything else standing on? | Finds the load-bearing decisions: the ones that deserve an owner, a review cadence, and a second look before anyone touches them. It also exposes single points of conceptual failure. |
+| **lineage** | Why does this decision exist? | Ranks the antecedents that genuinely explain it. A foundation reached through several paths outranks a direct parent, which is exactly what a flat reference list gets backwards. |
+| **impact** | What depends on this? | Before superseding a decision, get a review list ranked by how much each downstream decision actually rests on it, instead of a flat dump of everything reachable. |
+
+**Typed edges, and why the graph is acyclic.** Every IRP id in a `why` field becomes an edge, but the edges do not all mean the same thing. A foundation that writes "gates IRP-...-002" and the later decision that writes "builds on IRP-...-001" are describing one relationship, not two, and counting both produces a cycle that circulates probability and inflates whatever sits inside it. IRP types each reference from the timestamps (`depends_on` for a backward reference, `gates` for a forward one, `mentions` when undecidable) and walks only `depends_on`. Every walk edge therefore points strictly backward in time, so the walked graph is acyclic by construction. Gates and mentions stay visible in the view, dimmed, carrying no probability.
+
+**The lenses are analysis, never evidence.** Scores are written under `.irp/derived/`, pinned to a hash of the exact ledger they were computed from, and never written back into the ledger. Delete `.irp/derived/` and nothing is lost: it regenerates. Nothing here decides anything either. It ranks, it does not approve. Transitions are uniform and deliberately not weighted by confidence or attestation, because influence is not confidence (a decision you recorded as tentative can still be holding up everything else), and attestation proves properties of the record, not its importance.
+
+In the browser, the toolbar switches lenses and clicking any node re-seeds the walk. Node size is structural centrality, brightness is the active lens probability, and colour remains confidence: three separate dimensions, never conflated. The default `structure` view is unchanged.
 
 ### Guard: pre-commit conflict detection
 
@@ -613,6 +645,9 @@ Start capturing from day one, even if the entries are simple.
 | Export agent constraints | `irp export context --target agents.md` |
 | Export human decision log | `irp export context --target decisions.md` |
 | Export interactive 3D graph | `irp export graph` |
+| **Foundations lens (what the reasoning rests on)** | **`irp export graph --view foundations`** |
+| **Lineage lens (why this decision exists)** | **`irp export graph --view lineage --seed IRP-ID`** |
+| **Impact lens (what depends on it)** | **`irp export graph --view impact --seed IRP-ID`** |
 | Export EU AI Act evidence package | `irp export evidence` |
 | Export evidence with sample data | `irp export evidence --demo` |
 | Install pre-commit guard hook | `irp guard install` |
@@ -681,6 +716,7 @@ IRP focuses on the second.
 | **Runtime Gate (`irp gate`)** | **Live — machine-readable JSON, exit 0/10/20** |
 | **Streaming Gate (`irp watch`)** | **Live — pipe agent actions through gate, one verdict per line** |
 | **Living Mod (`irp mod`)** | **Live — supersede and retire decisions, resolver updates immediately** |
+| **Provenance lenses (`irp export graph --view`)** | **Live, v0.1: foundations / lineage / impact over a derived typed-edge layer. Recomputable, never evidence.** |
 | Slack sensor | Available |
 | Discord sensor | Live — v0 |
 | Figma plugin | Live — v0 |
