@@ -572,6 +572,8 @@ Animated particles travel along provenance edges. Directional arrows show which 
 
 Click any node to inspect the full decision in the detail panel — id, what, why, tags, confidence, source, and clickable cross-reference links that fly the camera to the referenced decision.
 
+A well-recorded `why` is frequently longer than the screen, so the card caps its height and scrolls rather than running off the bottom. It dismisses on a click anywhere outside itself, with two deliberate exceptions: clicks inside the card, so its text stays selectable and the reference pills keep working, and clicks on the canvas, which the graph's own node and background handling already owns. Escape closes it too.
+
 Past a hundred decisions, hunting for a node you half-remember stops being viable, so the view has a search (`/` or `⌘K`) with the same semantics as `irp find`: a case-insensitive regex across id, what, why, tags and source. Non-matching decisions recede while a query is live, and Enter flies the camera to the result. It is a way to arrive at a decision, not a filter on the ledger: nothing is removed, and clearing the query restores the view.
 
 ### Why provenance edges matter

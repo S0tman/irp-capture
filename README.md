@@ -353,7 +353,8 @@ irp export evidence --demo
 - **Search** (`/` or `⌘K`) → find the decision you half-remember without walking the graph. Same semantics as `irp find`: a case-insensitive regex across id, what, why, tags and source. Non-matches recede, arrow keys walk the results, Enter flies the camera to it. A half-typed regex falls back to a literal substring instead of erroring
 - **Click a node** → tooltip freezes in place at cursor; camera flies to node; node turns light grey (#D3D3D3)
 - **Click a reference pill** inside the tooltip → camera flies to the target; selection transfers; tooltip dissolves
-- **Click background or same node** → dismisses and resets
+- **Long decisions scroll** inside the tooltip (capped at 70vh) instead of running off the screen
+- **Click anywhere outside** → dismisses, as does Escape. Clicks inside the tooltip are left alone, so its text stays selectable and reference pills keep working
 - **Persistent IRP-NNN labels** float above each node; toggle via **Hide IDs / Show IDs** in the footer
 
 Both context files ship read-only (`chmod 444`) by default. They are regenerable at any time. The ledger remains the source of truth.
