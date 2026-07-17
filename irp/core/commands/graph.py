@@ -39,11 +39,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 header{padding:11px 20px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:14px;row-gap:8px;flex-wrap:wrap;flex-shrink:0;z-index:10;position:relative}
 h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
 .meta{font-size:12px;color:#6b7280;white-space:nowrap}
-/* The header wraps to a second row rather than squeezing, so narrow embeds
-   (the book iframe is ~760px) keep their canvas. Below 620px the timestamp
-   line is dropped: it is the least useful thing competing for the row. */
-@media (max-width:620px){.meta{display:none}}
 .legend{display:flex;gap:14px;margin-left:auto;align-items:center}
+/* The header wraps to a second row rather than squeezing, so narrow embeds
+   (the book iframe is ~760px) keep their canvas. As width drops, the
+   decorative chrome yields its row before the functional controls do: the
+   legend first (confidence is also on every node overlay), then the
+   timestamp. These must sit after the rules they override: a media query
+   adds no specificity, so source order decides. */
+@media (max-width:900px){.legend{display:none}}
+@media (max-width:620px){.meta{display:none}}
 .li{display:flex;align-items:center;gap:5px;font-size:11px;color:#9ca3af}
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .views{display:flex;gap:4px;align-items:center;margin-left:18px}
@@ -51,6 +55,19 @@ h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
 .vbtn:hover{color:#9ca3af;border-color:#374151}
 .vbtn.on{color:#0f1117;background:#60a5fa;border-color:#60a5fa}
 .seedbadge{font:10px ui-monospace,"SF Mono",monospace;color:#60a5fa;margin-left:6px}
+.search{position:relative;margin-left:auto}
+#q{width:200px;font:11px ui-monospace,"SF Mono",monospace;color:#e5e7eb;background:#111827;border:1px solid #1f2937;border-radius:5px;padding:5px 9px;outline:none}
+#q:focus{border-color:#60a5fa;width:260px}
+#q::placeholder{color:#4b5563}
+#hits{position:absolute;top:100%;right:0;margin-top:5px;width:340px;max-height:290px;overflow-y:auto;background:#0a0c12;border:1px solid #374151;border-radius:7px;display:none;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.75)}
+#hits.on{display:block}
+.hit{padding:7px 10px;border-bottom:1px solid #111827;cursor:pointer}
+.hit:last-child{border-bottom:none}
+.hit:hover,.hit.sel{background:#1f2937}
+.hit-id{font:700 9px ui-monospace,"SF Mono",monospace;color:#60a5fa;letter-spacing:.03em}
+.hit-what{font-size:11px;color:#d1d5db;line-height:1.4;margin-top:2px}
+.hit-none{padding:9px 10px;font-size:11px;color:#6b7280}
+.hit-count{padding:5px 10px;font:9px ui-monospace,monospace;color:#4b5563;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #111827;background:#111827}
 .hint{font-size:11px;color:#9ca3af;padding:7px 20px;border-bottom:1px solid #111827;z-index:10;position:relative}
 .main{display:flex;flex:1;overflow:hidden;position:relative}
 #graph{flex:1;cursor:grab;position:relative}
@@ -87,6 +104,10 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
     <span class="vbtn" id="v-lineage" onclick="setView('lineage')">lineage</span>
     <span class="vbtn" id="v-impact" onclick="setView('impact')">impact</span>
     <span class="seedbadge" id="seed-badge"></span>
+  </div>
+  <div class="search">
+    <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="Search  /  or  &#8984;K">
+    <div id="hits"></div>
   </div>
   <div class="legend">
     <div class="li"><div class="dot" style="background:#22c55e"></div>high</div>
@@ -195,8 +216,11 @@ function hexToRgba(hex, a) {
 
 function nodeColor(d) {
   if (d.id === lockedId) return '#D3D3D3';
+  // Filter dim wins over search dim. `dimmed` means "outside the range you
+  // asked for", a more permanent statement than "not what you just typed".
   if (d.dimmed) return '#2d3748';
   const base = CONF_COLOR[d.confidence] || '#6b7280';
+  if (searchHits && !searchHits.has(d.id)) return hexToRgba(base, 0.07);
   if (view === 'structure') return base;
   const p = (lensScores[d.id] || 0) / maxLens;
   return hexToRgba(base, 0.12 + 0.88 * Math.sqrt(p));
@@ -426,6 +450,103 @@ function focusNode(id) {
     800
   );
 }
+
+// ── Search: find the decision you half-remember ───────────────────────────
+// Semantics match `irp find`: a case-insensitive regex across every string
+// field. A half-typed regex (you just hit "(") falls back to a literal
+// substring instead of erroring mid-keystroke.
+// Search is transient focus, not another visual encoding. The view already
+// spends colour on confidence, size on centrality and glow on lens
+// probability. So matches keep their normal appearance and everything else
+// recedes while a query is live, restoring the moment it is cleared.
+const qEl = document.getElementById('q');
+const hitsEl = document.getElementById('hits');
+let searchHits = null;   // null means no active query
+let hitList = [];
+let selIdx = -1;
+
+function compilePattern(q) {
+  try { return new RegExp(q, 'i'); }
+  catch (e) { return new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); }
+}
+
+// NUL-joined so a match cannot span two unrelated fields.
+function searchableText(d) {
+  return [d.id, d.what, d.why, d.source].concat(d.tags || []).filter(Boolean).join('\u0000');
+}
+
+function runSearch(raw) {
+  const q = (raw || '').trim();
+  if (!q) { clearSearch(); return; }
+  const re = compilePattern(q);
+  hitList = decisions.filter(d => re.test(searchableText(d)));
+  searchHits = new Set(hitList.map(d => d.id));
+  selIdx = hitList.length ? 0 : -1;
+  renderHits(q);
+  Graph.nodeColor(nodeColor);
+}
+
+function renderHits(q) {
+  if (!hitList.length) {
+    hitsEl.innerHTML = '<div class="hit-none">No decision matches <strong>' + esc(q) + '</strong></div>';
+    hitsEl.classList.add('on');
+    return;
+  }
+  const shown = hitList.slice(0, 40);
+  const rows = shown.map((d, i) =>
+    '<div class="hit' + (i === selIdx ? ' sel' : '') + '" onclick="pickHit(\'' + esc(d.id) + '\')">' +
+      '<div class="hit-id">' + esc(d.id) + '</div>' +
+      '<div class="hit-what">' + esc((d.what || '').slice(0, 92)) + '</div>' +
+    '</div>').join('');
+  const more = hitList.length > shown.length ? ', showing 40' : '';
+  hitsEl.innerHTML = '<div class="hit-count">' + hitList.length +
+    (hitList.length === 1 ? ' match' : ' matches') + more + '</div>' + rows;
+  hitsEl.classList.add('on');
+}
+
+function pickHit(id) {
+  hitsEl.classList.remove('on');
+  qEl.blur();
+  focusNode(id);
+}
+
+function clearSearch() {
+  searchHits = null; hitList = []; selIdx = -1;
+  hitsEl.classList.remove('on');
+  hitsEl.innerHTML = '';
+  Graph.nodeColor(nodeColor);
+}
+
+function moveSel(delta) {
+  if (!hitList.length) return;
+  selIdx = (selIdx + delta + hitList.length) % hitList.length;
+  renderHits(qEl.value);
+  const el = hitsEl.querySelector('.hit.sel');
+  if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+qEl.addEventListener('input', () => runSearch(qEl.value));
+qEl.addEventListener('focus', () => { if (hitList.length) hitsEl.classList.add('on'); });
+qEl.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveSel(-1); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (selIdx >= 0) pickHit(hitList[selIdx].id); }
+  else if (e.key === 'Escape') { e.preventDefault(); qEl.value = ''; clearSearch(); qEl.blur(); }
+});
+
+window.addEventListener('keydown', e => {
+  const t = (e.target && e.target.tagName) || '';
+  if (t === 'INPUT' || t === 'TEXTAREA') return;
+  if (e.key === '/' || ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K'))) {
+    e.preventDefault(); qEl.focus(); qEl.select();
+  } else if (e.key === 'Escape') {
+    qEl.value = ''; clearSearch(); clearOverlay();
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search')) hitsEl.classList.remove('on');
+});
 
 // ── Label visibility toggle ────────────────────────────────────────────────
 let labelsVisible = true;

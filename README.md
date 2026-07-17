@@ -350,6 +350,7 @@ irp export evidence --demo
 `GRAPH.html` renders all decisions as a self-contained interactive 3D force globe. Nodes are colour-coded by confidence (green / amber / red). Animated particles travel along provenance edges — every IRP id cross-reference in a `why` field becomes a directed edge. No server required — open in any browser.
 
 **Interaction model:**
+- **Search** (`/` or `⌘K`) → find the decision you half-remember without walking the graph. Same semantics as `irp find`: a case-insensitive regex across id, what, why, tags and source. Non-matches recede, arrow keys walk the results, Enter flies the camera to it. A half-typed regex falls back to a literal substring instead of erroring
 - **Click a node** → tooltip freezes in place at cursor; camera flies to node; node turns light grey (#D3D3D3)
 - **Click a reference pill** inside the tooltip → camera flies to the target; selection transfers; tooltip dissolves
 - **Click background or same node** → dismisses and resets

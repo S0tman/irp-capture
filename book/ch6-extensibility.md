@@ -572,6 +572,8 @@ Animated particles travel along provenance edges. Directional arrows show which 
 
 Click any node to inspect the full decision in the detail panel — id, what, why, tags, confidence, source, and clickable cross-reference links that fly the camera to the referenced decision.
 
+Past a hundred decisions, hunting for a node you half-remember stops being viable, so the view has a search (`/` or `⌘K`) with the same semantics as `irp find`: a case-insensitive regex across id, what, why, tags and source. Non-matching decisions recede while a query is live, and Enter flies the camera to the result. It is a way to arrive at a decision, not a filter on the ledger: nothing is removed, and clearing the query restores the view.
+
 ### Why provenance edges matter
 
 Most tools that graph knowledge — Obsidian's graph view, second-brain tools, ADR viewers — graph *documents*. Every node is a file. Edges are backlinks between files.
