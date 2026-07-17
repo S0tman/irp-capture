@@ -46,7 +46,14 @@ h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
 .node-label{position:absolute;pointer-events:none;transform:translate(-50%,-140%);font:bold 9px ui-monospace,"SF Mono",monospace;color:rgba(229,231,235,0.82);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
 #graph:active{cursor:grabbing}
 #graph canvas{display:block}
-#overlay{position:fixed;display:none;background:#111827;border:1px solid #374151;border-radius:9px;padding:14px 16px;max-width:380px;z-index:100;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.6)}
+/* A long `why` must scroll inside the card rather than run off the screen.
+   Bounding the height also keeps the card from covering the canvas, which is
+   what made it feel stuck: clicks meant for the background landed on it. */
+#overlay{position:fixed;display:none;background:#111827;border:1px solid #374151;border-radius:9px;padding:14px 16px;max-width:380px;max-height:min(70vh,520px);overflow-y:auto;overscroll-behavior:contain;z-index:100;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.6)}
+#overlay::-webkit-scrollbar{width:8px}
+#overlay::-webkit-scrollbar-thumb{background:#374151;border-radius:4px}
+#overlay::-webkit-scrollbar-thumb:hover{background:#4b5563}
+#overlay::-webkit-scrollbar-track{background:transparent}
 #overlay.locked{pointer-events:auto;border-color:#60a5fa;box-shadow:0 0 0 1px #60a5fa,0 6px 28px rgba(0,0,0,.85)}
 .did{font-size:11px;font-weight:700;color:#6b7280;font-family:monospace;letter-spacing:.03em}
 .dwhat{font-size:14px;font-weight:600;color:#f9fafb;line-height:1.45}
@@ -69,7 +76,7 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
 <body>
 <header>
   <h1>IRP Decision Graph</h1>
-  <span class="meta">2026-07-17T09:28:56Z &middot; 18 decisions &middot; 22 provenance edges</span>
+  <span class="meta">2026-07-17T09:36:48Z &middot; 18 decisions &middot; 22 provenance edges</span>
   <div class="views">
     <span class="vbtn" id="v-structure" onclick="setView('structure')">structure</span>
     <span class="vbtn" id="v-foundations" onclick="setView('foundations')">foundations</span>
@@ -518,6 +525,16 @@ window.addEventListener('keydown', e => {
 
 document.addEventListener('click', e => {
   if (!e.target.closest('.search')) hitsEl.classList.remove('on');
+
+  // Dismiss the locked card when clicking anywhere outside it. Two things are
+  // deliberately excluded: clicks inside the card (so you can select its text
+  // and follow reference pills), and clicks on the canvas, which the graph's
+  // own onNodeClick / onBackgroundClick already handle. Without that second
+  // exclusion this handler would fire on the same click that opened the card
+  // and close it instantly.
+  if (overlay.style.display !== 'block') return;
+  if (e.target.closest('#overlay') || e.target.closest('#graph')) return;
+  clearOverlay();
 });
 
 // ── Label visibility toggle ────────────────────────────────────────────────
