@@ -749,6 +749,31 @@ IRP is used to capture real decisions across CLI and Slack workflows.
 It is early. If you are building in this space and the substrate
 model resonates, open an issue or reach out.
 
+### Development setup
+
+IRP has no runtime dependencies. The test suite needs pytest, and the integrity
+tests need the optional integrity extra. The `dev` extra installs both.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+
+pytest tests/                      # expect: all green
+```
+
+A plain `pip install -e .` works too. Tests that need an optional dependency
+skip themselves with a message naming the extra, so a base install still gives
+a clean run rather than a wall of red.
+
+```bash
+python3 irp/core/irp.py --help     # run the CLI from the repo without installing
+```
+
+The ledger format is the contract. Anything derived from it (exports, graphs,
+lens scores) is regenerable and must never be written back into
+`.irp/ledger.jsonl`.
+
 💬 **[Join the discussion →](https://github.com/S0tman/irp-capture/discussions)** — share your stack, ask questions, or show how you use IRP.
 
 The sensor pattern is open. If you want to write a sensor

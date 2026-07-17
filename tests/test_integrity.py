@@ -20,6 +20,11 @@ import pytest
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))  # make `irp.integrity` importable
 
+# Integrity features are an optional extra. Without them these tests skip
+# rather than fail, so a base `pip install -e .` still gives a clean first run.
+#   pip install -e ".[dev]"   (or: pip install -e ".[integrity]")
+pytest.importorskip("rfc8785", reason="integrity extra not installed: pip install -e '.[dev]'")
+
 from irp.integrity.canonical import canonicalize, digest_canonical
 from irp.integrity.snapshot import create_snapshot
 from irp.integrity.strict import parse_ledger_strict

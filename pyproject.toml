@@ -28,6 +28,10 @@ mcp = ["mcp>=1.0"]
 mempalace = ["chromadb>=0.5"]
 sovereign = ["chromadb>=0.5"]
 integrity = ["rfc8785>=0.1.2", "asn1crypto>=1.5", "cryptography>=42"]
+# Everything needed to run the full test suite green: pytest plus the
+# integrity extras. Tests that need an optional dependency skip without it,
+# so `pip install -e .` then pytest is also a valid (partial) first run.
+dev = ["pytest>=7", "rfc8785>=0.1.2", "asn1crypto>=1.5", "cryptography>=42"]
 
 [project.scripts]
 irp = "irp.core.irp:main"
