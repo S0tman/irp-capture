@@ -589,13 +589,45 @@ As a project grows, the graph reveals:
 - **hubs** — highly-referenced architectural decisions that constrain many later ones
 - **isolated nodes** — standalone decisions with no cross-referencing (often early-stage or domain-switching entries)
 
+### From eyeballing hubs to measuring them
+
+That list is an honest account of what a human can *see* in a force globe, and "highly-referenced" is doing most of the work in it. Eyeballing a hub cannot tell you whether a decision is load-bearing or merely popular. Past a couple of hundred decisions the globe stops being legible at all.
+
+A directed graph of decisions is also a Markov chain waiting to happen. Walk it at random, restarting occasionally, and the share of time the walk spends on each decision measures how much of the recorded reasoning actually flows through it. Three questions you previously had to squint at become ranked answers:
+
+```bash
+irp export graph --view foundations                # what is the reasoning resting on?
+irp export graph --view lineage --seed IRP-...     # why does this decision exist?
+irp export graph --view impact  --seed IRP-...     # what depends on it?
+```
+
+**foundations** replaces the hubs bullet with a number. A decision reached through many independent paths outranks one that is simply cited often, a distinction a visual hub cannot make.
+
+**lineage** walks backward through a decision's antecedents. This is not the same as listing its references: a foundation reached through several paths correctly outranks a direct parent, which is precisely what a flat reference list gets backwards.
+
+**impact** walks the graph in reverse to rank what depends on a decision. Before superseding an assumption, that is your review list, ordered by how much each downstream decision genuinely rests on it rather than a flat dump of everything reachable.
+
+### The edge that isn't there
+
+A subtlety appears the moment you try to *walk* a decision graph rather than look at it.
+
+Natural writing produces both directions of the same relationship. The foundational decision says it "gates IRP-2026-01-15-002". The later decision says it "builds on IRP-2026-01-10-001". Two sentences, one relationship. A regex that treats every id as an edge produces two edges pointing at each other, and a random walk falls into that two-node cycle and circulates forever, inflating both members while starving everything genuinely downstream.
+
+So the walk does not use the raw reference graph. Each reference is typed first, using the timestamps the ledger already carries: a reference to an earlier decision is `depends_on`, a reference to a later one is `gates`, an undecidable one is `mentions`. Only `depends_on` is walked. Every walk edge therefore points strictly backward in time, which makes the walked graph acyclic by construction. The cycle cannot form, because time does not run backward.
+
+The other relations stay in the view, dimmed, carrying no probability. They are real. They are simply not dependence.
+
+This is the whole lesson of the pattern in miniature: the mathematics is ordinary, and the work is deciding what the states and edges actually mean. Get the state space right and the arithmetic is a footnote. Get it wrong and you produce confident, well-formatted nonsense.
+
 ### Design invariants
 
 The same rules apply as for context exporters:
 
-- **No new schema.** Reads `.irp/ledger.jsonl` only.
-- **No LLM calls. No inference.** Edges are derived from regex matching only — a cross-reference edge exists if and only if a `why` field contains another decision's IRP id.
+- **No new schema.** Reads `.irp/ledger.jsonl` only. Typing an edge uses the timestamps already in the record. The ledger format does not change.
+- **No LLM calls. No inference.** Edges are derived from regex matching and timestamp comparison only. A cross-reference edge exists if and only if a `why` field contains another decision's IRP id, and its relation is decided by which record is older. Nothing is asked to interpret the prose.
 - **Always regenerable.** The ledger is canonical; `GRAPH.html` is a build artefact.
+- **Analysis is derived, never evidence.** Lens scores are written under `.irp/derived/`, pinned to a hash of the exact ledger they were computed from, and never written back into it. Delete the directory and you lose nothing: it regenerates. The lenses rank, they do not decide, and they never approve, confirm, or score a person.
+- **Influence is not confidence.** Transitions are uniform, deliberately unweighted by confidence or attestation. A decision you recorded as tentative can still be holding up everything else, and a sealed record is a genuine record, not an important one.
 - **Single self-contained HTML.** The 3d-force-graph library loads via CDN. No build step, no package manager.
 
 ```bash
