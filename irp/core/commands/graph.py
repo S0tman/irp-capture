@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import dynamics
 from store import read_ledger
 
 IRP_ID_RE = re.compile(r"\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b")
@@ -41,6 +42,11 @@ h1{font-size:14px;font-weight:600;color:#f9fafb}
 .legend{display:flex;gap:14px;margin-left:auto;align-items:center}
 .li{display:flex;align-items:center;gap:5px;font-size:11px;color:#9ca3af}
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.views{display:flex;gap:4px;align-items:center;margin-left:18px}
+.vbtn{font:600 10px ui-monospace,"SF Mono",monospace;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:5px;padding:4px 9px;cursor:pointer;user-select:none}
+.vbtn:hover{color:#9ca3af;border-color:#374151}
+.vbtn.on{color:#0f1117;background:#60a5fa;border-color:#60a5fa}
+.seedbadge{font:10px ui-monospace,"SF Mono",monospace;color:#60a5fa;margin-left:6px}
 .hint{font-size:11px;color:#9ca3af;padding:7px 20px;border-bottom:1px solid #111827;z-index:10;position:relative}
 .main{display:flex;flex:1;overflow:hidden;position:relative}
 #graph{flex:1;cursor:grab;position:relative}
@@ -71,6 +77,13 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
 <header>
   <h1>IRP Decision Graph</h1>
   <span class="meta">__GENERATED_AT__ &middot; __DECISION_COUNT__ decisions &middot; __EDGE_COUNT__ provenance edges__FILTER_BADGE__</span>
+  <div class="views">
+    <span class="vbtn" id="v-structure" onclick="setView('structure')">structure</span>
+    <span class="vbtn" id="v-foundations" onclick="setView('foundations')">foundations</span>
+    <span class="vbtn" id="v-lineage" onclick="setView('lineage')">lineage</span>
+    <span class="vbtn" id="v-impact" onclick="setView('impact')">impact</span>
+    <span class="seedbadge" id="seed-badge"></span>
+  </div>
   <div class="legend">
     <div class="li"><div class="dot" style="background:#22c55e"></div>high</div>
     <div class="li"><div class="dot" style="background:#f59e0b"></div>medium</div>
@@ -92,21 +105,146 @@ const idSet = new Set(decisions.map(d => d.id));
 const byId = Object.fromEntries(decisions.map(d => [d.id, d]));
 
 const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
-const nodeColor = d => d.id === lockedId ? '#D3D3D3' : d.dimmed ? '#2d3748' : (CONF_COLOR[d.confidence] || '#6b7280');
 
-// Build provenance edges from IRP id cross-refs in why fields
-const edgeSet = new Set();
-const links = [];
-decisions.forEach(d => {
-  [...new Set((d.why || '').match(IRP_RE) || [])].forEach(ref => {
-    const key = `${d.id}|${ref}`;
-    if (ref !== d.id && idSet.has(ref) && !edgeSet.has(key)) {
-      edgeSet.add(key);
-      links.push({ source: d.id, target: ref });
-    }
+// ── IRP Dynamics: typed provenance edges + provenance lenses ───────────────
+// Edges are typed server-side (depends_on / gates / mentions) and embedded
+// here, so the browser walks exactly the graph the CLI scored. Only
+// depends_on carries probability. Gates and mentions stay visible but are
+// excluded from the walk: that is what stops a foundation's "gates 002"
+// forward reference and 002's "builds on 001" back reference from forming a
+// two-node cycle that circulates probability forever and inflates both.
+// Never derive probability from 3D positions. The force layout is a
+// rendering artifact and says nothing about dependence.
+const typedEdges = __EDGES_JSON__;
+const WALK_REL = 'depends_on';
+const ALPHA = 0.85, EPS = 1e-9, MAX_IT = 200;
+let view = '__INITIAL_VIEW__' || 'structure';
+let seedId = '__INITIAL_SEED__' || null;
+
+// Random walk with restart. Transitions are uniform (1/outdegree): influence
+// is not confidence, and attestation proves properties of the record, not its
+// importance. Mirrors dynamics.personalized_pagerank server-side.
+function pagerank(seed, reverse) {
+  const ids = decisions.map(d => d.id);
+  const n = ids.length;
+  const idx = new Map(ids.map((id, i) => [id, i]));
+  const out = Array.from({ length: n }, () => []);
+  typedEdges.forEach(e => {
+    if (e.relation !== WALK_REL) return;
+    const s = idx.get(reverse ? e.target : e.source);
+    const t = idx.get(reverse ? e.source : e.target);
+    if (s !== undefined && t !== undefined) out[s].push(t);
   });
-});
+  const tele = new Array(n).fill(0);
+  if (seed && idx.has(seed)) tele[idx.get(seed)] = 1;
+  else for (let i = 0; i < n; i++) tele[i] = 1 / n;
+  let r = tele.slice();
+  for (let it = 0; it < MAX_IT; it++) {
+    const nxt = tele.map(t => (1 - ALPHA) * t);
+    let dangling = 0;
+    for (let i = 0; i < n; i++) {
+      if (!out[i].length) { dangling += r[i]; continue; }
+      const share = ALPHA * r[i] / out[i].length;
+      for (const j of out[i]) nxt[j] += share;
+    }
+    if (dangling) for (let i = 0; i < n; i++) nxt[i] += ALPHA * dangling * tele[i];
+    let delta = 0;
+    for (let i = 0; i < n; i++) delta += Math.abs(nxt[i] - r[i]);
+    r = nxt;
+    if (delta < EPS) break;
+  }
+  const total = r.reduce((a, b) => a + b, 0) || 1;
+  const scores = {};
+  ids.forEach((id, i) => scores[id] = r[i] / total);
+  return scores;
+}
 
+// Node SIZE is structural centrality (stable across lenses). Node GLOW is the
+// active lens probability. Confidence stays its own colour dimension.
+const foundationScores = pagerank(null, false);
+const maxFound = Math.max(1e-12, ...Object.values(foundationScores));
+let lensScores = {};
+let maxLens = 1e-12;
+
+function computeLens() {
+  if (view === 'foundations') lensScores = foundationScores;
+  else if (view === 'lineage' && seedId) lensScores = pagerank(seedId, false);
+  else if (view === 'impact' && seedId) lensScores = pagerank(seedId, true);
+  else lensScores = {};
+  const vals = Object.values(lensScores);
+  maxLens = vals.length ? Math.max(1e-12, ...vals) : 1e-12;
+}
+
+function linksForView() {
+  const rev = (view === 'impact');
+  return typedEdges.map(e => ({
+    source: (rev && e.relation === WALK_REL) ? e.target : e.source,
+    target: (rev && e.relation === WALK_REL) ? e.source : e.target,
+    relation: e.relation
+  }));
+}
+
+function hexToRgba(hex, a) {
+  const h = hex.replace('#', '');
+  return `rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},${a})`;
+}
+
+function nodeColor(d) {
+  if (d.id === lockedId) return '#D3D3D3';
+  if (d.dimmed) return '#2d3748';
+  const base = CONF_COLOR[d.confidence] || '#6b7280';
+  if (view === 'structure') return base;
+  const p = (lensScores[d.id] || 0) / maxLens;
+  return hexToRgba(base, 0.12 + 0.88 * Math.sqrt(p));
+}
+
+function nodeVal(d) {
+  if (d.dimmed) return 1;
+  if (view === 'structure') return d.confidence === 'high' ? 6 : d.confidence === 'medium' ? 4 : 3;
+  return 2 + 14 * Math.sqrt((foundationScores[d.id] || 0) / maxFound);
+}
+
+function isWalk(l) { return view === 'structure' || l.relation === WALK_REL; }
+
+function refreshChrome() {
+  ['structure', 'foundations', 'lineage', 'impact'].forEach(v => {
+    const el = document.getElementById('v-' + v);
+    if (el) el.classList.toggle('on', v === view);
+  });
+  const badge = document.getElementById('seed-badge');
+  if (badge) {
+    badge.textContent = (view === 'lineage' || view === 'impact')
+      ? (seedId ? 'seed ' + seedId : 'click a node to seed')
+      : '';
+  }
+}
+
+function applyView() {
+  computeLens();
+  Graph.graphData({ nodes, links: linksForView() });
+  Graph.nodeColor(nodeColor);
+  Graph.nodeVal(nodeVal);
+  refreshChrome();
+}
+
+function setView(next) {
+  view = next;
+  if ((next === 'lineage' || next === 'impact') && !seedId) {
+    // Awaiting a seed. Clear the previous lens rather than leaving its glow on
+    // screen under a different lens name, which would show stale probability.
+    lensScores = {};
+    maxLens = 1e-12;
+    Graph.graphData({ nodes, links: linksForView() });
+    Graph.nodeColor(nodeColor);
+    Graph.nodeVal(nodeVal);
+    refreshChrome();
+    return;
+  }
+  applyView();
+}
+
+computeLens();
+const links = linksForView();
 const nodes = decisions.map(d => ({ ...d }));
 
 // ── Floating overlay ──────────────────────────────────────────────────────
@@ -188,16 +326,18 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
   // Nodes — no library tooltip; overlay handles all interaction
   .nodeLabel(() => '')
   .nodeColor(nodeColor)
-  .nodeVal(d => d.dimmed ? 1 : (d.confidence === 'high' ? 6 : d.confidence === 'medium' ? 4 : 3))
+  .nodeVal(nodeVal)
   .nodeOpacity(0.92)
 
-  // Links / provenance edges
-  .linkColor(() => 'rgba(96,165,250,0.6)')
+  // Links / provenance edges. In a lens view the non-walk relations
+  // (gates, mentions) stay visible but are dimmed and carry no particles,
+  // because they carry no probability.
+  .linkColor(l => isWalk(l) ? 'rgba(96,165,250,0.6)' : 'rgba(107,114,128,0.22)')
   .linkWidth(1.5)
   .linkDirectionalArrowLength(5)
   .linkDirectionalArrowRelPos(1)
-  .linkDirectionalArrowColor(() => 'rgba(96,165,250,0.9)')
-  .linkDirectionalParticles(3)
+  .linkDirectionalArrowColor(l => isWalk(l) ? 'rgba(96,165,250,0.9)' : 'rgba(107,114,128,0.3)')
+  .linkDirectionalParticles(l => isWalk(l) ? 3 : 0)
   .linkDirectionalParticleWidth(1.5)
   .linkDirectionalParticleColor(() => '#60a5fa')
   .linkDirectionalParticleSpeed(0.006)
@@ -205,6 +345,11 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
   // Interactions
   .onNodeClick((node, event) => {
     event && event.stopPropagation();
+    // In a seeded lens, clicking re-seeds the walk on that decision.
+    if (view === 'lineage' || view === 'impact') {
+      seedId = node.id;
+      applyView();
+    }
     if (lockedId === node.id) {
       clearOverlay();
     } else {
@@ -260,6 +405,7 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 resize();
+refreshChrome();
 
 // ── Focus a node by id (called from reference links in overlay) ───────────
 function focusNode(id) {
@@ -328,6 +474,7 @@ def build_graph_html(
     decisions_json = json.dumps(decisions, ensure_ascii=False)
 
     title = f"IRP Decision Graph{(' — ' + title_suffix) if title_suffix else ''}"
+    typed_edges = dynamics.derive_typed_edges(decisions)
     html = (
         _HTML_TEMPLATE
         .replace("<title>IRP Decision Graph</title>", f"<title>{title}</title>")
@@ -337,6 +484,9 @@ def build_graph_html(
         .replace("__EDGE_COUNT__", str(edge_count))
         .replace("__FILTER_BADGE__", filter_badge)
         .replace("__DECISIONS_JSON__", decisions_json)
+        .replace("__EDGES_JSON__", json.dumps(typed_edges, ensure_ascii=False))
+        .replace("__INITIAL_VIEW__", dynamics.STRUCTURE_VIEW)
+        .replace("__INITIAL_SEED__", "")
     )
     return html
 
@@ -445,6 +595,50 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         ]
     in_range_count = sum(1 for d in decisions if not d.get("dimmed"))
 
+    # ── IRP Dynamics: derived typed edges + optional provenance lens ─────────
+    # The typed edge layer is always computed so the HTML can offer the lenses
+    # interactively. It is only written to .irp/derived/ when a lens is asked
+    # for, so a plain `irp export graph` still touches nothing but its output.
+    view = getattr(args, "view", None) or dynamics.STRUCTURE_VIEW
+    seed = getattr(args, "seed", None) or None
+    known_ids = {d["id"] for d in decisions if d.get("id")}
+
+    if view in dynamics.SEEDED_VIEWS and not seed:
+        return {
+            "command": "export.graph",
+            "status": "error",
+            "text": (
+                f"--view {view} needs a decision to seed on.\n\n"
+                f"  irp export graph --view {view} --seed IRP-YYYY-MM-DD-NNN\n\n"
+                "Pick any decision id from your ledger, or explore the sample:\n"
+                "  irp export graph --demo --view foundations"
+            ),
+        }
+    if seed and seed not in known_ids:
+        return {
+            "command": "export.graph",
+            "status": "error",
+            "text": (
+                f"Seed decision not found in this graph: {seed}\n\n"
+                "It must be one of the decisions being exported "
+                "(check your --from/--to/--project filters)."
+            ),
+        }
+
+    snapshot = dynamics.snapshot_hash(irp_dir, decisions, demo=demo)
+    edge_layer = dynamics.build_edge_layer(decisions, snapshot, demo=demo)
+    typed_edges = edge_layer["edges"]
+    rel_counts = dynamics.relation_counts(typed_edges)
+
+    analysis = None
+    derived_paths: list[Path] = []
+    if view in dynamics.LENS_VIEWS:
+        analysis = dynamics.compute_lens(
+            decisions, view, seed=seed, snapshot=snapshot, edges=typed_edges
+        )
+        derived_paths.append(dynamics.write_edge_layer(irp_dir, edge_layer))
+        derived_paths.append(dynamics.write_analysis(irp_dir, analysis))
+
     output_path = Path(output_arg) if output_arg else (project_root / default_name)
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
@@ -490,6 +684,9 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         .replace("__EDGE_COUNT__", str(edge_count))
         .replace("__FILTER_BADGE__", filter_badge)
         .replace("__DECISIONS_JSON__", decisions_json)
+        .replace("__EDGES_JSON__", json.dumps(typed_edges, ensure_ascii=False))
+        .replace("__INITIAL_VIEW__", view)
+        .replace("__INITIAL_SEED__", seed or "")
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -508,11 +705,28 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     else:
         filter_note = None
     regen_cmd = "  irp export graph --demo --force" if demo else "  irp export graph --force"
+    if view != dynamics.STRUCTURE_VIEW:
+        regen_cmd += f" --view {view}" + (f" --seed {seed}" if seed else "")
 
     detail_lines = [f"Nodes:  {len(decisions)} decision(s){demo_note}"]
     if filter_note:
         detail_lines.append(filter_note)
     detail_lines.append(f"Edges:  {edge_count} provenance reference(s) with animated particles")
+
+    if analysis is not None:
+        walked = rel_counts.get(dynamics.WALK_RELATION, 0)
+        excluded = sum(v for k, v in rel_counts.items() if k != dynamics.WALK_RELATION)
+        seed_note = f" seeded at {seed}" if seed else ""
+        what_by_id = {d["id"]: (d.get("what") or "") for d in decisions}
+        detail_lines.append(
+            f"Lens:   {view}{seed_note} "
+            f"({walked} depends_on walked, {excluded} excluded: gates/mentions)"
+        )
+        detail_lines.append("Top:")
+        for nid, score in list(analysis["scores"].items())[:5]:
+            detail_lines.append(f"          {score:.4f}  {nid}  {what_by_id.get(nid, '')[:52]}")
+        for path in derived_paths:
+            detail_lines.append(f"Derived: {path}")
 
     text = "\n".join(header + [
         f"Wrote {output_path}",
@@ -523,7 +737,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         regen_cmd,
     ])
 
-    return {
+    result = {
         "command": "export.graph",
         "status": "ok",
         "output_path": str(output_path),
@@ -531,5 +745,14 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "in_range_count": in_range_count if has_filter else len(decisions),
         "edge_count": edge_count,
         "filters": {"from_date": from_date, "to_date": to_date, "project": project},
+        "view": view,
+        "seed": seed,
+        "relations": rel_counts,
         "text": text,
     }
+    if analysis is not None:
+        # Derived analysis, never evidence (DYN-I2). Recomputable from the
+        # snapshot hash it carries (DYN-I4).
+        result["analysis"] = analysis
+        result["derived_paths"] = [str(p) for p in derived_paths]
+    return result

@@ -457,6 +457,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Generate from built-in sample data — does not touch your ledger",
     )
+    p_export_graph.add_argument(
+        "--view",
+        dest="view",
+        type=str,
+        default="structure",
+        choices=["structure", "foundations", "lineage", "impact"],
+        help=(
+            "Provenance lens (default: structure, the plain reference graph). "
+            "foundations = what the reasoning rests on; lineage = why this decision "
+            "exists (needs --seed); impact = what depends on it (needs --seed)."
+        ),
+    )
+    p_export_graph.add_argument(
+        "--seed",
+        dest="seed",
+        type=str,
+        default=None,
+        metavar="IRP-ID",
+        help="Decision to seed the lineage or impact lens on.",
+    )
     p_export_graph.add_argument("--json", action="store_true")
 
     p_export_evidence = export_sub.add_parser(
