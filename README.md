@@ -6,11 +6,13 @@
 
 ## Intent Record Protocol
 
-**IRP is decision provenance infrastructure for AI agents.**
+**IRP keeps the reason behind a decision, so someone can answer for it later.**
 
-It gives agents a human-confirmed record of why decisions were made — so they can act without violating context that used to live only in people's heads.
+Agents will make more decisions than anyone can answer for. IRP records why a
+decision was made, at the moment a human confirms it, in a plain file that
+outlives the tool that produced it.
 
-Confirm a decision → it is written to a local file → it stays forever. IRP makes decisions survive change.
+Confirm a decision → it is written to a local file → it stays forever.
 
 ```bash
 # Before starting something new
