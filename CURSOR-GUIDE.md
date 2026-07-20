@@ -119,4 +119,4 @@ This checks your Python version, irp-capture install, ledger health, and which i
 - **MemPalace**: `pip install 'irp-capture[mempalace]'` to write decisions into your agent's memory collections
 - **REST API**: `pip install 'irp-capture[api]'` for custom integrations via HTTP
 
-Full documentation: [irp-book.vercel.app](https://irp-book.vercel.app)
+Full documentation: [book.irp-compliance.xyz](https://book.irp-compliance.xyz)

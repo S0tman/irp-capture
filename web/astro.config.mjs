@@ -3,7 +3,7 @@ import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  site: 'https://irp-book.vercel.app/',
+  site: 'https://book.irp-compliance.xyz/',
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],

@@ -32,5 +32,5 @@
   <circle cx="1000" cy="520" r="28" fill="#fcd34d" stroke="white" stroke-width="3"/>
 
   <!-- Bottom text -->
-  <text x="60" y="600" style="font-family: Helvetica, Arial, sans-serif; font-size: 20px; fill: #999999;">irp-book.vercel.app</text>
+  <text x="60" y="600" style="font-family: Helvetica, Arial, sans-serif; font-size: 20px; fill: #999999;">book.irp-compliance.xyz</text>
 </svg>

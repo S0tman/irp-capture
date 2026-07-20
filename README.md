@@ -48,24 +48,58 @@ If you are working in a team, it becomes obvious quickly.
 
 ## The reasoning gap
 
-AI tools are everywhere in your workflow now.
-Prompts, reviews, approvals, feedback loops.
-Good reasoning happens constantly. Almost none of it is preserved.
+"Why was this decided?"
 
-Not because it was not captured somewhere.
-But because nothing was designed to capture *why*.
+It is one of the most common questions asked inside any organisation, and one
+of the least answerable. Everyone has hit the wall: a rule nobody can explain,
+a system nobody remembers choosing, a policy that outlived the person who
+understood it.
 
-Six months later:
+Usually that is merely expensive. Sometimes it ruins people.
 
-- A new engineer asks why the architecture was designed this way.
-- An audit asks which human approved this creative direction.
-- A product decision gets relitigated because no one remembers the reasoning.
+**The Post Office Horizon scandal.** For more than fifteen years, accounting
+software reported shortfalls in branch accounts that were not real. More than
+900 subpostmasters were convicted of theft and fraud. Some went to prison.
+The system said money was missing, and the people accused had no way to
+interrogate how that conclusion had been reached, or who had decided the
+system could be trusted over them.
 
-Every new AI session starts from zero.
-Every new team member re-learns what was already decided.
-Every tool has logs of *what happened*. None of them record *why it mattered*.
+**The Dutch childcare benefits scandal.** A self-learning algorithm at the tax
+authority used nationality as a proxy for fraud risk. Somewhere between 26,000
+and 35,000 families, disproportionately from ethnic minorities, were wrongly
+accused of benefit fraud and ordered to repay sums they did not owe. More than
+2,000 children were removed from their parents. The government resigned in
+2021.
 
-> Storing everything is easy. Knowing what mattered is not.
+In both cases the decisions were made by people. Someone chose the system,
+someone accepted its output, someone decided a human's account was worth less
+than a machine's. Those decisions were real, and they were defensible or not
+on reasons that existed at the time. What did not exist was any record of
+those reasons in a form anyone could later examine. So the reconstruction
+happened years afterwards, in public inquiries, at enormous cost, and
+incompletely.
+
+**To be clear about what this changes.** A decision record would not have
+fixed either algorithm. Bad decisions recorded honestly are still bad
+decisions. What it changes is whether the question can be answered at all,
+and how long that takes: months of inquiry, or minutes of reading.
+
+That is the gap. Not that organisations lack data. They have too much. It is
+that nothing in the stack was ever designed to hold the *reason* a human gave
+at the moment they committed to something.
+
+**And it is widening.** AI now participates in more decisions, faster, and
+leaves less human trace. Not through malice. Because the reasoning happens
+inside a session, and the session closes.
+
+The same failure, in its harmless form, is the one you already recognise:
+
+- A new engineer asks why the architecture is like this. Nobody knows.
+- An auditor asks which human approved this. Nobody can say.
+- A settled decision gets relitigated because the reasoning went with the
+  person who left.
+
+> Storing everything is easy. Being able to answer for it is not.
 
 ---
 
@@ -737,7 +771,7 @@ IRP focuses on the second.
 
 ## The IRP Book
 
-Read the full technical guide at **[irp-book.vercel.app](https://irp-book.vercel.app)**.
+Read the full technical guide at **[book.irp-compliance.xyz](https://book.irp-compliance.xyz)**.
 
 **Parts 1–3** cover the IRP framework: architecture, state and conflict detection, capturing intent, decision validation, the Figma plugin, extensibility (REST API, MCP, sovereign stack integrations), and practical application.
 
