@@ -35,14 +35,30 @@ This is not a memory problem. It is a meaning or decision, reasoning traceabilit
 
 ## Who this is for
 
-IRP is designed for teams making decisions together:
+If your organisation makes decisions that somebody might one day have to
+answer for, this is for you.
+
+That covers the cases where being unable to answer causes real harm:
+
+- **Public bodies and institutions** deciding on benefits, eligibility,
+  enforcement or access, where the person affected has a right to an
+  explanation and usually cannot get one
+- **Regulated organisations** in finance, health, employment and essential
+  services, where "show us how you decided" is a question with legal weight
+  behind it
+- **Anyone putting AI into a decision about a person**, where the reasoning
+  now happens partly inside a model and partly inside a human, and neither
+  half is written down anywhere
+
+And it covers the everyday version, which is the same failure at lower stakes:
 
 - Engineering teams choosing between approaches
-- Design and product teams approving creative direction
-- Pre-sales and delivery teams aligning on scope
+- Design and product teams approving a direction
+- Any team where the person who knew why has left the room
 
-If you are working alone, this may feel unnecessary.
-If you are working in a team, it becomes obvious quickly.
+Working alone on something reversible? This will feel unnecessary, and that is
+a fair reading. It becomes obvious the first time somebody asks you to justify
+a decision you made a year ago, and you find that you cannot.
 
 ---
 
