@@ -6,5 +6,13 @@
   "outputDirectory": "dist",
   "env": {
     "NODE_ENV": "production"
-  }
+  },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "irp-book.vercel.app" }],
+      "destination": "https://book.irp-compliance.xyz/:path*",
+      "permanent": true
+    }
+  ]
 }
