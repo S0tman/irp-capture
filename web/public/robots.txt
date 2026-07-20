@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://book.irp-compliance.xyz/sitemap-index.xml
