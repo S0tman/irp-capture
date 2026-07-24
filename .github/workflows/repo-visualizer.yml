@@ -1,12 +1,19 @@
-name: Codebase map
+name: Repo graphics
 
-# Regenerates assets/repo-diagram.svg (an SVG map of the repository) on every
-# push to main and commits it back. The README embeds that file, so the map
-# stays current without anyone maintaining it by hand.
+# Regenerates the README graphics on every push to main (and weekly, to keep
+# the star history fresh) and commits them:
+#   assets/repo-diagram.svg  codebase map (repo-visualizer, then framed so
+#                            nothing is clipped)
+#   assets/star-history.svg  self-hosted star history. star-history.com no
+#                            longer works for this repo because GitHub restricts
+#                            star timestamps to collaborators; GITHUB_TOKEN here
+#                            is one, so we render it ourselves.
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -18,9 +25,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Generate codebase map
         uses: githubocto/repo-visualizer@0.7.1
         with:
           output_file: "assets/repo-diagram.svg"
           excluded_paths: "node_modules,dist,.venv,web,irp_capture.egg-info,.git"
-          commit_message: "chore: update codebase map [skip ci]"
+          should_push: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Frame the codebase map
+        run: python3 tools/frame_repo_diagram.py
+
+      - name: Render star history
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/render_star_history_svg.py
+
+      - name: Commit graphics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/repo-diagram.svg assets/star-history.svg
+          if git diff --cached --quiet; then
+            echo "no graphics changes"
+          else
+            git commit -m "chore: refresh repo graphics [skip ci]"
+            git push
+          fi

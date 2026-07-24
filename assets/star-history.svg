@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 400" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif" role="img" aria-label="Star history for S0tman/irp-capture">
+<rect x="0" y="0" width="760" height="400" rx="14" fill="#ffffff" stroke="#E4E8EF"/>
+<text x="34" y="42" font-size="20" font-weight="700" fill="#0F172A">Star history</text>
+<text x="34" y="63" font-size="12.5" fill="#5B6675">S0tman/irp-capture</text>
+<text x="380" y="215" font-size="86" font-weight="800" text-anchor="middle" fill="#2745B8">3</text>
+<text x="380" y="255" font-size="15" text-anchor="middle" fill="#5B6675">stars so far</text>
+<text x="380" y="322" font-size="12" text-anchor="middle" fill="#98A2B3">The dated history renders in CI, where a token can read star timestamps.</text>
+<text x="736" y="386" font-size="10" text-anchor="end" fill="#AAB2BF" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">self-hosted, refreshed by CI</text>
+</svg>

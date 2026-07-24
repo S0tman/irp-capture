@@ -19,7 +19,7 @@ Confirm a decision → it is written to a local file → it stays forever.
 irp why
 
 # IRP-2026-04-08-001  Decision: Use Postgres for the reporting service
-# Why: Redis rejected — query patterns require joins
+# Why: Redis rejected, query patterns require joins
 #
 # → No need to reopen this debate
 ```
@@ -235,7 +235,7 @@ This is not about memory. It is about meaning traveling across time, tools, and 
 | Component | Choice | Why |
 |---|---|---|
 | Storage | Append-only `.jsonl` flat file | Human-readable, no database required |
-| Retrieval | Deterministic — read the ledger | No embeddings, no similarity guessing |
+| Retrieval | Deterministic, read the ledger | No embeddings, no similarity guessing |
 | Capture | Human-confirmed via sensor | No AI decides what matters |
 | Format | Plain JSON per line | Works in any editor, any language |
 | Dependencies | Python 3.9+, no cloud | Runs entirely on your machine |
@@ -307,7 +307,7 @@ with node size showing which decisions the rest of the graph rests on.
 **New to this? Here is how to read it, in plain words:**
 
 - **Every circle is one decision.** The label is its topic (this demo happens to be a small design-system project).
-- **A line means two decisions are related.** IRP works the relationship out from the reasoning you wrote, not from anything drawn by hand:
+- **A line is a "typed edge": a link between two decisions that also carries a label saying *how* they relate.** IRP works out both the link and its label from the reasoning you wrote, not from anything you draw by hand. There are three types:
   - **depends on:** this decision builds on an earlier one.
   - **gates:** this decision sets a constraint that a later decision has to live within.
   - **mentions:** a plain reference, with no clear before or after.
@@ -327,11 +327,11 @@ pip install irp-capture
 
 ```bash
 # Set the context for your project
-irp inherit "Project: My project — backend API, Q2 2026"
+irp inherit "Project: My project, backend API, Q2 2026"
 
 # Capture a decision
 irp capture "Decision: Use Postgres for the reporting service" \
-  --why "Redis considered but rejected — query patterns require joins"
+  --why "Redis considered but rejected, query patterns require joins"
 
 # Review recent decisions
 irp why
@@ -341,7 +341,7 @@ irp why
 # Output:
 # IRP-2026-04-08-001
 # Decision: Use Postgres for the reporting service
-# Why: Redis considered but rejected — query patterns require joins
+# Why: Redis considered but rejected, query patterns require joins
 #
 # → No need to reopen this debate
 ```
@@ -361,15 +361,15 @@ Nothing changes about how you work.
 | Sensor | How it captures |
 |---|---|
 | **Claude Code skill** | Type `capture` inside any Claude session. Captures the decision the moment it is made, without leaving your workflow. |
-| **CLI** | `irp capture` — capture any decision directly from the terminal |
+| **CLI** | `irp capture`, capture any decision directly from the terminal |
 | **Discord** | Right-click any message → "Capture decision" → fill in what/why/tags. Modal writes directly to ledger. Community-native, emoji-friendly. Setup: see `DISCORD-SENSOR-SETUP.md`. |
 | **Slack** | Resolve a thread with a decision. The bot writes it to the ledger. |
-| **Figma** | Resolve a design comment. The plugin captures the decision. Start the bridge with `--project-root /path/to/project` — see `irp/figma_plugin/README.md`. |
+| **Figma** | Resolve a design comment. The plugin captures the decision. Start the bridge with `--project-root /path/to/project`, see `irp/figma_plugin/README.md`. |
 | **Git hook** | Capture architecture decisions at commit time |
-| **PR bot** | Add to any GitHub repo — warns on PRs that conflict with active decisions. See setup below. |
-| **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]` — see `irp/api/README.md`. |
+| **PR bot** | Add to any GitHub repo, warns on PRs that conflict with active decisions. See setup below. |
+| **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]`, see `irp/api/README.md`. |
 | **MCP server** | Expose IRP as MCP tools for any MCP-compatible client. `pip install 'irp-capture[mcp]'` then run `irp-mcp`. Works with Claude Code, Cursor, Windsurf, and custom agent frameworks. See [CURSOR-GUIDE.md](CURSOR-GUIDE.md) for Cursor-specific setup. |
-| **VS Code** | Extension — `IRP: Capture Decision` (⌘⇧I), status bar, `irp why` output panel. Install: drag `irp-capture-0.5.0.vsix` into Extensions. |
+| **VS Code** | Extension, `IRP: Capture Decision` (⌘⇧I), status bar, `irp why` output panel. Install: drag `irp-capture-0.5.0.vsix` into Extensions. |
 
 No tool talks to another. Everything talks to the ledger.
 
@@ -377,11 +377,11 @@ No tool talks to another. Everything talks to the ledger.
 
 ## Integrations
 
-Integrations are optional sync targets. After each `irp capture`, IRP can write the decision to your knowledge base and agent memory — automatically.
+Integrations are optional sync targets. After each `irp capture`, IRP can write the decision to your knowledge base and agent memory, automatically.
 
 ### Obsidian
 
-Writes each decision as a `.md` file to your Obsidian vault. No extra dependencies needed — Obsidian vaults are plain directories.
+Writes each decision as a `.md` file to your Obsidian vault. No extra dependencies needed, Obsidian vaults are plain directories.
 
 ```bash
 # Set in your shell or project .env
@@ -404,7 +404,7 @@ source: cli
 
 ## Why it matters
 
-Redis considered but rejected — query patterns require joins.
+Redis considered but rejected, query patterns require joins.
 ```
 
 ### MemPalace
@@ -414,7 +414,7 @@ Writes each decision into the MemPalace `mempalace_drawers` ChromaDB collection.
 ```bash
 pip install 'irp-capture[mempalace]'
 
-# Optional — defaults to ~/.mempalace/palace
+# Optional, defaults to ~/.mempalace/palace
 export IRP_MEMPALACE_PATH="/Users/you/.mempalace/palace"
 ```
 
@@ -432,7 +432,7 @@ All three. All local. No SaaS required.
 
 ### Portable working context
 
-IRP decisions travel with your work. Export them as portable files that any agent or human can read — with full provenance.
+IRP decisions travel with your work. Export them as portable files that any agent or human can read, with full provenance.
 
 ```bash
 # Export agent-facing rules (AGENTS.md)
@@ -469,11 +469,11 @@ irp export evidence --demo
 
 `AGENTS.md` derives single-line constraints from your decisions, each citing its source IRP id. Drop it in any project root and agents know not just *what* the rules are, but *where they came from*.
 
-`DECISIONS.md` renders your full decision history newest-first — confidence, tags, source, reasoning. Readable by any collaborator who doesn't run IRP.
+`DECISIONS.md` renders your full decision history newest-first, confidence, tags, source, reasoning. Readable by any collaborator who doesn't run IRP.
 
-`EVIDENCE-<framework>.md` maps every ledger decision to compliance controls — EU AI Act Art. 12/13/14, SOC 2 CC7.2/CC6.1/CC4.1, GDPR Art. 30/22/5, or ISO 42001 6.1/8.4/9.1. One command, structured evidence package, no manual assembly. Bring your own framework via `--config` for custom internal audit mappings. Try the built-in Nordic lending platform sample with `--demo`.
+`EVIDENCE-<framework>.md` maps every ledger decision to compliance controls, EU AI Act Art. 12/13/14, SOC 2 CC7.2/CC6.1/CC4.1, GDPR Art. 30/22/5, or ISO 42001 6.1/8.4/9.1. One command, structured evidence package, no manual assembly. Bring your own framework via `--config` for custom internal audit mappings. Try the built-in Nordic lending platform sample with `--demo`.
 
-`GRAPH.html` renders all decisions as a self-contained interactive 3D force globe. Nodes are colour-coded by confidence (green / amber / red). Animated particles travel along provenance edges — every IRP id cross-reference in a `why` field becomes a directed edge. No server required — open in any browser.
+`GRAPH.html` renders all decisions as a self-contained interactive 3D force globe. Nodes are colour-coded by confidence (green / amber / red). Animated particles travel along provenance edges, every IRP id cross-reference in a `why` field becomes a directed edge. No server required, open in any browser.
 
 **Interaction model:**
 - **Search** (`/` or `⌘K`) → find the decision you half-remember without walking the graph. Same semantics as `irp find`: a case-insensitive regex across id, what, why, tags and source. Non-matches recede, arrow keys walk the results, Enter flies the camera to it. A half-typed regex falls back to a literal substring instead of erroring
@@ -527,7 +527,7 @@ irp guard run
 irp guard status
 ```
 
-The hook is warn-only by default — it prints a conflict notice but never aborts a commit. To make it blocking:
+The hook is warn-only by default, it prints a conflict notice but never aborts a commit. To make it blocking:
 
 ```bash
 IRP_GUARD_BLOCK=1 git commit -m "your message"
@@ -548,13 +548,13 @@ The missing layer in the AI tool stack:
 
 ---
 
-## Decision Control Plane — runtime enforcement for AI agents
+## Decision Control Plane: runtime enforcement for AI agents
 
 The ledger captures decisions. The control plane enforces them at runtime.
 
-Three commands designed to sit inside agent loops, CI pipelines, and agentic frameworks — not just developer terminals.
+Three commands designed to sit inside agent loops, CI pipelines, and agentic frameworks, not just developer terminals.
 
-### irp gate — single action evaluation
+### irp gate: single action evaluation
 
 Evaluate any proposed action against active decisions before executing it. Designed for agentic loops: always returns JSON, never prompts.
 
@@ -577,7 +577,7 @@ irp gate "delete the authentication module"
 }
 ```
 
-Exit codes: `0` = allow, `10` = warn, `20` = block. Distinct from `irp check` — gate is built for machine consumers, not humans.
+Exit codes: `0` = allow, `10` = warn, `20` = block. Distinct from `irp check`, gate is built for machine consumers, not humans.
 
 ```bash
 irp gate "deploy new service"              # → exit 0, clear
@@ -588,7 +588,7 @@ irp gate --strict "change api format"      # warn treated as block → exit 20
 irp gate --tag security "delete module"    # only security-tagged decisions checked
 ```
 
-### irp watch — streaming gate for agent pipelines
+### irp watch: streaming gate for agent pipelines
 
 Pipe a stream of proposed actions through `irp watch`. One JSON verdict line per input line. Composable with any agent framework.
 
@@ -609,7 +609,7 @@ irp watch --input actions.jsonl
 Exit code reflects the worst verdict across all lines: `0` = all clear, `10` = any warn, `20` = any block.
 
 ```bash
-# Accepts plain text or {"action": "..."} JSON objects — mixed formats fine
+# Accepts plain text or {"action": "..."} JSON objects, mixed formats fine
 echo '{"action": "delete auth module"}' | irp watch
 
 # --strict, --tag, --scope all propagate to every evaluation
@@ -628,9 +628,9 @@ exit 10 → surface defer_question to human
 exit 20 → block, log, escalate
 ```
 
-### irp mod — living decisions
+### irp mod: living decisions
 
-Decisions change. `irp mod` makes supersession and retirement first-class operations — no manual ledger editing.
+Decisions change. `irp mod` makes supersession and retirement first-class operations, no manual ledger editing.
 
 ```bash
 # Replace a decision with a new one
@@ -643,13 +643,13 @@ irp mod supersede IRP-2026-04-01-001 \
 
 # Retire a decision with no replacement
 irp mod retire IRP-2026-04-02-001 \
-  --reason "PostgreSQL migration complete — decision no longer applicable"
+  --reason "PostgreSQL migration complete, decision no longer applicable"
 
 # Review recent changes
 irp mod list
 ```
 
-Both operations require `--reason`. The ledger is append-only — supersede and retire write new events, never edit existing entries. The resolver picks up the change immediately.
+Both operations require `--reason`. The ledger is append-only, supersede and retire write new events, never edit existing entries. The resolver picks up the change immediately.
 
 ---
 
@@ -658,7 +658,7 @@ Both operations require `--reason`. The ledger is append-only — supersede and 
 If you clone this repo or have `SKILL.md` in your project root,
 Claude Code discovers the IRP skill automatically.
 
-**Option A — Clone the repo (skill is included):**
+**Option A: Clone the repo (skill is included):**
 
 ```bash
 git clone https://github.com/S0tman/irp-capture.git
@@ -666,7 +666,7 @@ cd irp-capture
 # Claude Code now has the IRP skill
 ```
 
-**Option B — Add the skill to an existing project:**
+**Option B: Add the skill to an existing project:**
 
 ```bash
 pip install irp-capture
@@ -693,7 +693,7 @@ Type `capture`. The ledger is updated. You continue working.
 **When to capture**
 
 Capture when a decision is made, not when you remember to.
-The sensors are designed to trigger at the natural confirmation moment —
+The sensors are designed to trigger at the natural confirmation moment, 
 a Slack thread resolved, a Figma comment approved, a commit pushed.
 
 For decisions made in conversation or in a document, use the CLI:
@@ -809,7 +809,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The bot posts a warning comment when a PR title or description overlaps with an active decision in `.irp/`. Silently passes if no `.irp/` is found. Warn-only — never blocks a merge.
+The bot posts a warning comment when a PR title or description overlaps with an active decision in `.irp/`. Silently passes if no `.irp/` is found. Warn-only, never blocks a merge.
 
 ---
 
@@ -840,24 +840,24 @@ IRP focuses on the second.
 |---|---|
 | Core CLI | Available |
 | Claude Code skill | Available |
-| **Decision Resolver** | **Live — ranked conflict detection with provenance** |
-| **Runtime Gate (`irp gate`)** | **Live — machine-readable JSON, exit 0/10/20** |
-| **Streaming Gate (`irp watch`)** | **Live — pipe agent actions through gate, one verdict per line** |
-| **Living Mod (`irp mod`)** | **Live — supersede and retire decisions, resolver updates immediately** |
+| **Decision Resolver** | **Live, ranked conflict detection with provenance** |
+| **Runtime Gate (`irp gate`)** | **Live, machine-readable JSON, exit 0/10/20** |
+| **Streaming Gate (`irp watch`)** | **Live, pipe agent actions through gate, one verdict per line** |
+| **Living Mod (`irp mod`)** | **Live, supersede and retire decisions, resolver updates immediately** |
 | **Provenance lenses (`irp export graph --view`)** | **Live in v0.8.0: foundations / lineage / impact over a derived typed-edge layer, plus in-graph search. Recomputable, never evidence.** |
 | Slack sensor | Available |
-| Discord sensor | Live — v0 |
-| Figma plugin | Live — v0 |
+| Discord sensor | Live, v0 |
+| Figma plugin | Live, v0 |
 | MCP server (`irp-mcp`) | Available |
-| Execution governance (`collab.py --mode critique`) | Available — v2 |
-| Agent middleware SDK (`irp.sdk`) | Available — v0 |
-| Git hook | Live — warn mode (enforce coming) |
-| PR bot | Live — warn-only |
+| Execution governance (`collab.py --mode critique`) | Available, v2 |
+| Agent middleware SDK (`irp.sdk`) | Available, v0 |
+| Git hook | Live, warn mode (enforce coming) |
+| PR bot | Live, warn-only |
 | pip package | Live, v0.8.0 (`pip install irp-capture`) |
-| REST API | Live — v0 (`pip install irp-capture[api]`) |
-| MCP server | Live — v0 (`pip install 'irp-capture[mcp]'`) |
-| Obsidian integration | Live — v0 (set `IRP_OBSIDIAN_VAULT`) |
-| MemPalace integration | Live — v0 (`pip install irp-capture[mempalace]`) |
+| REST API | Live, v0 (`pip install irp-capture[api]`) |
+| MCP server | Live, v0 (`pip install 'irp-capture[mcp]'`) |
+| Obsidian integration | Live, v0 (set `IRP_OBSIDIAN_VAULT`) |
+| MemPalace integration | Live, v0 (`pip install irp-capture[mempalace]`) |
 
 ---
 
@@ -867,7 +867,7 @@ Read the full technical guide at **[book.irp-compliance.xyz](https://book.irp-co
 
 **Parts 1–3** cover the IRP framework: architecture, state and conflict detection, capturing intent, decision validation, the Figma plugin, extensibility (REST API, MCP, sovereign stack integrations), and practical application.
 
-**Part 4 — A Plain-Language Guide to EU AI Act Compliance** extends the book for a non-technical audience. Nine chapters covering why the Act exists, the Provider/Deployer/Importer role taxonomy, the four-tier risk ladder, and plain-language breakdowns of Articles 12, 13, 14, 27, and 72. Each article chapter explains why existing systems fail the standard and why IRP-style decision records are the structural consequence of what the Act requires — not an optional add-on.
+**Part 4, A Plain-Language Guide to EU AI Act Compliance** extends the book for a non-technical audience. Nine chapters covering why the Act exists, the Provider/Deployer/Importer role taxonomy, the four-tier risk ladder, and plain-language breakdowns of Articles 12, 13, 14, 27, and 72. Each article chapter explains why existing systems fail the standard and why IRP-style decision records are the structural consequence of what the Act requires, not an optional add-on.
 
 ---
 
@@ -902,7 +902,7 @@ The ledger format is the contract. Anything derived from it (exports, graphs,
 lens scores) is regenerable and must never be written back into
 `.irp/ledger.jsonl`.
 
-💬 **[Join the discussion →](https://github.com/S0tman/irp-capture/discussions)** — share your stack, ask questions, or show how you use IRP.
+💬 **[Join the discussion →](https://github.com/S0tman/irp-capture/discussions)**, share your stack, ask questions, or show how you use IRP.
 
 The sensor pattern is open. If you want to write a sensor
 for a tool your team uses, the format is simple and documented.
@@ -918,13 +918,7 @@ contributor can see the shape of the project at a glance.
 
 ## Star History
 
-<a href="https://www.star-history.com/#S0tman/irp-capture&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=S0tman/irp-capture&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=S0tman/irp-capture&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=S0tman/irp-capture&type=Date" />
-  </picture>
-</a>
+[![Star History](./assets/star-history.svg)](https://star-history.com/#S0tman/irp-capture&Date)
 
 ---
 
