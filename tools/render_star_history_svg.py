@@ -145,7 +145,7 @@ def render_chart(total: int, created: datetime, stars: list[datetime]) -> str:
     for t in stars:
         p.append(f'<circle cx="{xf(t):.1f}" cy="{yf(stars.index(t) + 1):.1f}" r="3.4" fill="{LINE}"/>')
 
-    p.append(f'<text x="{W - 24}" y="{H - 14}" font-size="10" text-anchor="end" fill="#AAB2BF" '
+    p.append(f'<text x="{W - 24}" y="40" font-size="10" text-anchor="end" fill="#AAB2BF" '
              f'font-family="ui-monospace,SFMono-Regular,Menlo,monospace">self-hosted, refreshed by CI</text>')
     p.append("</svg>")
     return "\n".join(p) + "\n"
@@ -156,7 +156,7 @@ def render_count_only(total: int) -> str:
     p.append(f'<text x="{W/2:.0f}" y="215" font-size="86" font-weight="800" text-anchor="middle" fill="{LINE}">{total}</text>')
     p.append(f'<text x="{W/2:.0f}" y="255" font-size="15" text-anchor="middle" fill="{AX}">star{"s" if total != 1 else ""} so far</text>')
     p.append(f'<text x="{W/2:.0f}" y="322" font-size="12" text-anchor="middle" fill="#98A2B3">The dated history renders in CI, where a token can read star timestamps.</text>')
-    p.append(f'<text x="{W - 24}" y="{H - 14}" font-size="10" text-anchor="end" fill="#AAB2BF" '
+    p.append(f'<text x="{W - 24}" y="40" font-size="10" text-anchor="end" fill="#AAB2BF" '
              f'font-family="ui-monospace,SFMono-Regular,Menlo,monospace">self-hosted, refreshed by CI</text>')
     p.append("</svg>")
     return "\n".join(p) + "\n"
