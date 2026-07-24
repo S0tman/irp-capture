@@ -304,7 +304,7 @@ And IRP dogfoods itself. Below is the built-in demo ledger seen through the
 foundations lens: the same 18 decisions you get from `irp export graph --demo`,
 with node size showing which decisions the rest of the graph rests on.
 
-![IRP demo decision graph](./assets/decision-lineage.svg)
+[![IRP demo decision graph](./assets/decision-lineage.svg)](https://book.irp-compliance.xyz/demo-graph.html)
 
 **New to this? Here is how to read it, in plain words:**
 
@@ -318,8 +318,9 @@ with node size showing which decisions the rest of the graph rests on.
 
 That figure is generated from the demo data by
 [`tools/render_lineage_svg.py`](tools/render_lineage_svg.py), which derives the
-typed edges and runs the same PageRank the CLI uses. For the live, draggable 3D
-version, run `irp export graph --demo`.
+typed edges and runs the same PageRank the CLI uses. Explore the
+[live, draggable 3D version](https://book.irp-compliance.xyz/demo-graph.html), or
+run `irp export graph --demo` to make your own.
 
 ## Get started
 
