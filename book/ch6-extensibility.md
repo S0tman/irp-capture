@@ -623,6 +623,18 @@ The other relations stay in the view, dimmed, carrying no probability. They are 
 
 This is the whole lesson of the pattern in miniature: the mathematics is ordinary, and the work is deciding what the states and edges actually mean. Get the state space right and the arithmetic is a footnote. Get it wrong and you produce confident, well-formatted nonsense.
 
+### How to read it, in plain words
+
+If foundations, lineage and typed edges are new to you, here is the whole thing without the jargon. It maps directly onto the live demo at the end of this chapter, the same 18 decisions from a small design-system project.
+
+- **Every circle is one decision.** Its label is the topic.
+- **The lines are *typed edges*.** A typed edge is a link between two decisions that also records *what kind* of link it is, its "type". IRP works out both the link and its type from the reasoning you wrote, not from anything you draw by hand:
+  - **depends on:** this decision builds on an earlier one.
+  - **gates:** this decision sets a constraint that a later decision has to live within.
+  - **mentions:** a plain reference, with no clear before or after.
+- **The foundations lens ranks how load-bearing each decision is.** A decision is *load-bearing* when many others trace back to it, so changing it would ripple the furthest. The lens is [PageRank](https://en.wikipedia.org/wiki/PageRank), the same idea Google used to rank web pages: you score highly when lots of other well-connected things point to you.
+- **Bigger, more prominent circles are more load-bearing.** The most prominent one is the decision the rest of the graph leans on the most. In the demo that is "Design tokens", which everything else was built on.
+
 ### Design invariants
 
 The same rules apply as for context exporters:
