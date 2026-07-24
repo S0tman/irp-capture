@@ -1,4 +1,4 @@
-"""Tests for `irp export evidence --attest` — external RFC 3161 attestation of a
+"""Tests for `irp export evidence --attest`, external RFC 3161 attestation of a
 compliance evidence package.
 
 Design under test (SPEC 2026-07-01):
@@ -87,7 +87,7 @@ class TestGuards:
         assert "## External timestamp" not in body
 
 
-# ── fail-closed (crypto deps, but no network — timestamp call is patched) ───────
+# ── fail-closed (crypto deps, but no network, timestamp call is patched) ───────
 
 class TestFailClosed:
     def test_unreachable_tsa_writes_nothing(self, tmp_path, monkeypatch):

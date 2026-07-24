@@ -21,10 +21,8 @@ def format_decision_summary(what: str, max_length: int = 80) -> str:
     return what[:max_length - 3] + "..."
 
 def escape_discord_markdown(text: str) -> str:
-    """Escape Discord markdown special characters."""
-    # Escape common markdown characters while preserving emoji
-    chars_to_escape = ["*", "_", "`", "~", "|"]
-    for char in chars_to_escape:
-        if char not in text:  # Only escape if present
-            text = text.replace(char, f"\\{char}")
+    """Escape Discord markdown special characters so user text is rendered
+    literally instead of being interpreted as formatting."""
+    for char in ("*", "_", "`", "~", "|"):
+        text = text.replace(char, f"\\{char}")
     return text

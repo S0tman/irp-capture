@@ -1,0 +1,26 @@
+name: Codebase map
+
+# Regenerates assets/repo-diagram.svg (an SVG map of the repository) on every
+# push to main and commits it back. The README embeds that file, so the map
+# stays current without anyone maintaining it by hand.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Generate codebase map
+        uses: githubocto/repo-visualizer@0.7.1
+        with:
+          output_file: "assets/repo-diagram.svg"
+          excluded_paths: "node_modules,dist,.venv,web,irp_capture.egg-info,.git"
+          commit_message: "chore: update codebase map [skip ci]"

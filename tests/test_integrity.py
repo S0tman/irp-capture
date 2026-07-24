@@ -1,4 +1,4 @@
-"""Tests for PR2a — deterministic integrity snapshots + offline verify.
+"""Tests for PR2a, deterministic integrity snapshots + offline verify.
 
 Acceptance criteria:
   - snapshot is deterministic across harmless reformatting (semantic digest)

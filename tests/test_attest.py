@@ -1,4 +1,4 @@
-"""Tests for PR2b — RFC 3161 external timestamp attestation.
+"""Tests for PR2b, RFC 3161 external timestamp attestation.
 
 The cryptographic verification is tested offline against a real freetsa token
 captured as a fixture (tests/fixtures/freetsa-token.tsr). A live end-to-end test

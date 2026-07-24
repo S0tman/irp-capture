@@ -245,6 +245,80 @@ The ledger is the truth. Not an approximation of it.
 
 ---
 
+## Architecture
+
+IRP is a small core with a wide edge. Decisions are captured wherever they
+happen, written once to an append-only record, and everything else (integrity
+proofs, the decision graph, the exports) is derived from that one file and
+never written back into it.
+
+```mermaid
+flowchart LR
+    subgraph capture["Capture, where decisions happen"]
+        direction TB
+        CLI["CLI"]
+        Slack["Slack"]
+        Discord["Discord"]
+        Figma["Figma"]
+        VSCode["VS Code"]
+        MCP["MCP"]
+        API["REST API"]
+    end
+    subgraph core["Core"]
+        direction TB
+        Dispatch["irp dispatcher"]
+        Resolve["resolve / why (conflict + lineage)"]
+        Store["store (append-only writer)"]
+    end
+    Ledger[(".irp/ledger.jsonl, the append-only record")]
+    subgraph integrity["Integrity, optional and verifiable"]
+        direction TB
+        Canon["canonical + manifest"]
+        TS["RFC 3161 timestamp"]
+        Attest["attest / verify"]
+    end
+    subgraph derived["Derived, recomputable, never written back"]
+        direction TB
+        Dyn["Dynamics (typed edges + PageRank lenses)"]
+        Graph["export graph (foundations / lineage / impact)"]
+    end
+    subgraph share["Share the context"]
+        direction TB
+        SlackOut["Slack digest"]
+        Obs["Obsidian"]
+        Mem["Memory palace"]
+        Agents["AGENTS.md / DECISIONS.md"]
+    end
+    capture --> Dispatch
+    Dispatch --> Resolve
+    Dispatch --> Store --> Ledger
+    Resolve -. reads .-> Ledger
+    Ledger --> Canon --> TS --> Attest
+    Ledger --> Dyn --> Graph
+    Ledger --> share
+```
+
+And IRP dogfoods itself. Below is the built-in demo ledger seen through the
+foundations lens: the same 18 decisions you get from `irp export graph --demo`,
+with node size showing which decisions the rest of the graph rests on.
+
+![IRP demo decision graph](./assets/decision-lineage.svg)
+
+**New to this? Here is how to read it, in plain words:**
+
+- **Every circle is one decision.** The label is its topic (this demo happens to be a small design-system project).
+- **A line means two decisions are related.** IRP works the relationship out from the reasoning you wrote, not from anything drawn by hand:
+  - **depends on:** this decision builds on an earlier one.
+  - **gates:** this decision sets a constraint that a later decision has to live within.
+  - **mentions:** a plain reference, with no clear before or after.
+- **The "foundations lens" ranks how load-bearing each decision is.** A decision is *load-bearing* when many others trace back to it, so changing it would ripple the furthest. The lens is [PageRank](https://en.wikipedia.org/wiki/PageRank), the same idea Google used to rank web pages: you score highly when lots of other well-connected things point to you.
+- **Bigger, darker circles are more load-bearing.** The biggest one, ringed and marked *most load-bearing*, is the decision the rest of the graph leans on the most. Here that is "Design tokens", which everything else was built on.
+
+That figure is generated from the demo data by
+[`tools/render_lineage_svg.py`](tools/render_lineage_svg.py), which derives the
+typed edges and runs the same PageRank the CLI uses. For the live, draggable 3D
+version, run `irp export graph --demo`.
+
 ## Get started
 
 ```bash
@@ -832,6 +906,25 @@ lens scores) is regenerable and must never be written back into
 
 The sensor pattern is open. If you want to write a sensor
 for a tool your team uses, the format is simple and documented.
+
+## Codebase map
+
+An always-current map of the repository, regenerated on every push by
+[githubocto/repo-visualizer](https://github.com/githubocto/repo-visualizer).
+Each circle is a file, sized by lines of code and coloured by type, so a new
+contributor can see the shape of the project at a glance.
+
+![Codebase map](./assets/repo-diagram.svg)
+
+## Star History
+
+<a href="https://www.star-history.com/#S0tman/irp-capture&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=S0tman/irp-capture&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=S0tman/irp-capture&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=S0tman/irp-capture&type=Date" />
+  </picture>
+</a>
 
 ---
 

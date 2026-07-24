@@ -1,4 +1,4 @@
-"""Tests for the Craft audit trail — IRP-US-010.
+"""Tests for the Craft audit trail, IRP-US-010.
 
 Acceptance criteria:
   010a: craft add writes a ledger event to ledger.jsonl automatically

@@ -1,4 +1,4 @@
-"""Tests for the Decision Resolver — IRP-US-009.
+"""Tests for the Decision Resolver, IRP-US-009.
 
 Acceptance criteria:
   009a: active() excludes superseded decisions, counts them separately
@@ -76,7 +76,7 @@ from resolver import (
 
 class TestActiveDecisions:
     def test_superseded_entry_excluded(self):
-        """IRP-002 is superseded by IRP-003 — must not appear in active set."""
+        """IRP-002 is superseded by IRP-003, must not appear in active set."""
         active, superseded_count = active_decisions(LEDGER)
         active_ids = [d["id"] for d in active]
         assert "IRP-002" not in active_ids
@@ -88,7 +88,7 @@ class TestActiveDecisions:
         assert "IRP-003" in active_ids
 
     def test_superseded_count_correct(self):
-        """One decision superseded — count must be 1."""
+        """One decision superseded, count must be 1."""
         _, superseded_count = active_decisions(LEDGER)
         assert superseded_count == 1
 
@@ -184,7 +184,7 @@ class TestVerdict:
         assert result.score == 0
 
     def test_single_token_overlap_is_warn(self):
-        # "api" alone matches IRP-004 — score 1
+        # "api" alone matches IRP-004, score 1
         result = resolve("api", LEDGER)
         assert result.verdict == "warn"
         assert result.score >= _WARN_THRESHOLD
@@ -299,7 +299,7 @@ class TestCLI:
         proj = _make_project(tmp_path, LEDGER)
         code, out = _run_irp(["resolve", "--json", "--tag", "frontend", "React frontend"], proj)
         data = json.loads(out)
-        # frontend tag only matches IRP-005 — active_count should be 1
+        # frontend tag only matches IRP-005, active_count should be 1
         assert data["active_count"] == 1
 
     def test_check_delegates_to_resolver(self, tmp_path):

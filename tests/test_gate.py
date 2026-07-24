@@ -1,4 +1,4 @@
-"""Tests for the Runtime Gate — IRP-US-011.
+"""Tests for the Runtime Gate, IRP-US-011.
 
 Acceptance criteria:
   011a: irp gate returns machine-readable JSON with verdict, score, top_match, defer_question
@@ -212,7 +212,7 @@ class TestDeferQuestion:
         assert not data.get("defer_question")
 
     def test_warn_has_defer_question(self, tmp_path):
-        """Warn also surfaces a defer_question — agent should surface it."""
+        """Warn also surfaces a defer_question, agent should surface it."""
         proj = _make_project(tmp_path)
         code, data = _run(["gate", "change api"], proj)
         if data.get("verdict") == "warn":
@@ -228,7 +228,7 @@ class TestComposability:
         result = subprocess.run(
             [sys.executable, IRP_PY, "gate", "delete authentication module"],
             capture_output=True, text=True, cwd=str(proj),
-            input="",  # empty stdin — would hang if interactive
+            input="",  # empty stdin, would hang if interactive
             timeout=5,
         )
         assert result.returncode in (0, 10, 20)

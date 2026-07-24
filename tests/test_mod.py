@@ -1,4 +1,4 @@
-"""Tests for irp mod — IRP-US-013.
+"""Tests for irp mod, IRP-US-013.
 
 Acceptance criteria:
   013a: supersede appends new decision with supersedes field; returns old_id + new_id
@@ -176,7 +176,7 @@ class TestSupersededExcluded:
             "--reason", "Policy updated",
         ], proj)
 
-        # After: IRP-001 is superseded — active_count may shift or top_match changes
+        # After: IRP-001 is superseded, active_count may shift or top_match changes
         _, after = _run(["resolve", "--json", "authentication module"], proj)
         active_ids = [c["id"] for c in after.get("conflicts", [])]
         assert "IRP-001" not in active_ids
@@ -203,7 +203,7 @@ class TestRetire:
         proj = _make_project(tmp_path)
         code, data = _run([
             "mod", "retire", "IRP-002",
-            "--reason", "PostgreSQL decision no longer applies — migrated to cloud-managed DB",
+            "--reason", "PostgreSQL decision no longer applies, migrated to cloud-managed DB",
         ], proj)
         assert code == 0
 

@@ -1,4 +1,4 @@
-"""Tests for irp watch — IRP-US-012.
+"""Tests for irp watch, IRP-US-012.
 
 Acceptance criteria:
   012a: one input line → one JSON verdict line (verdict, score, top_match, action)

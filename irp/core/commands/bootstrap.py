@@ -53,12 +53,13 @@ _MAX_FIELD_LEN = 200
 # Git source
 # ---------------------------------------------------------------------------
 
-def _run_git_log(limit: int) -> list[dict[str, str]]:
-    """Return list of {hash, date, message} from local git log."""
+def _run_git_log(limit: int, cwd: "Path | None" = None) -> list[dict[str, str]]:
+    """Return list of {hash, date, message} from git log in `cwd` (the project
+    root), rather than whatever directory the process happens to be in."""
     try:
         result = subprocess.run(
             ["git", "log", f"--max-count={limit}", "--format=%H|%as|%s"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, timeout=10, cwd=cwd,
         )
         if result.returncode != 0:
             return []
@@ -257,7 +258,7 @@ def run_bootstrap(project_root: Path, irp_dir: Path, args) -> dict:
 
     # --- Git source ---
     if from_sources in ("git", "all"):
-        commits = _run_git_log(limit)
+        commits = _run_git_log(limit, cwd=project_root)
         if commits:
             sources_scanned.append(f"git log (last {len(commits)} commits)")
             git_candidates = _extract_git_candidates(commits)
