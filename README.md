@@ -309,7 +309,7 @@ with node size showing which decisions the rest of the graph rests on.
 **New to this? Here is how to read it, in plain words:**
 
 - **Every circle is one decision.** The label is its topic (this demo happens to be a small design-system project).
-- **A line is a "typed edge": a link between two decisions that also carries a label saying *how* they relate.** IRP works out both the link and its label from the reasoning you wrote, not from anything you draw by hand. There are three types:
+- **The lines are called *typed edges*.** A typed edge is a link between two decisions that also records *what kind* of link it is, its "type". IRP works out both the link and its type from the reasoning you wrote, not from anything you draw by hand. The three types are:
   - **depends on:** this decision builds on an earlier one.
   - **gates:** this decision sets a constraint that a later decision has to live within.
   - **mentions:** a plain reference, with no clear before or after.
