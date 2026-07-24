@@ -4,6 +4,8 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/irp-capture?color=4A90D9)](https://pypi.org/project/irp-capture/)
 [![Discussions](https://img.shields.io/github/discussions/S0tman/irp-capture?color=4A90D9)](https://github.com/S0tman/irp-capture/discussions)
 
+![Test coverage by module](./assets/test-coverage.svg)
+
 ## Intent Record Protocol
 
 **IRP keeps the reason behind a decision, so someone can answer for it later.**
@@ -906,19 +908,6 @@ lens scores) is regenerable and must never be written back into
 
 The sensor pattern is open. If you want to write a sensor
 for a tool your team uses, the format is simple and documented.
-
-## Codebase map
-
-An always-current map of the repository, regenerated on every push by
-[githubocto/repo-visualizer](https://github.com/githubocto/repo-visualizer).
-Each circle is a file, sized by lines of code and coloured by type, so a new
-contributor can see the shape of the project at a glance.
-
-![Codebase map](./assets/repo-diagram.svg)
-
-## Star History
-
-[![Star History](./assets/star-history.svg)](https://star-history.com/#S0tman/irp-capture&Date)
 
 ---
 

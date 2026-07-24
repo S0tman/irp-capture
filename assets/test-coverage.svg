@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 657" font-family="ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif" role="img" aria-label="Test coverage by module">
+<rect x="0" y="0" width="820" height="657" rx="14" fill="#ffffff" stroke="#E4E8EF"/>
+<text x="34" y="44" font-size="21" font-weight="700" fill="#0F172A">Test coverage</text>
+<text x="34" y="67" font-size="12.5" fill="#5B6675"><tspan font-weight="700" fill="#2745B8">492 tests</tspan> across 25 modules. Every module carries a harness.</text>
+<text x="252" y="106.0" font-size="11" text-anchor="end" fill="#3B4553">resolver (conflict + lineage)</text>
+<rect x="268" y="96.0" width="470.0" height="13" rx="3" fill="#4A90D9"/>
+<text x="745.0" y="106.0" font-size="10.5" fill="#5B6675" font-weight="600">35</text>
+<text x="252" y="127.0" font-size="11" text-anchor="end" fill="#3B4553">export (AGENTS / DECISIONS)</text>
+<rect x="268" y="117.0" width="429.7" height="13" rx="3" fill="#4A90D9"/>
+<text x="704.7" y="127.0" font-size="10.5" fill="#5B6675" font-weight="600">32</text>
+<text x="252" y="148.0" font-size="11" text-anchor="end" fill="#3B4553">store (the ledger)</text>
+<rect x="268" y="138.0" width="429.7" height="13" rx="3" fill="#4A90D9"/>
+<text x="704.7" y="148.0" font-size="10.5" fill="#5B6675" font-weight="600">32</text>
+<text x="252" y="169.0" font-size="11" text-anchor="end" fill="#3B4553">capture</text>
+<rect x="268" y="159.0" width="362.6" height="13" rx="3" fill="#4A90D9"/>
+<text x="637.6" y="169.0" font-size="10.5" fill="#5B6675" font-weight="600">27</text>
+<text x="252" y="190.0" font-size="11" text-anchor="end" fill="#3B4553">mod (supersede / retire)</text>
+<rect x="268" y="180.0" width="362.6" height="13" rx="3" fill="#4A90D9"/>
+<text x="637.6" y="190.0" font-size="10.5" fill="#5B6675" font-weight="600">27</text>
+<text x="252" y="211.0" font-size="11" text-anchor="end" fill="#3B4553">watch (streaming gate)</text>
+<rect x="268" y="201.0" width="362.6" height="13" rx="3" fill="#4A90D9"/>
+<text x="637.6" y="211.0" font-size="10.5" fill="#5B6675" font-weight="600">27</text>
+<text x="252" y="232.0" font-size="11" text-anchor="end" fill="#3B4553">collab (execution governance)</text>
+<rect x="268" y="222.0" width="335.7" height="13" rx="3" fill="#4A90D9"/>
+<text x="610.7" y="232.0" font-size="10.5" fill="#5B6675" font-weight="600">25</text>
+<text x="252" y="253.0" font-size="11" text-anchor="end" fill="#3B4553">config / doctor / docs</text>
+<rect x="268" y="243.0" width="308.9" height="13" rx="3" fill="#4A90D9"/>
+<text x="583.9" y="253.0" font-size="10.5" fill="#5B6675" font-weight="600">23</text>
+<text x="252" y="274.0" font-size="11" text-anchor="end" fill="#3B4553">gate (runtime enforcement)</text>
+<rect x="268" y="264.0" width="308.9" height="13" rx="3" fill="#4A90D9"/>
+<text x="583.9" y="274.0" font-size="10.5" fill="#5B6675" font-weight="600">23</text>
+<text x="252" y="295.0" font-size="11" text-anchor="end" fill="#3B4553">integrity internals</text>
+<rect x="268" y="285.0" width="295.4" height="13" rx="3" fill="#4A90D9"/>
+<text x="570.4" y="295.0" font-size="10.5" fill="#5B6675" font-weight="600">22</text>
+<text x="252" y="316.0" font-size="11" text-anchor="end" fill="#3B4553">integrity (attest + verify)</text>
+<rect x="268" y="306.0" width="282.0" height="13" rx="3" fill="#4A90D9"/>
+<text x="557.0" y="316.0" font-size="10.5" fill="#5B6675" font-weight="600">21</text>
+<text x="252" y="337.0" font-size="11" text-anchor="end" fill="#3B4553">check / find / stats</text>
+<rect x="268" y="327.0" width="268.6" height="13" rx="3" fill="#4A90D9"/>
+<text x="543.6" y="337.0" font-size="10.5" fill="#5B6675" font-weight="600">20</text>
+<text x="252" y="358.0" font-size="11" text-anchor="end" fill="#3B4553">discord sensor</text>
+<rect x="268" y="348.0" width="268.6" height="13" rx="3" fill="#4A90D9"/>
+<text x="543.6" y="358.0" font-size="10.5" fill="#5B6675" font-weight="600">20</text>
+<text x="252" y="379.0" font-size="11" text-anchor="end" fill="#3B4553">why / inherit / defer</text>
+<rect x="268" y="369.0" width="268.6" height="13" rx="3" fill="#4A90D9"/>
+<text x="543.6" y="379.0" font-size="10.5" fill="#5B6675" font-weight="600">20</text>
+<text x="252" y="400.0" font-size="11" text-anchor="end" fill="#3B4553">dynamics (lenses)</text>
+<rect x="268" y="390.0" width="255.1" height="13" rx="3" fill="#4A90D9"/>
+<text x="530.1" y="400.0" font-size="10.5" fill="#5B6675" font-weight="600">19</text>
+<text x="252" y="421.0" font-size="11" text-anchor="end" fill="#3B4553">craft (audit)</text>
+<rect x="268" y="411.0" width="241.7" height="13" rx="3" fill="#4A90D9"/>
+<text x="516.7" y="421.0" font-size="10.5" fill="#5B6675" font-weight="600">18</text>
+<text x="252" y="442.0" font-size="11" text-anchor="end" fill="#3B4553">integrations (obsidian / mempalace)</text>
+<rect x="268" y="432.0" width="228.3" height="13" rx="3" fill="#4A90D9"/>
+<text x="503.3" y="442.0" font-size="10.5" fill="#5B6675" font-weight="600">17</text>
+<text x="252" y="463.0" font-size="11" text-anchor="end" fill="#3B4553">demo</text>
+<rect x="268" y="453.0" width="201.4" height="13" rx="3" fill="#4A90D9"/>
+<text x="476.4" y="463.0" font-size="10.5" fill="#5B6675" font-weight="600">15</text>
+<text x="252" y="484.0" font-size="11" text-anchor="end" fill="#3B4553">guard (pre-commit hook)</text>
+<rect x="268" y="474.0" width="201.4" height="13" rx="3" fill="#4A90D9"/>
+<text x="476.4" y="484.0" font-size="10.5" fill="#5B6675" font-weight="600">15</text>
+<text x="252" y="505.0" font-size="11" text-anchor="end" fill="#3B4553">slack integration</text>
+<rect x="268" y="495.0" width="201.4" height="13" rx="3" fill="#4A90D9"/>
+<text x="476.4" y="505.0" font-size="10.5" fill="#5B6675" font-weight="600">15</text>
+<text x="252" y="526.0" font-size="11" text-anchor="end" fill="#3B4553">bootstrap</text>
+<rect x="268" y="516.0" width="188.0" height="13" rx="3" fill="#4A90D9"/>
+<text x="463.0" y="526.0" font-size="10.5" fill="#5B6675" font-weight="600">14</text>
+<text x="252" y="547.0" font-size="11" text-anchor="end" fill="#3B4553">figma bridge</text>
+<rect x="268" y="537.0" width="120.9" height="13" rx="3" fill="#4A90D9"/>
+<text x="395.9" y="547.0" font-size="10.5" fill="#5B6675" font-weight="600">9</text>
+<text x="252" y="568.0" font-size="11" text-anchor="end" fill="#3B4553">attestation (RFC 3161)</text>
+<rect x="268" y="558.0" width="107.4" height="13" rx="3" fill="#4A90D9"/>
+<text x="382.4" y="568.0" font-size="10.5" fill="#5B6675" font-weight="600">8</text>
+<text x="252" y="589.0" font-size="11" text-anchor="end" fill="#3B4553">evidence attestation</text>
+<rect x="268" y="579.0" width="67.1" height="13" rx="3" fill="#4A90D9"/>
+<text x="342.1" y="589.0" font-size="10.5" fill="#5B6675" font-weight="600">5</text>
+<text x="252" y="610.0" font-size="11" text-anchor="end" fill="#3B4553">mcp / api entrypoints</text>
+<rect x="268" y="600.0" width="40.3" height="13" rx="3" fill="#4A90D9"/>
+<text x="315.3" y="610.0" font-size="10.5" fill="#5B6675" font-weight="600">3</text>
+<text x="790" y="641" font-size="10" text-anchor="end" fill="#AAB2BF" font-family="ui-monospace,SFMono-Regular,Menlo,monospace">counted from pytest, regenerated by CI</text>
+</svg>
