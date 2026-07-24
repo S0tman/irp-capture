@@ -113,7 +113,7 @@ def render_chart(total: int, created: datetime, stars: list[datetime]) -> str:
     def yf(c):
         return py1 - c / ymax * (py1 - py0)
 
-    p = _card_open(f" &middot; {total} star{'s' if total != 1 else ''}")
+    p = _card_open(f" &#183; {total} star{'s' if total != 1 else ''}")
 
     # y gridlines + integer ticks (at most 5)
     step = max(1, -(-ymax // 4))
