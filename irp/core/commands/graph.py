@@ -35,8 +35,13 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 <script src="https://unpkg.com/3d-force-graph@1/dist/3d-force-graph.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e5e7eb;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-header{padding:11px 20px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:14px;row-gap:8px;flex-wrap:wrap;flex-shrink:0;z-index:10;position:relative}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0e12;color:#e5e7eb;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+/* z-index must beat .hint below. Both used to be 10, and .hint comes later in
+   the DOM, so the hint bar painted over the top of the search dropdown and ate
+   the clicks on its first result: the list looked like it only became clickable
+   from the second row down. The dropdown lives inside this stacking context, so
+   raising the header is what lifts it clear. */
+header{padding:11px 20px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:14px;row-gap:8px;flex-wrap:wrap;flex-shrink:0;z-index:30;position:relative}
 h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
 .meta{font-size:12px;color:#6b7280;white-space:nowrap}
 .legend{display:flex;gap:14px;margin-left:auto;align-items:center}
@@ -46,7 +51,13 @@ h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
    legend first (confidence is also on every node overlay), then the
    timestamp. These must sit after the rules they override: a media query
    adds no specificity, so source order decides. */
+/* The mode and slice controls added a whole group to this row, so the chrome
+   sheds its decoration in order of expendability before the controls clip:
+   group captions, then the legend, then the timestamp. */
+@media (max-width:1460px){.grouplabel{display:none}}
+@media (max-width:1200px){.legend{display:none}}
 @media (max-width:900px){.legend{display:none}}
+@media (max-width:760px){.meta{display:none}}
 @media (max-width:620px){.meta{display:none}}
 .li{display:flex;align-items:center;gap:5px;font-size:11px;color:#9ca3af}
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
@@ -54,7 +65,15 @@ h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
 .vbtn{font:600 10px ui-monospace,"SF Mono",monospace;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:5px;padding:4px 9px;cursor:pointer;user-select:none}
 .vbtn:hover{color:#9ca3af;border-color:#374151}
 .vbtn.on{color:#0f1117;background:#60a5fa;border-color:#60a5fa}
-.seedbadge{font:10px ui-monospace,"SF Mono",monospace;color:#60a5fa;margin-left:6px}
+/* Fixed slot. This badge is empty in structure/foundations and populated in
+   lineage/impact, and letting it size to its content changed the header's total
+   width on every view switch, which pushed the search field onto a second row
+   and back. Reserving the space keeps the chrome still while views change. */
+.seedbadge{font:10px ui-monospace,"SF Mono",monospace;color:#60a5fa;margin-left:6px;display:inline-block;min-width:132px;white-space:nowrap}
+@media (max-width:1100px){.seedbadge{min-width:0}}
+.grouplabel{font:9px ui-monospace,"SF Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#4b5563;margin:0 2px 0 6px}
+#modebar{margin-left:14px}
+.vbtn.off{opacity:.42;cursor:default}
 .search{position:relative;margin-left:auto}
 #q{width:200px;font:11px ui-monospace,"SF Mono",monospace;color:#e5e7eb;background:#111827;border:1px solid #1f2937;border-radius:5px;padding:5px 9px;outline:none}
 #q:focus{border-color:#60a5fa;width:260px}
@@ -112,15 +131,23 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
     <span class="vbtn" id="v-impact" onclick="setView('impact')">impact</span>
     <span class="seedbadge" id="seed-badge"></span>
   </div>
+  <div class="views" id="modebar">
+    <span class="grouplabel">view</span>
+    <span class="vbtn" id="m-classic" onclick="setMode('classic')">classic</span>
+    <span class="vbtn" id="m-bedrock" onclick="setMode('bedrock')">bedrock</span>
+    <span class="grouplabel">slice</span>
+    <span class="vbtn" id="s-all" onclick="setSlice('all')">all</span>
+    <span class="vbtn" id="s-core" onclick="setSlice('core')">core</span>
+    <span class="vbtn" id="s-path" onclick="setSlice('path')">path</span>
+  </div>
   <div class="search">
     <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="Search  /  or  &#8984;K">
     <div id="hits"></div>
   </div>
   <div class="legend">
-    <div class="li"><div class="dot" style="background:#22c55e"></div>high</div>
-    <div class="li"><div class="dot" style="background:#f59e0b"></div>medium</div>
-    <div class="li"><div class="dot" style="background:#ef4444"></div>low</div>
-    <div class="li"><div class="dot" style="background:#6b7280"></div>unknown</div>
+    <div class="li"><div class="dot" style="background:#b08d57"></div>most load-bearing</div>
+    <div class="li"><div class="dot" style="background:#3a4150"></div>rests on others</div>
+    <div class="li">deep&nbsp;=&nbsp;foundational &middot; high&nbsp;=&nbsp;recent</div>
   </div>
 </header>
 <div class="hint"><strong>Drag</strong> to orbit &nbsp;&middot;&nbsp; <strong>Scroll</strong> to zoom &nbsp;&middot;&nbsp; <strong>Hover</strong> to preview &nbsp;&middot;&nbsp; <strong>Click node</strong> to lock details &nbsp;&middot;&nbsp; <strong>Click reference links</strong> to follow lineage &nbsp;&middot;&nbsp; <strong>Right-drag</strong> to pan</div>
@@ -136,7 +163,19 @@ const IRP_RE = /\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b/g;
 const idSet = new Set(decisions.map(d => d.id));
 const byId = Object.fromEntries(decisions.map(d => [d.id, d]));
 
-const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' };
+// De-generic pass: retire the green/amber/red confidence ramp as the primary
+// hue. Colour now reads the foundation lens (slate to brass), the load-bearing
+// bedrock lit in the one reserved accent. Confidence moves to alpha, freeing
+// hue to carry a single meaning the jury can read at a glance.
+const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' }; // retained for reference, no longer the primary encoding
+const SLATE = [99, 108, 126];  // least foundational, still legible on the dark ground
+const BRASS = [193, 155, 96];  // reserved accent: the bedrock
+const CONF_ALPHA = { high: 1.0, medium: 0.82, low: 0.6 };
+function _lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+function foundationColor(p, alpha) {
+  const t = Math.max(0, Math.min(1, Math.sqrt(p)));
+  return `rgba(${_lerp(SLATE[0],BRASS[0],t)},${_lerp(SLATE[1],BRASS[1],t)},${_lerp(SLATE[2],BRASS[2],t)},${alpha})`;
+}
 
 // ── IRP Dynamics: typed provenance edges + provenance lenses ───────────────
 // Edges are typed server-side (depends_on / gates / mentions) and embedded
@@ -198,6 +237,27 @@ const maxFound = Math.max(1e-12, ...Object.values(foundationScores));
 let lensScores = {};
 let maxLens = 1e-12;
 
+// Decisions ordered by foundation weight, ties broken oldest first. Used by both
+// the strata heights and the label budget, so the two can never disagree.
+const foundationOrder = decisions.map(d => d.id).sort((a, b) => {
+  const d0 = (foundationScores[b] || 0) - (foundationScores[a] || 0);
+  return d0 !== 0 ? d0
+    : String((byId[a] || {}).timestamp || '').localeCompare(String((byId[b] || {}).timestamp || ''));
+});
+
+// ── Nielsen #7, flexibility and efficiency of use ──────────────────────────
+// Two ways to read the same ledger, because two different people arrive here.
+//   classic: the familiar free-floating force graph. Nothing is pinned, colour
+//            is confidence, you orbit and explore. Good for a first look.
+//   bedrock: the opinionated view. Height IS foundation rank, so the thing
+//            everything rests on sits at the base. Faster to read once you know
+//            what you are looking for.
+// Neither is a mode the other can be mistaken for, and switching is one click
+// with no state lost.
+let mode = 'bedrock';    // 'classic' | 'bedrock'
+let slice = 'all';       // 'all' | 'core' | 'path'
+let idleMs = 4500;
+
 function computeLens() {
   if (view === 'foundations') lensScores = foundationScores;
   else if (view === 'lineage' && seedId) lensScores = pagerank(seedId, false);
@@ -221,10 +281,10 @@ function hexToRgba(hex, a) {
   return `rgba(${parseInt(h.substring(0,2),16)},${parseInt(h.substring(2,4),16)},${parseInt(h.substring(4,6),16)},${a})`;
 }
 
-function nodeColor(d) {
+// Classic: the baseline encoding, kept faithfully. Colour is confidence, size is
+// confidence in structure view, and the lens reads as glow.
+function nodeColorClassic(d) {
   if (d.id === lockedId) return '#D3D3D3';
-  // Filter dim wins over search dim. `dimmed` means "outside the range you
-  // asked for", a more permanent statement than "not what you just typed".
   if (d.dimmed) return '#2d3748';
   const base = CONF_COLOR[d.confidence] || '#6b7280';
   if (searchHits && !searchHits.has(d.id)) return hexToRgba(base, 0.07);
@@ -233,13 +293,131 @@ function nodeColor(d) {
   return hexToRgba(base, 0.12 + 0.88 * Math.sqrt(p));
 }
 
-function nodeVal(d) {
+function nodeValClassic(d) {
   if (d.dimmed) return 1;
   if (view === 'structure') return d.confidence === 'high' ? 6 : d.confidence === 'medium' ? 4 : 3;
   return 2 + 14 * Math.sqrt((foundationScores[d.id] || 0) / maxFound);
 }
 
+function nodeColorBedrock(d) {
+  if (d.id === lockedId) return '#f4e9d0';
+  // Filter dim wins over search dim. `dimmed` means "outside the range you
+  // asked for", a more permanent statement than "not what you just typed".
+  if (d.dimmed) return 'rgba(45,55,72,0.5)';
+  const pFound = (foundationScores[d.id] || 0) / maxFound;
+  const alpha = CONF_ALPHA[d.confidence] || 0.6;
+  if (searchHits && !searchHits.has(d.id)) return foundationColor(pFound, 0.06);
+  if (view === 'lineage' || view === 'impact') {
+    if (!seedId) return foundationColor(pFound, alpha);
+    const pl = (lensScores[d.id] || 0) / maxLens;
+    return pl > 0 ? foundationColor(0.4 + 0.6 * pl, 0.4 + 0.6 * Math.sqrt(pl))
+                  : foundationColor(pFound, alpha * 0.12);
+  }
+  // structure / foundations: colour reads the foundation lens, always.
+  return foundationColor(pFound, alpha);
+}
+
+function nodeValBedrock(d) {
+  if (d.dimmed) return 1;
+  // Size = foundation weight, stable across lenses. The lens read now lives in
+  // vertical position (gravity), not in glow, so size can stay one honest thing.
+  return 3 + 13 * Math.sqrt((foundationScores[d.id] || 0) / maxFound);
+}
+
+// Single dispatch point, so every caller stays mode-agnostic.
+function nodeColor(d) { return mode === 'classic' ? nodeColorClassic(d) : nodeColorBedrock(d); }
+function nodeVal(d)   { return mode === 'classic' ? nodeValClassic(d)   : nodeValBedrock(d); }
+
 function isWalk(l) { return view === 'structure' || l.relation === WALK_REL; }
+
+// Typed edges become three visible behaviours, not one on/off opacity.
+// depends_on is a taut structural strut with warm particles falling toward the
+// antecedent it rests on; gates is a cool neutral barrier line; mentions is a
+// faint hairline. This makes the typed model the visible star.
+// Alphas here are the final rendered values because linkOpacity is pinned to 1
+// below. Left at its 0.2 default the library multiplies it into every link
+// colour, which is what reduced these struts to near-invisible hairlines.
+// Alphas here are the final rendered values because linkOpacity is pinned to 1
+// below. Left at its 0.2 default the library multiplies it into every link
+// colour, which is what reduced these struts to near-invisible hairlines.
+// Brass is reserved for ONE meaning: how load-bearing a decision is. Spending
+// it on the struts too made the accent ambiguous, so the edges are neutral
+// slate and stay quiet. Edge TYPE is carried by form (width, and whether
+// anything travels along it), never by competing for the accent hue.
+const EDGE = {
+  depends_on: { color: 'rgba(126,138,157,0.40)', width: 1.5, arrow: 'rgba(150,162,181,0.55)', parts: 3 },
+  gates:      { color: 'rgba(118,130,149,0.24)', width: 1.1, arrow: 'rgba(118,130,149,0.32)', parts: 0 },
+  mentions:   { color: 'rgba(118,130,149,0.13)', width: 0.7, arrow: 'rgba(118,130,149,0.18)', parts: 0 },
+};
+// Classic edges: the baseline blue walk / grey non-walk distinction. Opacity is
+// lifted from the library default of 0.2, which rendered these near-invisible in
+// the original too. That was a bug in the baseline, not a look worth preserving.
+const EDGE_CLASSIC = {
+  walk:    { color: 'rgba(96,165,250,0.62)',  width: 1.5, arrow: 'rgba(96,165,250,0.9)',  parts: 3 },
+  nonwalk: { color: 'rgba(107,114,128,0.30)', width: 1.0, arrow: 'rgba(107,114,128,0.35)', parts: 0 },
+};
+function edgeStyle(l) {
+  if (mode === 'classic') return isWalk(l) ? EDGE_CLASSIC.walk : EDGE_CLASSIC.nonwalk;
+  return EDGE[l.relation] || EDGE.mentions;
+}
+function particleColor() { return mode === 'classic' ? '#60a5fa' : '#d7e0ee'; }
+
+// ── Slice: what is on screen at all ────────────────────────────────────────
+// At real ledger scale the answer to "is this readable" is not only layout, it
+// is how much you choose to show. 135 decisions at once is a structure you can
+// admire and not much else, so the slice control narrows it to something a
+// person can actually work with, without ever changing the underlying ranks.
+let visibleIds = new Set(decisions.map(d => d.id));
+
+// Ancestors and descendants of a seed, walking only depends_on (the acyclic
+// relation), so a "path" slice is the seed's real provenance and its real reach.
+function pathClosure(seed) {
+  const up = new Map(), down = new Map();
+  typedEdges.forEach(e => {
+    if (e.relation !== WALK_REL) return;
+    if (!up.has(e.source)) up.set(e.source, []);
+    up.get(e.source).push(e.target);        // source rests on target
+    if (!down.has(e.target)) down.set(e.target, []);
+    down.get(e.target).push(e.source);      // target carries source
+  });
+  const out = new Set([seed]);
+  for (const adj of [up, down]) {
+    const queue = [seed];
+    while (queue.length) {
+      const cur = queue.shift();
+      for (const nxt of (adj.get(cur) || [])) {
+        if (!out.has(nxt)) { out.add(nxt); queue.push(nxt); }
+      }
+    }
+  }
+  return out;
+}
+
+// Proportional, so "core" always actually narrows. A fixed 24 was a no-op on an
+// 18-decision ledger: the button appeared broken because everything was already
+// in the core.
+const CORE_N = Math.max(6, Math.min(24, Math.ceil(decisions.length * 0.35)));
+function computeSlice() {
+  if (slice === 'core') {
+    visibleIds = new Set(foundationOrder.slice(0, Math.min(CORE_N, foundationOrder.length)));
+  } else if (slice === 'path' && seedId) {
+    visibleIds = pathClosure(seedId);
+  } else {
+    visibleIds = new Set(decisions.map(d => d.id));
+  }
+}
+
+// Heights come from each decision's rank in the WHOLE ledger, never from the
+// slice, so narrowing the view never silently re-ranks anything.
+function visibleData() {
+  const ns = nodes.filter(n => visibleIds.has(n.id));
+  const ls = linksForView().filter(l => {
+    const s = typeof l.source === 'object' ? l.source.id : l.source;
+    const t = typeof l.target === 'object' ? l.target.id : l.target;
+    return visibleIds.has(s) && visibleIds.has(t);
+  });
+  return { nodes: ns, links: ls };
+}
 
 function refreshChrome() {
   ['structure', 'foundations', 'lineage', 'impact'].forEach(v => {
@@ -248,15 +426,37 @@ function refreshChrome() {
   });
   const badge = document.getElementById('seed-badge');
   if (badge) {
+    // Short form, so the populated badge fits the reserved slot above.
     badge.textContent = (view === 'lineage' || view === 'impact')
-      ? (seedId ? 'seed ' + seedId : 'click a node to seed')
+      ? (seedId ? 'seed ' + shortId(seedId) : 'click a node to seed')
       : '';
   }
+  ['classic', 'bedrock'].forEach(m => {
+    const el = document.getElementById('m-' + m);
+    if (el) el.classList.toggle('on', m === mode);
+  });
+  ['all', 'core', 'path'].forEach(s => {
+    const el = document.getElementById('s-' + s);
+    if (el) el.classList.toggle('on', s === slice);
+  });
+  // Heuristics 1 and 9: a control that cannot work right now should say so and
+  // say what to do about it, rather than silently doing nothing when clicked.
+  const pathBtn = document.getElementById('s-path');
+  if (pathBtn) {
+    pathBtn.classList.toggle('off', !seedId);
+    pathBtn.title = seedId
+      ? 'provenance and reach of ' + seedId
+      : 'click a decision first: a path needs a starting point';
+  }
+  const coreBtn = document.getElementById('s-core');
+  if (coreBtn) coreBtn.title = 'the ' + Math.min(CORE_N, decisions.length) +
+    ' most load-bearing decisions, of ' + decisions.length;
 }
 
 function applyView() {
   computeLens();
-  Graph.graphData({ nodes, links: linksForView() });
+  computeSlice();
+  Graph.graphData(visibleData());
   Graph.nodeColor(nodeColor);
   Graph.nodeVal(nodeVal);
   refreshChrome();
@@ -269,13 +469,30 @@ function setView(next) {
     // screen under a different lens name, which would show stale probability.
     lensScores = {};
     maxLens = 1e-12;
-    Graph.graphData({ nodes, links: linksForView() });
+    computeSlice();
+    Graph.graphData(visibleData());
     Graph.nodeColor(nodeColor);
     Graph.nodeVal(nodeVal);
     refreshChrome();
     return;
   }
   applyView();
+}
+
+// ── Mode and slice switching ───────────────────────────────────────────────
+function setMode(next) {
+  if (next === mode) return;
+  mode = next;
+  applyMode();
+}
+
+function setSlice(next) {
+  // A path slice without a seed would blank the canvas, so it falls back to all
+  // and the chrome says why rather than leaving the user staring at nothing.
+  slice = (next === 'path' && !seedId) ? 'all' : next;
+  applyView();
+  framed = false;
+  frameHero();
 }
 
 computeLens();
@@ -310,9 +527,13 @@ function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Drops the "IRP-" prefix: every node in this graph is an IRP record, so the
+// prefix is 26% of the label width carrying no information. Narrower labels
+// collide less, which means more decisions keep their name. The overlay still
+// shows the full id.
 function shortId(id) {
   const m = (id||'').match(/IRP-\d{4}-(\d{2})-(\d{2})-(\d+)/);
-  return m ? 'IRP-' + m[1] + m[2] + '-' + m[3] : id;
+  return m ? m[1] + m[2] + '-' + m[3] : id;
 }
 function badgeClass(c) { return {high:'bh',medium:'bm',low:'bl'}[c]||'bu'; }
 
@@ -367,15 +588,19 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
   // Links / provenance edges. In a lens view the non-walk relations
   // (gates, mentions) stay visible but are dimmed and carry no particles,
   // because they carry no probability.
-  .linkColor(l => isWalk(l) ? 'rgba(96,165,250,0.6)' : 'rgba(107,114,128,0.22)')
-  .linkWidth(1.5)
-  .linkDirectionalArrowLength(5)
+  .linkColor(l => edgeStyle(l).color)
+  .linkWidth(l => edgeStyle(l).width)
+  .linkOpacity(1)   // alpha lives in linkColor; see EDGE
+  .linkDirectionalArrowLength(l => l.relation === 'depends_on' ? 4 : 0)
   .linkDirectionalArrowRelPos(1)
-  .linkDirectionalArrowColor(l => isWalk(l) ? 'rgba(96,165,250,0.9)' : 'rgba(107,114,128,0.3)')
-  .linkDirectionalParticles(l => isWalk(l) ? 3 : 0)
-  .linkDirectionalParticleWidth(1.5)
-  .linkDirectionalParticleColor(() => '#60a5fa')
-  .linkDirectionalParticleSpeed(0.006)
+  .linkDirectionalArrowColor(l => edgeStyle(l).arrow)
+  .linkDirectionalParticles(l => edgeStyle(l).parts)
+  // Wider than the strut it travels inside, and much brighter, so the motion
+  // actually reads. Cool white, not warm: the travelling mark must not read as
+  // the brass accent either.
+  .linkDirectionalParticleWidth(3.0)
+  .linkDirectionalParticleColor(() => '#d7e0ee')
+  .linkDirectionalParticleSpeed(0.0075)
 
   // Interactions
   .onNodeClick((node, event) => {
@@ -407,23 +632,243 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
 const controls = Graph.controls();
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.4;
+// Starts still: the first frame has to read as a settled cross-section, not a
+// spinning ball. A slow idle drift then takes over after a few seconds of no
+// interaction, which adds life without turning the piece back into the generic
+// spinning graph. Any interaction stops it, and it only resumes once the viewer
+// has gone quiet again. It orbits the stack centre set by frameHero, so the
+// bedrock stays anchored at the base throughout.
+controls.autoRotate = false;
+controls.autoRotateSpeed = 0.32;   // gentle; the default 2.0 is the cliche
 
 let idleTimer;
 let nodeHovered = false;
-
+let hoveredId = null;   // the label layout always keeps this one named
 function resetIdle() {
   controls.autoRotate = false;
   clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => { if (!nodeHovered) controls.autoRotate = true; }, 2000);
+  idleTimer = setTimeout(() => { if (!nodeHovered) controls.autoRotate = true; }, idleMs);
 }
 graphEl.addEventListener('pointerdown', resetIdle);
 graphEl.addEventListener('wheel', resetIdle);
+resetIdle();   // arm it on load, so the drift begins a few seconds in
 
-// Stop rotation on hover; show preview overlay (unless a node is locked)
+// ── Foundation gravity ────────────────────────────────────────────────────
+// Pull each node to a target height set by its foundation score, so the
+// load-bearing decisions sink to the base and the graph stratifies into a
+// bedrock-to-canopy cross-section. Only the acyclic depends_on structure feeds
+// the score (gates/mentions never did). Position renders the lens; it is never
+// an input to it.
+// Height is the foundation score: bedrock at the base, canopy up top.
+// Vertical range has to stay clearly larger than the horizontal spread, or the
+// stack reads as a flat fan and the "what everything rests on" point is lost.
+// Widening the canopy is close to free: on a landscape viewport the camera
+// distance is set by the VERTICAL extent, so horizontal spread can grow until
+// halfH/aspect approaches halfV before the camera pulls back at all. That buys
+// screen separation between canopy nodes, which is what lets every label fit.
+// Tuned to sit just inside that limit: halfH lands near halfV*aspect, the point
+// where widening further starts pulling the camera back and costs more screen
+// separation than the extra width buys.
+// Both scale with ledger size: 18 decisions and 135 decisions need very
+// different room. STRATA grows so ranked neighbours stay distinguishable rather
+// than compressing into a line; SPREAD stays inside halfV*aspect so the camera
+// distance keeps being set by the vertical extent (see frameHero).
+const STRATA = Math.min(2000, Math.max(820, nodes.length * 11));
+const SPREAD = Math.min(620, Math.max(490, nodes.length * 4));
+// Height is the foundation lens as a PERCENTILE RANK, not the raw score.
+// Raw scores are brutally long-tailed: measured on a 135-decision ledger there
+// were only 22 distinct score values and 102 decisions tied at the very bottom,
+// so mapping height from the raw number piled most of the graph into a few dense
+// bands and the stratification stopped meaning anything. Ranking spreads
+// decisions evenly through the full height, which is what keeps the strata
+// readable at real ledger scale.
+//
+// Magnitude is not lost, it moves: node SIZE still comes from the raw score, so
+// height answers "where does this sit in the order" and size answers "by how
+// much". Ranking also dissolves the tie problem, since tied decisions take
+// consecutive ranks instead of sharing one height. Ties break by timestamp, so
+// the older decision sits deeper.
+const stratumById = (() => {
+  const ordered = nodes.slice().sort((a, b) => {
+    const d = (foundationScores[b.id] || 0) - (foundationScores[a.id] || 0);
+    return d !== 0 ? d : String(a.timestamp || '').localeCompare(String(b.timestamp || ''));
+  });
+  const out = {};
+  const last = Math.max(1, ordered.length - 1);
+  ordered.forEach((node, i) => { out[node.id] = (i / last - 0.5) * STRATA; });
+  return out;
+})();
+function stratumY(n) {
+  const y = stratumById[n.id];
+  return Number.isFinite(y) ? y : 0;
+}
+
+// Seed every position deterministically, then pin the height with a force.
+// Two separate guarantees, because relying on either alone was the bug:
+//   1. Seeding means the composition is already correct at frame zero. A
+//      simulation tick is not required, so a throttled or briefly hidden tab
+//      cannot leave the stack unstratified.
+//   2. A force re-pins the height on every tick. Setting `fy` alone was not
+//      enough: the pin is only honoured while the engine is running, so once
+//      it cooled the strata collapsed back into a blob.
+// Wide on X, SHALLOW on Z: a cross-section slab, not a spherical cloud. This is
+// what finally made the strata readable. In a deep cloud, perspective trades
+// depth against height, so two decisions in genuinely different strata could
+// project onto the same screen row (measured: 2px apart while their scores were
+// 0.074 and 0.167). Flattening depth means screen height reads as foundation
+// weight, full stop, and it looks like an architectural section rather than a
+// ball. Rotation still gives parallax; it no longer scrambles the reading.
+// Seeded on a golden-angle spiral so nothing starts clumped. Depth is left free
+// rather than pinned to a thin slab: pinning it looked right in principle (a
+// cross-section) but left only the X axis to spread along, so nodes bunched and
+// more labels were lost than the flattening saved.
+nodes.forEach((n, i) => {
+  const golden = i * 2.399963;
+  const r = SPREAD * Math.sqrt((i + 0.5) / nodes.length);
+  n.y = n.fy = stratumY(n);
+  n.x = Math.cos(golden) * r;
+  n.z = Math.sin(golden) * r;
+});
+
+function strataForce() {
+  let ns = [];
+  // Guards on mode itself rather than trusting removal: passing null to
+  // d3Force('strata', null) did not detach it, so in classic the heights stayed
+  // pinned to the exact strata span and the layout never relaxed.
+  const f = () => {
+    if (mode !== 'bedrock') return;
+    for (const n of ns) { n.y = stratumY(n); n.vy = 0; }
+  };
+  f.initialize = _ns => { ns = _ns; };
+  return f;
+}
+// Forces are not configured here: applyMode() below owns them, so classic and
+// bedrock cannot end up sharing half of each other's physics.
+
+// Frame the settled stack at a gentle 3/4 hero angle: depth for the
+// cross-section, and it pulls the crowded canopy apart in screen space. The
+// distance is derived from the data extent rather than from zoomToFit, which
+// divides by the viewport and poisons the camera with NaN when the canvas has
+// not been sized yet (that NaN camera was why nothing rendered at all).
+let framed = false;
+let viewW = 0, viewH = 0;   // the size actually handed to the renderer
+
+// True once the library has actually built its internal layout and started
+// ticking. Reheating before that point is fatal: the reheat flips the engine to
+// "running" while the layout object does not exist yet, and the next animation
+// frame calls tick() on undefined and takes the whole render loop down (the
+// symptom is a black canvas with only the DOM labels painted). It never
+// reproduced under a throttled render loop, because there the fatal frame never
+// arrives.
+// Two signals, because neither alone is sufficient: onEngineTick proves the
+// layout exists but does not fire in every build, and the timer is a floor that
+// is comfortably past the library's first refresh.
+let booted = false;
+Graph.onEngineTick(() => { booted = true; });
+setTimeout(() => { booted = true; }, 1500);
+function safeReheat() {
+  if (!booted) return;   // the first layout pass is about to run on its own
+  try { Graph.d3ReheatSimulation(); } catch (e) { /* layout not ready; harmless */ }
+}
+function frameHero() {
+  if (framed) return;
+  if (!viewW || !viewH) return;  // wait until the renderer has a real size
+  framed = true;
+  // Frame what is actually on screen, so narrowing to a slice reframes to it
+  // instead of holding the whole ledger's extents and leaving it tiny.
+  const shown = nodes.filter(n => visibleIds.has(n.id));
+  const set = shown.length ? shown : nodes;
+  const ys = set.map(n => n.y);
+  const lo = Math.min(...ys), hi = Math.max(...ys);
+  const cy = (lo + hi) / 2, span = Math.max(1, hi - lo);
+  // Frame the real extents against the real field of view, treating height and
+  // width as separate constraints. Fitting the bounding sphere instead pushed
+  // the camera much too far back on a wide window: the stack shrank into the
+  // middle third of the frame, which also crowds the canopy in screen space and
+  // costs labels that would otherwise fit.
+  const halfV = Math.max(1, ...set.map(n => Math.abs((n.y || 0) - cy)));
+  // Worst case at any rotation angle, since the idle drift orbits the Y axis.
+  const halfH = Math.max(1, ...set.map(n => Math.hypot(n.x || 0, n.z || 0)));
+  const fov = ((Graph.camera() && Graph.camera().fov) || 50) * Math.PI / 180;
+  const t = Math.tan(fov / 2);
+  const aspect = Math.max(0.35, viewW / viewH);
+  const D = Math.max(halfV / t, halfH / (t * aspect)) * 1.18 + 60;
+  const theta = -0.44;   // ~25 degrees off dead-on
+  // Applied with no transition on purpose. A tweened move depends on the
+  // animation loop actually running, and the very first frame is the one that
+  // has to read as an anchored cross-section, not a camera still travelling.
+  Graph.cameraPosition(
+    { x: D * Math.sin(theta), y: cy + span * 0.06, z: D * Math.cos(theta) },
+    { x: 0, y: cy, z: 0 },
+    0
+  );
+}
+// Do not depend on the engine ever reporting a stop.
+Graph.onEngineStop(frameHero);
+setTimeout(frameHero, 1200);
+setTimeout(frameHero, 3000);
+
+// Every per-mode difference lives here, physics and styling together, so a
+// switch can never leave half the previous mode's encoding behind.
+function applyMode() {
+  const lf = Graph.d3Force('link');
+  if (mode === 'classic') {
+    // Release the pins AND re-seed, so the free layout is visible immediately
+    // instead of inheriting the strata it just left. Deterministic (derived from
+    // the index, no Math.random) so a switch is reproducible.
+    nodes.forEach((n, i) => {
+      delete n.fy;
+      const golden = i * 2.399963;
+      const r = 190 * Math.cbrt((i + 0.5) / nodes.length);
+      n.x = Math.cos(golden) * r;
+      n.y = ((i * 7919 % 200) / 200 - 0.5) * 260;
+      n.z = Math.sin(golden) * r;
+      n.vx = n.vy = n.vz = 0;
+    });
+    Graph.d3Force('strata', null);
+    Graph.d3Force('charge').strength(-95);
+    if (lf && lf.distance) lf.distance(60);
+    if (lf && lf.strength) lf.strength(1);
+    controls.autoRotateSpeed = 0.4;
+    idleMs = 2000;
+  } else {
+    nodes.forEach(n => { n.fy = stratumY(n); });
+    Graph.d3Force('strata', strataForce());
+    Graph.d3Force('charge').strength(-560);
+    // Weak links on purpose: at full strength every child is hauled on top of
+    // its antecedent, undoing the even seeding and stacking nodes into the same
+    // screen position. The struts still show structure, they just stop dictating
+    // the spacing.
+    if (lf && lf.distance) lf.distance(110);
+    if (lf && lf.strength) lf.strength(0.12);
+    controls.autoRotateSpeed = 0.32;
+    idleMs = 4500;
+  }
+  Graph.nodeColor(nodeColor).nodeVal(nodeVal)
+    .linkColor(l => edgeStyle(l).color)
+    .linkWidth(l => edgeStyle(l).width)
+    .linkDirectionalArrowColor(l => edgeStyle(l).arrow)
+    .linkDirectionalParticles(l => edgeStyle(l).parts)
+    .linkDirectionalParticleColor(particleColor);
+  // Re-commit the data so the layout is genuinely rebuilt under the new forces.
+  // Reheating alone was not enough: an already-cooled simulation stays exactly
+  // where it stopped, so switching modes changed the colours but left the old
+  // layout in place. Re-committing also copies the fy pins straight onto y, so
+  // bedrock snaps into its strata without waiting for a single tick.
+  Graph.graphData(visibleData());
+  safeReheat();
+  framed = false;
+  resetIdle();
+  refreshChrome();
+  setTimeout(frameHero, 900);
+}
+applyMode();   // install the default mode's physics and styling authoritatively
+
+// Reading a node must not fight a moving camera, so hovering stops the drift
+// outright and leaving re-arms the idle timer.
 Graph.onNodeHover(node => {
   nodeHovered = !!node;
+  hoveredId = node ? node.id : null;
   if (nodeHovered) {
     controls.autoRotate = false;
     clearTimeout(idleTimer);
@@ -434,13 +879,34 @@ Graph.onNodeHover(node => {
   }
 });
 
-// Resize handler
+// Resize handler. A 0-size container must never reach the renderer: a 0x0
+// canvas draws no geometry while the DOM labels keep painting, which looks
+// exactly like "the graph is broken, only the IDs show up". Fall back to the
+// document size, and watch the container so a late layout gets picked up.
 function resize() {
-  Graph.width(graphEl.clientWidth).height(graphEl.clientHeight);
+  const w = graphEl.clientWidth  || document.documentElement.clientWidth  || 1000;
+  const h = graphEl.clientHeight || Math.max(360, (document.documentElement.clientHeight || 760) - 150);
+  viewW = w; viewH = h;
+  Graph.width(w).height(h);
+  frameHero();   // no-op until the renderer has a real size, then frames once
 }
 window.addEventListener('resize', resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe(graphEl);
 resize();
 refreshChrome();
+
+// Last line of defence: never present a silent blank canvas. If WebGL or the
+// library did not come up, say so in plain words instead of leaving a dark void.
+setTimeout(() => {
+  const c = graphEl.querySelector('canvas');
+  if (c && c.width > 0 && c.height > 0) return;
+  const note = document.createElement('div');
+  note.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:420px;text-align:center;font-size:13px;line-height:1.6;color:#c19b60;background:#111827;border:1px solid #374151;border-radius:9px;padding:16px 18px;z-index:50';
+  note.innerHTML = 'The 3D canvas has no size, so nothing can be drawn.<br><br>'
+    + 'Open this file over http rather than straight off disk, for example:<br>'
+    + '<code style="color:#e5e7eb">python3 -m http.server</code> in its folder.';
+  graphEl.appendChild(note);
+}, 2500);
 
 // ── Focus a node by id (called from reference links in overlay) ───────────
 function focusNode(id) {
@@ -568,10 +1034,9 @@ document.addEventListener('click', e => {
 // ── Label visibility toggle ────────────────────────────────────────────────
 let labelsVisible = true;
 function toggleLabels() {
+  // Only flips the flag: the label loop owns visibility, because it also hides
+  // labels that lose their collision slot. Setting display here too would fight it.
   labelsVisible = !labelsVisible;
-  document.querySelectorAll('.node-label').forEach(el => {
-    el.style.display = labelsVisible ? '' : 'none';
-  });
   document.getElementById('toggle-labels').textContent = labelsVisible ? 'Hide IDs' : 'Show IDs';
 }
 
@@ -584,16 +1049,102 @@ nodes.forEach(node => {
   graphEl.appendChild(el);
   labelEls[node.id] = el;
 });
-(function tickLabels() {
-  nodes.forEach(node => {
+// Measure each label once, while they are all still visible. Real text widths
+// let the collision test pack them as tightly as they honestly fit, instead of
+// discarding labels against a worst-case guess.
+nodes.forEach(node => {
+  const el = labelEls[node.id];
+  el.__w = el.offsetWidth || 78;
+});
+// Labels are de-collided every frame. The canopy holds many decisions at
+// similar heights, so raw projection stacks their IDs on top of each other and
+// the whole top of the graph turns to mush. Most load-bearing decisions claim
+// their slot first (they are the ones worth reading); a label that still cannot
+// find clear space after nudging is hidden rather than drawn over its neighbour.
+const LBL_H = 12, LBL_GAP = 4, NUDGE = 14;
+
+// A label is NEVER moved off its node. Nudging colliding labels into clear air
+// was worse than the collision it solved: they drifted up to 200px away, read as
+// belonging to nothing, and snapped back as soon as the camera moved. So the
+// only two states are "drawn exactly on its node" or "not drawn".
+//
+// When two labels would overlap, the more load-bearing decision keeps its name
+// and the other is dropped, which is the right thing to lose: the bedrock is
+// what the reader needs identified. The node itself stays visible either way,
+// and hover always names it.
+const labelPriority = nodes.slice().sort((a, b) =>
+  (foundationScores[b.id] || 0) - (foundationScores[a.id] || 0));
+
+// Only the most load-bearing decisions are named by default. "Label everything"
+// is the thing that cannot survive real scale: at 135 decisions it drew 103 IDs
+// and the result was a hairball where the bedrock could no longer be found, which
+// defeats the entire point of the view. A small ledger still gets every label.
+// Everything else is one hover away, and the search names any decision directly.
+// Recomputed per pass, because the budget follows the SLICE, not the ledger:
+// narrowing to 20 visible decisions should name all 20, even though the full
+// ledger of 135 would only name its top 15.
+function namedSet() {
+  const budget = visibleIds.size <= 24 ? visibleIds.size : 15;
+  const out = new Set();
+  for (const id of foundationOrder) {
+    if (out.size >= budget) break;
+    if (visibleIds.has(id)) out.add(id);
+  }
+  return out;
+}
+
+function layoutLabels() {
+  // The hovered and locked decisions claim their slot before anyone else, so
+  // whatever you are actually reading is always named.
+  const order = labelPriority.slice().sort((a, b) =>
+    ((b.id === lockedId || b.id === hoveredId) ? 1 : 0) -
+    ((a.id === lockedId || a.id === hoveredId) ? 1 : 0));
+
+  const eligible = namedSet();
+  const placed = [];
+  for (const node of order) {
     const el = labelEls[node.id];
-    if (!el) return;
-    const pos = Graph.graph2ScreenCoords(node.x || 0, node.y || 0, node.z || 0);
-    el.style.left = pos.x + 'px';
-    el.style.top  = pos.y + 'px';
-  });
-  requestAnimationFrame(tickLabels);
-})();
+    if (!el) continue;
+    if (!labelsVisible) { el.style.display = 'none'; continue; }
+    if (!visibleIds.has(node.id)) { el.style.display = 'none'; continue; }
+    const named = eligible.has(node.id) || node.id === lockedId || node.id === hoveredId;
+    if (!named) { el.style.display = 'none'; continue; }
+    const p = Graph.graph2ScreenCoords(node.x || 0, node.y || 0, node.z || 0);
+    // Off screen or behind the camera: nothing to draw.
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) ||
+        p.x < -160 || p.x > viewW + 160 || p.y < -160 || p.y > viewH + 160) {
+      el.style.display = 'none';
+      continue;
+    }
+    const w = el.__w || 78;
+    const mustShow = (node.id === lockedId || node.id === hoveredId);
+    const hits = (yy) => placed.some(r =>
+      Math.abs(r.x - p.x) < (r.w + w) / 2 + LBL_GAP && Math.abs(r.y - yy) < LBL_H);
+
+    // At most ONE small step, and only to break a near-exact overlap. Two
+    // decisions at different depths can project onto the same screen row no
+    // matter how the layout is tuned, so a tiny nudge is the only way to keep
+    // both named. Capped hard at NUDGE px: the earlier version allowed up to
+    // 208px of lift, which is what tore labels off their nodes.
+    let y = p.y;
+    if (hits(y) && !mustShow) {
+      if (!hits(p.y - NUDGE))      y = p.y - NUDGE;
+      else if (!hits(p.y + NUDGE)) y = p.y + NUDGE;
+      else { el.style.display = 'none'; continue; }
+    }
+    placed.push({ x: p.x, y, w });
+    el.style.display = '';
+    el.style.left = p.x + 'px';
+    el.style.top  = y + 'px';
+  }
+}
+
+// Driven by the render loop, with a timer as a safety net. Hiding a label is a
+// hard state, so a single early frame taken before the canvas was sized would
+// otherwise leave every ID hidden for good if the render loop then stalls.
+window.__layoutLabels = layoutLabels;   // debug hook: force one label placement pass
+(function tickLabels() { layoutLabels(); requestAnimationFrame(tickLabels); })();
+setInterval(layoutLabels, 400);
 </script>
 </body>
 </html>
