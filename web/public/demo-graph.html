@@ -43,7 +43,8 @@
   --brass-text: #c19b60;   /* 7.3:1 on ink, clears AAA as is */
   --brass-lit: #e6ca97;
   --on-brass: #14110a;
-  --label: rgba(233,227,214,.85);
+  --label: rgba(233,227,214,.94);
+  --label-plate: rgba(11,12,15,.62);   /* the label's own ground */
   --label-shadow: rgba(0,0,0,.92);
   --shadow: 0 10px 34px rgba(0,0,0,.62);
 }
@@ -61,7 +62,8 @@
   --brass-text: #6f5320;   /* graphic brass measured 4.07:1 as text; this is 5.8:1 */
   --brass-lit: #6b5122;
   --on-brass: #fbf7ee;
-  --label: rgba(34,31,24,.9);
+  --label: rgba(34,31,24,.96);
+  --label-plate: rgba(248,244,235,.88);
   --label-shadow: rgba(255,255,255,.9);
   --shadow: 0 10px 30px rgba(70,58,38,.18);
 }
@@ -143,7 +145,7 @@ h1::before{content:"";width:7px;height:7px;background:var(--brass);flex-shrink:0
 #graph{flex:1;cursor:grab;position:relative}
 #graph:active{cursor:grabbing}
 #graph canvas{display:block}
-.node-label{position:absolute;pointer-events:none;transform:translate(-50%,-140%);font:600 9px var(--mono);letter-spacing:.04em;color:var(--label);white-space:nowrap;text-shadow:0 1px 3px var(--label-shadow)}
+.node-label{position:absolute;pointer-events:none;transform:translate(-50%,-165%);font:600 9px var(--mono);letter-spacing:.04em;color:var(--label);white-space:nowrap;background:var(--label-plate);padding:1px 4px;border-radius:1px}
 
 /* The record card. Rules and set text, with the brass edge struck along the top
    the way a ledger page is headed. A long `why` must scroll inside the card
@@ -193,7 +195,7 @@ footer em{font-family:var(--serif);font-size:12px}
 <body>
 <header>
   <h1>IRP Decision Graph</h1>
-  <span class="meta">2026-07-25T13:52:53Z &middot; 18 decisions &middot; 22 provenance edges</span>
+  <span class="meta">2026-07-25T14:18:37Z &middot; 18 decisions &middot; 22 provenance edges</span>
   <div class="views">
     <span class="vbtn" id="v-structure" onclick="setView('structure')">structure</span>
     <span class="vbtn" id="v-foundations" onclick="setView('foundations')">foundations</span>
@@ -709,6 +711,7 @@ const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
   // Interactions
   .onNodeClick((node, event) => {
     event && event.stopPropagation();
+    lastNodeClick = Date.now();
     // In a seeded lens, clicking re-seeds the walk on that decision.
     if (view === 'lineage' || view === 'impact') {
       seedId = node.id;
@@ -1239,6 +1242,10 @@ window.addEventListener('keydown', e => {
   }
 });
 
+let lastNodeClick = 0;      // set by onNodeClick, which owns node clicks
+let pressX = 0, pressY = 0;
+document.addEventListener('pointerdown', e => { pressX = e.clientX; pressY = e.clientY; }, true);
+
 document.addEventListener('click', e => {
   if (!e.target.closest('.search')) hitsEl.classList.remove('on');
 
@@ -1249,7 +1256,9 @@ document.addEventListener('click', e => {
   // exclusion this handler would fire on the same click that opened the card
   // and close it instantly.
   if (overlay.style.display !== 'block') return;
-  if (e.target.closest('#overlay') || e.target.closest('#graph')) return;
+  if (e.target.closest('#overlay')) return;                    // reading the card
+  if (Date.now() - lastNodeClick < 250) return;                // the node handler has it
+  if (Math.hypot(e.clientX - pressX, e.clientY - pressY) > 6) return;   // that was a drag
   clearOverlay();
 });
 
