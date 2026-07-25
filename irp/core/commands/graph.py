@@ -1271,8 +1271,13 @@ window.addEventListener('keydown', e => {
 });
 
 let lastNodeClick = 0;      // set by onNodeClick, which owns node clicks
-let pressX = 0, pressY = 0;
-document.addEventListener('pointerdown', e => { pressX = e.clientX; pressY = e.clientY; }, true);
+let pressX = 0, pressY = 0, wasDrag = false;
+document.addEventListener('pointerdown', e => {
+  pressX = e.clientX; pressY = e.clientY; wasDrag = false;
+}, true);
+document.addEventListener('pointerup', e => {
+  wasDrag = Math.hypot(e.clientX - pressX, e.clientY - pressY) > 6;
+}, true);
 
 document.addEventListener('click', e => {
   if (!e.target.closest('.search')) hitsEl.classList.remove('on');
@@ -1285,8 +1290,8 @@ document.addEventListener('click', e => {
   // and close it instantly.
   if (overlay.style.display !== 'block') return;
   if (e.target.closest('#overlay')) return;                    // reading the card
-  if (Date.now() - lastNodeClick < 250) return;                // the node handler has it
-  if (Math.hypot(e.clientX - pressX, e.clientY - pressY) > 6) return;   // that was a drag
+  if (Date.now() - lastNodeClick < 250) return;   // the node handler has it
+  if (wasDrag) { wasDrag = false; return; }       // that was a camera drag, not a click
   clearOverlay();
 });
 
