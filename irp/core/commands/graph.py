@@ -34,90 +34,188 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 <title>IRP Decision Graph</title>
 <script src="https://unpkg.com/3d-force-graph@1/dist/3d-force-graph.min.js"></script>
 <style>
+/* ─── IRP graph identity ───────────────────────────────────────────────────
+   The layout work made the graph say something. This makes the INTERFACE say
+   it too. What was here before was default dark-mode tooling: the stock system
+   font stack, the framework-default blue-grey palette, uniform rounded pill
+   buttons, boxed inputs. It looked like a dev tool because componentwise it was
+   one, and that is what read as generic no matter what the nodes did.
+
+   The line held throughout: differentiate on EXPRESSIVE surfaces (type,
+   palette, rules, motion, spatial metaphor), stay conventional on INTERACTIVE
+   affordances (search behaves like search, active states are obvious, targets
+   stay large). Nielsen 8 licenses the first, Nielsen 4 protects the second.
+
+   Two committed themes, because every competing graph demo is dark and an
+   archival light one is genuinely uncommon. Both carry the same single accent:
+   brass, reserved for foundation weight and never spent on decoration.
+   Type is system-resident on purpose. Embedding a webfont would either add a
+   network dependency or bloat the base64, and this file's contract is to be one
+   self-contained HTML.  */
+
+:root {
+  --serif: "Iowan Old Style","Palatino Linotype",Palatino,"Hoefler Text","Times New Roman",Times,serif;
+  --ui: "Avenir Next",Avenir,"Segoe UI Variable Text","Segoe UI",Inter,system-ui,sans-serif;
+  --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --t: 140ms cubic-bezier(.2,.6,.2,1);
+
+  --ink: #0b0c0f;          /* the ground */
+  --surface: #14161c;      /* cards, dropdowns */
+  --surface-2: #0e1014;
+  --rule: rgba(214,196,160,.15);   /* warm hairlines, not cold borders */
+  --rule-firm: rgba(214,196,160,.50);   /* component boundaries: 1.4.11 wants 3:1 */
+  --text: #e9e3d6;         /* bone, not blue-grey */
+  --text-dim: #b0a99a;     /* raised to keep a step above --text-faint */
+  --text-faint: #948d80;   /* was #6d675d: 3.23:1 on the card surface, failed AA */
+  --brass: #c19b60;
+  --brass-text: #c19b60;   /* 7.3:1 on ink, clears AAA as is */
+  --brass-lit: #e6ca97;
+  --on-brass: #14110a;
+  --label: rgba(233,227,214,.85);
+  --label-shadow: rgba(0,0,0,.92);
+  --shadow: 0 10px 34px rgba(0,0,0,.62);
+}
+
+:root[data-theme="light"] {
+  --ink: #f2ece0;          /* safe paper */
+  --surface: #fbf7ee;
+  --surface-2: #ece5d6;
+  --rule: rgba(58,48,32,.20);
+  --rule-firm: rgba(58,48,32,.62);      /* component boundaries: 1.4.11 wants 3:1 */
+  --text: #221f18;
+  --text-dim: #4f4941;
+  --text-faint: #6b665c;   /* was #8b8474: 3.16:1 on paper, failed AA */
+  --brass: #8a6a2f;
+  --brass-text: #6f5320;   /* graphic brass measured 4.07:1 as text; this is 5.8:1 */
+  --brass-lit: #6b5122;
+  --on-brass: #fbf7ee;
+  --label: rgba(34,31,24,.9);
+  --label-shadow: rgba(255,255,255,.9);
+  --shadow: 0 10px 30px rgba(70,58,38,.18);
+}
+
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0e12;color:#e5e7eb;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.theme-swap *,.theme-swap *::before,.theme-swap *::after{transition:none !important}
+body{font-family:var(--ui);background:var(--ink);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+
 /* z-index must beat .hint below. Both used to be 10, and .hint comes later in
    the DOM, so the hint bar painted over the top of the search dropdown and ate
    the clicks on its first result: the list looked like it only became clickable
    from the second row down. The dropdown lives inside this stacking context, so
    raising the header is what lifts it clear. */
-header{padding:11px 20px;border-bottom:1px solid #1f2937;display:flex;align-items:center;gap:14px;row-gap:8px;flex-wrap:wrap;flex-shrink:0;z-index:30;position:relative}
-h1{font-size:14px;font-weight:600;color:#f9fafb;white-space:nowrap}
-.meta{font-size:12px;color:#6b7280;white-space:nowrap}
-.legend{display:flex;gap:14px;margin-left:auto;align-items:center}
+header{padding:13px 22px;border-bottom:1px solid var(--rule);display:flex;align-items:center;gap:14px;row-gap:9px;flex-wrap:wrap;flex-shrink:0;z-index:30;position:relative}
+
+/* Serif wordmark with a struck brass mark: a record's masthead, not an app bar. */
+h1{font:400 16px var(--serif);letter-spacing:.005em;color:var(--text);white-space:nowrap;display:flex;align-items:center;gap:9px}
+h1::before{content:"";width:7px;height:7px;background:var(--brass);flex-shrink:0}
+.meta{font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);white-space:nowrap}
+
+.legend{display:flex;gap:15px;margin-left:auto;align-items:center}
 /* The header wraps to a second row rather than squeezing, so narrow embeds
    (the book iframe is ~760px) keep their canvas. As width drops, the
-   decorative chrome yields its row before the functional controls do: the
-   legend first (confidence is also on every node overlay), then the
-   timestamp. These must sit after the rules they override: a media query
-   adds no specificity, so source order decides. */
-/* The mode and slice controls added a whole group to this row, so the chrome
-   sheds its decoration in order of expendability before the controls clip:
-   group captions, then the legend, then the timestamp. */
+   decorative chrome yields its row before the functional controls do: group
+   captions first, then the legend, then the timestamp. These must sit after the
+   rules they override: a media query adds no specificity, so source order
+   decides. */
 @media (max-width:1460px){.grouplabel{display:none}}
 @media (max-width:1200px){.legend{display:none}}
-@media (max-width:900px){.legend{display:none}}
 @media (max-width:760px){.meta{display:none}}
-@media (max-width:620px){.meta{display:none}}
-.li{display:flex;align-items:center;gap:5px;font-size:11px;color:#9ca3af}
-.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.views{display:flex;gap:4px;align-items:center;margin-left:18px}
-.vbtn{font:600 10px ui-monospace,"SF Mono",monospace;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:5px;padding:4px 9px;cursor:pointer;user-select:none}
-.vbtn:hover{color:#9ca3af;border-color:#374151}
-.vbtn.on{color:#0f1117;background:#60a5fa;border-color:#60a5fa}
+.li{display:flex;align-items:center;gap:6px;font:10px var(--mono);letter-spacing:.05em;color:var(--text-faint);text-transform:uppercase}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Controls are set text with an underline for state, not pills. The pill button
+   was the single loudest "default component" tell in the whole interface. The
+   active state stays unmistakable (accent colour plus a 2px rule) so trading
+   the box for a rule costs no clarity. */
+.views{display:flex;gap:11px;align-items:center;margin-left:16px}
+.vbtn{font:500 10px var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);background:none;border:none;border-bottom:2px solid transparent;border-radius:0;padding:3px 1px 2px;cursor:pointer;user-select:none;transition:color var(--t),border-color var(--t)}
+.vbtn:hover{color:var(--text-dim)}
+.vbtn.on{color:var(--brass-text);border-bottom-color:var(--brass)}
+.vbtn.off{opacity:.55;cursor:default}   /* disabled: exempt from 1.4.3, still legible */
+.vbtn.off:hover{color:var(--text-faint)}
+
 /* Fixed slot. This badge is empty in structure/foundations and populated in
    lineage/impact, and letting it size to its content changed the header's total
    width on every view switch, which pushed the search field onto a second row
    and back. Reserving the space keeps the chrome still while views change. */
-.seedbadge{font:10px ui-monospace,"SF Mono",monospace;color:#60a5fa;margin-left:6px;display:inline-block;min-width:132px;white-space:nowrap}
+.seedbadge{font:10px var(--mono);letter-spacing:.04em;color:var(--brass-text);margin-left:7px;display:inline-block;min-width:132px;white-space:nowrap}
 @media (max-width:1100px){.seedbadge{min-width:0}}
-.grouplabel{font:9px ui-monospace,"SF Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#4b5563;margin:0 2px 0 6px}
-#modebar{margin-left:14px}
-.vbtn.off{opacity:.42;cursor:default}
+.grouplabel{font:9px var(--mono);letter-spacing:.15em;text-transform:uppercase;color:var(--text-faint);margin:0 3px 0 0}
+#modebar{margin-left:14px;padding-left:14px;border-left:1px solid var(--rule)}
+
+/* Ruled input rather than a boxed one: same behaviour, none of the chrome. */
 .search{position:relative;margin-left:auto}
-#q{width:200px;font:11px ui-monospace,"SF Mono",monospace;color:#e5e7eb;background:#111827;border:1px solid #1f2937;border-radius:5px;padding:5px 9px;outline:none}
-#q:focus{border-color:#60a5fa;width:260px}
-#q::placeholder{color:#4b5563}
-#hits{position:absolute;top:100%;right:0;margin-top:5px;width:340px;max-height:290px;overflow-y:auto;background:#0a0c12;border:1px solid #374151;border-radius:7px;display:none;z-index:200;box-shadow:0 8px 28px rgba(0,0,0,.75)}
+#q{width:158px;font:11px var(--mono);letter-spacing:.02em;color:var(--text);background:none;border:none;border-bottom:1px solid var(--rule-firm);border-radius:0;padding:5px 2px;outline:none;transition:width var(--t),border-color var(--t)}
+#q:focus{border-bottom-color:var(--brass);width:250px}
+#q::placeholder{color:var(--text-faint)}
+#hits{position:absolute;top:100%;right:0;margin-top:7px;width:344px;max-height:290px;overflow-y:auto;background:var(--surface);border:1px solid var(--rule-firm);border-top:2px solid var(--brass);border-radius:2px;display:none;z-index:200;box-shadow:var(--shadow)}
 #hits.on{display:block}
-.hit{padding:7px 10px;border-bottom:1px solid #111827;cursor:pointer}
+.hit{padding:8px 12px;border-bottom:1px solid var(--rule);cursor:pointer}
 .hit:last-child{border-bottom:none}
-.hit:hover,.hit.sel{background:#1f2937}
-.hit-id{font:700 9px ui-monospace,"SF Mono",monospace;color:#60a5fa;letter-spacing:.03em}
-.hit-what{font-size:11px;color:#d1d5db;line-height:1.4;margin-top:2px}
-.hit-none{padding:9px 10px;font-size:11px;color:#6b7280}
-.hit-count{padding:5px 10px;font:9px ui-monospace,monospace;color:#4b5563;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #111827;background:#111827}
-.hint{font-size:11px;color:#9ca3af;padding:7px 20px;border-bottom:1px solid #111827;z-index:10;position:relative}
+.hit:hover,.hit.sel{background:var(--surface-2)}
+.hit-id{font:600 9px var(--mono);color:var(--brass-text);letter-spacing:.06em}
+.hit-what{font:12px var(--serif);color:var(--text);line-height:1.45;margin-top:3px}
+.hit-none{padding:10px 12px;font:12px var(--serif);font-style:italic;color:var(--text-dim)}
+.hit-count{padding:6px 12px;font:9px var(--mono);color:var(--text-faint);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--rule);background:var(--surface-2)}
+
+/* Editorial, not a toolbar tooltip strip. It leads with how to READ the graph,
+   in plain words, and only then how to move it. */
+.hint{font:italic 12.5px var(--serif);color:var(--text-dim);padding:9px 22px;border-bottom:1px solid var(--rule);z-index:10;position:relative;line-height:1.5}
+.hint b{font-style:normal;font-weight:400;color:var(--text);font-family:var(--ui);font-size:11px;letter-spacing:.02em}
+#aspect-note b{color:var(--brass-text)}
+#aspect-note i{font-family:var(--mono);font-style:normal;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+#aspect-dismiss{font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);cursor:pointer;border-bottom:1px solid var(--rule-firm);margin-left:6px}
+#aspect-dismiss:hover{color:var(--text)}
+
 .main{display:flex;flex:1;overflow:hidden;position:relative}
 #graph{flex:1;cursor:grab;position:relative}
-.node-label{position:absolute;pointer-events:none;transform:translate(-50%,-140%);font:bold 9px ui-monospace,"SF Mono",monospace;color:rgba(229,231,235,0.82);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,0.9)}
 #graph:active{cursor:grabbing}
 #graph canvas{display:block}
-/* A long `why` must scroll inside the card rather than run off the screen.
-   Bounding the height also keeps the card from covering the canvas, which is
-   what made it feel stuck: clicks meant for the background landed on it. */
-#overlay{position:fixed;display:none;background:#111827;border:1px solid #374151;border-radius:9px;padding:14px 16px;max-width:380px;max-height:min(70vh,520px);overflow-y:auto;overscroll-behavior:contain;z-index:100;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.6)}
+.node-label{position:absolute;pointer-events:none;transform:translate(-50%,-140%);font:600 9px var(--mono);letter-spacing:.04em;color:var(--label);white-space:nowrap;text-shadow:0 1px 3px var(--label-shadow)}
+
+/* The record card. Rules and set text, with the brass edge struck along the top
+   the way a ledger page is headed. A long `why` must scroll inside the card
+   rather than run off the screen; bounding the height also keeps the card from
+   covering the canvas, which is what made it feel stuck: clicks meant for the
+   background landed on it. */
+#overlay{position:fixed;display:none;background:var(--surface);border:1px solid var(--rule-firm);border-top:2px solid var(--brass);border-radius:2px;padding:15px 17px;max-width:390px;max-height:min(70vh,520px);overflow-y:auto;overscroll-behavior:contain;z-index:100;pointer-events:none;box-shadow:var(--shadow)}
 #overlay::-webkit-scrollbar{width:8px}
-#overlay::-webkit-scrollbar-thumb{background:#374151;border-radius:4px}
-#overlay::-webkit-scrollbar-thumb:hover{background:#4b5563}
+#overlay::-webkit-scrollbar-thumb{background:var(--rule-firm);border-radius:0}
 #overlay::-webkit-scrollbar-track{background:transparent}
-#overlay.locked{pointer-events:auto;border-color:#60a5fa;box-shadow:0 0 0 1px #60a5fa,0 6px 28px rgba(0,0,0,.85)}
-.did{font-size:11px;font-weight:700;color:#6b7280;font-family:monospace;letter-spacing:.03em}
-.dwhat{font-size:14px;font-weight:600;color:#f9fafb;line-height:1.45}
-.dwhy{font-size:12px;color:#9ca3af;line-height:1.55}
-.dmeta{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
-.badge{font-size:10px;padding:2px 7px;border-radius:999px;font-weight:700}
-.bh{background:#14532d;color:#4ade80}
-.bm{background:#451a03;color:#fb923c}
-.bl{background:#450a0a;color:#f87171}
-.bu{background:#1f2937;color:#9ca3af}
-.tag{font-size:10px;padding:2px 6px;border-radius:4px;background:#1f2937;color:#9ca3af;font-family:monospace}
-.dsec{font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
-.dsrc{font-size:11px;color:#4b5563;font-family:monospace}
-.refs{display:flex;flex-direction:column;gap:3px}
-.rl{font-size:11px;color:#60a5fa;font-family:monospace;cursor:pointer;text-decoration:underline}
-footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3af;flex-shrink:0;z-index:10;position:relative;display:flex;justify-content:space-between;align-items:center}
-#toggle-labels{color:#6b7280;cursor:pointer;text-decoration:none;user-select:none}#toggle-labels:hover{color:#9ca3af}
+#overlay.locked{pointer-events:auto;border-color:var(--brass);animation:press 190ms cubic-bezier(.2,.7,.2,1)}
+/* The stamp: on lock, the card presses in. The only motion in the interface
+   that is not a camera move, and it marks the moment a person committed to
+   reading a specific decision. */
+@keyframes press{from{transform:scale(.985);opacity:.4}to{transform:scale(1);opacity:1}}
+
+.did{font:400 12px var(--serif);color:var(--brass-text);letter-spacing:.06em}
+.dwhat{font:400 16px var(--serif);color:var(--text);line-height:1.36;margin-top:2px}
+.dwhy{font:12.5px var(--ui);color:var(--text-dim);line-height:1.62}
+.dmeta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:2px}
+/* Outlined, not filled. Filled pills read as framework chips; an outline reads
+   as a stamp and lets confidence keep its own colour without shouting. */
+.badge{font:600 9px var(--mono);letter-spacing:.09em;text-transform:uppercase;padding:2px 6px;border:1px solid currentColor;border-radius:2px;background:none}
+.bh{color:#7fa06a}
+.bm{color:#c8974a}
+.bl{color:#bd6a5c}
+.bu{color:var(--text-faint)}
+:root[data-theme="light"] .bh{color:#4a6b38}
+:root[data-theme="light"] .bm{color:#8a5f14}
+:root[data-theme="light"] .bl{color:#8f3a2c}
+.tag{font:9px var(--mono);letter-spacing:.05em;padding:2px 6px;border:1px solid var(--rule);border-radius:2px;background:none;color:var(--text-faint)}
+.dsec{font:9px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint);border-top:1px solid var(--rule);padding-top:9px;margin-top:11px}
+.dsrc{font:11px var(--mono);color:var(--text-dim)}
+.refs{display:flex;flex-direction:column;gap:4px}
+.rl{font:11px var(--mono);color:var(--brass-text);cursor:pointer;text-decoration:none;border-bottom:1px solid var(--rule-firm);align-self:flex-start;transition:border-color var(--t)}
+.rl:hover{border-bottom-color:var(--brass)}
+/* The honest trust line, on the record itself rather than buried in docs. */
+.attest{font:9px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);border-top:1px solid var(--rule);padding-top:9px;margin-top:12px;line-height:1.7}
+
+footer{padding:8px 22px;border-top:1px solid var(--rule);font:11px var(--ui);color:var(--text-faint);flex-shrink:0;z-index:10;position:relative;display:flex;justify-content:space-between;align-items:center;gap:18px}
+footer em{font-family:var(--serif);font-size:12px}
+.fbtns{display:flex;gap:16px;flex-shrink:0}
+#toggle-labels,#toggle-theme{font:9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);cursor:pointer;text-decoration:none;user-select:none;border-bottom:1px solid transparent;transition:color var(--t),border-color var(--t)}
+#toggle-labels:hover,#toggle-theme:hover{color:var(--text);border-bottom-color:var(--rule-firm)}
 </style>
 </head>
 <body>
@@ -150,12 +248,12 @@ footer{padding:6px 20px;border-top:1px solid #111827;font-size:11px;color:#9ca3a
     <div class="li">deep&nbsp;=&nbsp;foundational &middot; high&nbsp;=&nbsp;recent</div>
   </div>
 </header>
-<div class="hint"><strong>Drag</strong> to orbit &nbsp;&middot;&nbsp; <strong>Scroll</strong> to zoom &nbsp;&middot;&nbsp; <strong>Hover</strong> to preview &nbsp;&middot;&nbsp; <strong>Click node</strong> to lock details &nbsp;&middot;&nbsp; <strong>Click reference links</strong> to follow lineage &nbsp;&middot;&nbsp; <strong>Right-drag</strong> to pan</div>
+<div class="hint">Depth is weight. The deeper a decision sits, the more of this record rests on it, and the lines are the references one decision made to another. <b>Hover to read &middot; click to keep open &middot; drag to look around &middot; scroll to zoom</b><span id="aspect-note" hidden> &nbsp;<b>This window is very wide, so the stack reads small. A narrower window, or the <i>core</i> slice, gives a closer view.</b> <a id="aspect-dismiss" onclick="dismissAspectNote()">dismiss</a></span></div>
 <div class="main">
   <div id="graph"></div>
 </div>
 <div id="overlay"></div>
-<footer><span>Source: .irp/ledger.jsonl &nbsp;&middot;&nbsp; Edges = IRP id cross-references in <em>why</em> fields &nbsp;&middot;&nbsp; <code>irp export graph --force</code> to regenerate</span><a id="toggle-labels" onclick="toggleLabels()">Hide IDs</a></footer>
+<footer><span><em>Appended, never rewritten.</em> &nbsp;Every line above was read from a decision's own <em>why</em>, in <code>.irp/ledger.jsonl</code>.</span><span class="fbtns"><a id="toggle-theme" onclick="setTheme(theme==='dark'?'light':'dark')">Paper</a><a id="toggle-labels" onclick="toggleLabels()">Hide IDs</a></span></footer>
 
 <script>
 const decisions = __DECISIONS_JSON__;
@@ -168,13 +266,40 @@ const byId = Object.fromEntries(decisions.map(d => [d.id, d]));
 // bedrock lit in the one reserved accent. Confidence moves to alpha, freeing
 // hue to carry a single meaning the jury can read at a glance.
 const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' }; // retained for reference, no longer the primary encoding
-const SLATE = [99, 108, 126];  // least foundational, still legible on the dark ground
-const BRASS = [193, 155, 96];  // reserved accent: the bedrock
-const CONF_ALPHA = { high: 1.0, medium: 0.82, low: 0.6 };
+// The scene is WebGL, so it cannot read the CSS custom properties the interface
+// uses. These mirror them. Both themes carry the same single accent, brass,
+// spent only on foundation weight.
+const THEMES = {
+  dark: {
+    bg: '#0b0c0f',
+    low: [122, 116, 104], high: [193, 155, 96], locked: '#f7edd6',
+    dimAlpha: 0.32, outOfRange: 0.38,
+    edge: 'rgba(206,196,178,.50)',  edgeArrow: 'rgba(222,212,192,.68)',
+    quiet: 'rgba(190,198,212,.50)', quietArrow: 'rgba(190,198,212,.62)',
+    faint: 'rgba(150,158,172,.30)', faintArrow: 'rgba(150,158,172,.38)',
+    particle: '#f1e7d0',
+    walk: 'rgba(96,165,250,.62)', walkArrow: 'rgba(96,165,250,.9)', walkParticle: '#60a5fa',
+  },
+  light: {
+    bg: '#f2ece0',
+    low: [104, 96, 82], high: [138, 106, 47], locked: '#3a2f18',
+    dimAlpha: 0.60, outOfRange: 0.66,
+    edge: 'rgba(60,54,44,.64)',    edgeArrow: 'rgba(48,42,34,.76)',
+    quiet: 'rgba(64,60,52,.64)',   quietArrow: 'rgba(52,48,42,.74)',
+    faint: 'rgba(80,76,66,.34)',   faintArrow: 'rgba(80,76,66,.42)',
+    particle: '#5c4a26',
+    walk: 'rgba(41,98,180,.6)', walkArrow: 'rgba(41,98,180,.85)', walkParticle: '#2962b4',
+  },
+};
+let theme = 'dark';
+const T = () => THEMES[theme];
+
+const CONF_ALPHA = { high: 1.0, medium: 0.82, low: 0.62 };
 function _lerp(a, b, t) { return Math.round(a + (b - a) * t); }
 function foundationColor(p, alpha) {
   const t = Math.max(0, Math.min(1, Math.sqrt(p)));
-  return `rgba(${_lerp(SLATE[0],BRASS[0],t)},${_lerp(SLATE[1],BRASS[1],t)},${_lerp(SLATE[2],BRASS[2],t)},${alpha})`;
+  const lo = T().low, hi = T().high;
+  return `rgba(${_lerp(lo[0],hi[0],t)},${_lerp(lo[1],hi[1],t)},${_lerp(lo[2],hi[2],t)},${alpha})`;
 }
 
 // ── IRP Dynamics: typed provenance edges + provenance lenses ───────────────
@@ -300,18 +425,18 @@ function nodeValClassic(d) {
 }
 
 function nodeColorBedrock(d) {
-  if (d.id === lockedId) return '#f4e9d0';
+  if (d.id === lockedId) return T().locked;
   // Filter dim wins over search dim. `dimmed` means "outside the range you
   // asked for", a more permanent statement than "not what you just typed".
-  if (d.dimmed) return 'rgba(45,55,72,0.5)';
+  if (d.dimmed) return foundationColor(0, T().outOfRange);
   const pFound = (foundationScores[d.id] || 0) / maxFound;
   const alpha = CONF_ALPHA[d.confidence] || 0.6;
-  if (searchHits && !searchHits.has(d.id)) return foundationColor(pFound, 0.06);
+  if (searchHits && !searchHits.has(d.id)) return foundationColor(pFound, T().dimAlpha);
   if (view === 'lineage' || view === 'impact') {
     if (!seedId) return foundationColor(pFound, alpha);
     const pl = (lensScores[d.id] || 0) / maxLens;
     return pl > 0 ? foundationColor(0.4 + 0.6 * pl, 0.4 + 0.6 * Math.sqrt(pl))
-                  : foundationColor(pFound, alpha * 0.12);
+                  : foundationColor(pFound, Math.max(T().dimAlpha, alpha * 0.12));
   }
   // structure / foundations: colour reads the foundation lens, always.
   return foundationColor(pFound, alpha);
@@ -344,23 +469,25 @@ function isWalk(l) { return view === 'structure' || l.relation === WALK_REL; }
 // it on the struts too made the accent ambiguous, so the edges are neutral
 // slate and stay quiet. Edge TYPE is carried by form (width, and whether
 // anything travels along it), never by competing for the accent hue.
-const EDGE = {
-  depends_on: { color: 'rgba(126,138,157,0.40)', width: 1.5, arrow: 'rgba(150,162,181,0.55)', parts: 3 },
-  gates:      { color: 'rgba(118,130,149,0.24)', width: 1.1, arrow: 'rgba(118,130,149,0.32)', parts: 0 },
-  mentions:   { color: 'rgba(118,130,149,0.13)', width: 0.7, arrow: 'rgba(118,130,149,0.18)', parts: 0 },
+const EDGE_FORM = {
+  depends_on: { width: 1.5, parts: 3, key: 'edge'  },
+  gates:      { width: 1.1, parts: 0, key: 'quiet' },
+  mentions:   { width: 0.7, parts: 0, key: 'faint' },
 };
-// Classic edges: the baseline blue walk / grey non-walk distinction. Opacity is
-// lifted from the library default of 0.2, which rendered these near-invisible in
-// the original too. That was a bug in the baseline, not a look worth preserving.
-const EDGE_CLASSIC = {
-  walk:    { color: 'rgba(96,165,250,0.62)',  width: 1.5, arrow: 'rgba(96,165,250,0.9)',  parts: 3 },
-  nonwalk: { color: 'rgba(107,114,128,0.30)', width: 1.0, arrow: 'rgba(107,114,128,0.35)', parts: 0 },
-};
+// Classic keeps the baseline blue walk / grey non-walk distinction, per theme.
+// Opacity is lifted from the library default of 0.2, which rendered these
+// near-invisible in the original too: a bug, not a look worth preserving.
 function edgeStyle(l) {
-  if (mode === 'classic') return isWalk(l) ? EDGE_CLASSIC.walk : EDGE_CLASSIC.nonwalk;
-  return EDGE[l.relation] || EDGE.mentions;
+  const t = T();
+  if (mode === 'classic') {
+    return isWalk(l)
+      ? { color: t.walk,  width: 1.5, arrow: t.walkArrow,  parts: 3 }
+      : { color: t.quiet, width: 1.0, arrow: t.quietArrow, parts: 0 };
+  }
+  const f = EDGE_FORM[l.relation] || EDGE_FORM.mentions;
+  return { color: t[f.key], width: f.width, arrow: t[f.key + 'Arrow'], parts: f.parts };
 }
-function particleColor() { return mode === 'classic' ? '#60a5fa' : '#d7e0ee'; }
+function particleColor() { return mode === 'classic' ? T().walkParticle : T().particle; }
 
 // ── Slice: what is on screen at all ────────────────────────────────────────
 // At real ledger scale the answer to "is this readable" is not only layout, it
@@ -483,16 +610,18 @@ function setView(next) {
 function setMode(next) {
   if (next === mode) return;
   mode = next;
+  userTookOver = false;
   applyMode();
 }
 
 function setSlice(next) {
+  userTookOver = false;
   // A path slice without a seed would blank the canvas, so it falls back to all
   // and the chrome says why rather than leaving the user staring at nothing.
   slice = (next === 'path' && !seedId) ? 'all' : next;
   applyView();
   framed = false;
-  frameHero();
+  frameHero(true);
 }
 
 computeLens();
@@ -552,7 +681,9 @@ function buildOverlayContent(d) {
     ${refs.length?`<div><div class="dsec">References</div><div class="refs">${
       refs.map(r=>`<span class="rl" onclick="event.stopPropagation();focusNode('${r}')">${r}</span>`).join('')
     }</div></div>`:''}
-    ${overlayLocked?`<div style="margin-top:8px;font-size:10px;color:#374151">Click node again or background to dismiss</div>`:'<div style="margin-top:8px;font-size:10px;color:#374151">Click to lock &middot; links become clickable</div>'}
+    <div class="attest">Appended, never rewritten${d.timestamp?` &middot; recorded ${esc(String(d.timestamp).slice(0,10))}`:''}<br>
+      ${overlayLocked ? 'Click the decision again, or the background, to close'
+                      : 'Click to keep this open and follow its references'}</div>
   `;
 }
 
@@ -576,7 +707,8 @@ function clearOverlay() {
 const graphEl = document.getElementById('graph');
 
 const Graph = ForceGraph3D({ controlType: 'orbit' })(graphEl)
-  .backgroundColor('#0f1117')
+  .backgroundColor(THEMES.dark.bg)
+  .showNavInfo(false)   // stock nav copy; the hint bar says this in our own words
   .graphData({ nodes, links })
 
   // Nodes — no library tooltip; overlay handles all interaction
@@ -649,8 +781,16 @@ function resetIdle() {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => { if (!nodeHovered) controls.autoRotate = true; }, idleMs);
 }
-graphEl.addEventListener('pointerdown', resetIdle);
-graphEl.addEventListener('wheel', resetIdle);
+function claimCamera() { userTookOver = true; resetIdle(); }
+graphEl.addEventListener('pointerdown', claimCamera);
+graphEl.addEventListener('wheel', claimCamera);
+// Moving the cursor over the canvas counts as being present: it holds the drift
+// off without claiming the camera. Throttled, since this fires constantly.
+let lastMove = 0;
+graphEl.addEventListener('pointermove', () => {
+  const now = Date.now();
+  if (now - lastMove > 200) { lastMove = now; resetIdle(); }
+});
 resetIdle();   // arm it on load, so the drift begins a few seconds in
 
 // ── Foundation gravity ────────────────────────────────────────────────────
@@ -737,7 +877,16 @@ function strataForce() {
   // pinned to the exact strata span and the layout never relaxed.
   const f = () => {
     if (mode !== 'bedrock') return;
-    for (const n of ns) { n.y = stratumY(n); n.vy = 0; }
+    for (const n of ns) {
+      n.y = stratumY(n); n.vy = 0;
+      // Soft wall at SPREAD: keeps the cross-section a bounded composition
+      // instead of one that slowly inflates past its own frame.
+      const r = Math.hypot(n.x || 0, n.z || 0);
+      if (r > SPREAD) {
+        const k = SPREAD / r;
+        n.x *= k; n.z *= k; n.vx = 0; n.vz = 0;
+      }
+    }
   };
   f.initialize = _ns => { ns = _ns; };
   return f;
@@ -763,6 +912,12 @@ let viewW = 0, viewH = 0;   // the size actually handed to the renderer
 // Two signals, because neither alone is sufficient: onEngineTick proves the
 // layout exists but does not fire in every build, and the timer is a floor that
 // is comfortably past the library's first refresh.
+// Set the moment the viewer takes the camera. After that, nothing auto-frames:
+// the layout settling, a timer, or a window resize must never snap the view back
+// while someone is reading, which is what made it feel like it "reverted to a
+// default mode". Explicit view changes (mode, slice, theme) reset this, because
+// there the viewer is asking for a fresh look.
+let userTookOver = false;
 let booted = false;
 Graph.onEngineTick(() => { booted = true; });
 setTimeout(() => { booted = true; }, 1500);
@@ -770,8 +925,9 @@ function safeReheat() {
   if (!booted) return;   // the first layout pass is about to run on its own
   try { Graph.d3ReheatSimulation(); } catch (e) { /* layout not ready; harmless */ }
 }
-function frameHero() {
-  if (framed) return;
+function frameHero(force) {
+  if (!force && userTookOver) return;   // the viewer owns the camera now
+  if (framed && !force) return;
   if (!viewW || !viewH) return;  // wait until the renderer has a real size
   framed = true;
   // Frame what is actually on screen, so narrowing to a slice reframes to it
@@ -792,21 +948,106 @@ function frameHero() {
   const fov = ((Graph.camera() && Graph.camera().fov) || 50) * Math.PI / 180;
   const t = Math.tan(fov / 2);
   const aspect = Math.max(0.35, viewW / viewH);
-  const D = Math.max(halfV / t, halfH / (t * aspect)) * 1.18 + 60;
+  // The `+ halfH` term is perspective, and leaving it out was clipping the top
+  // of the composition. Framing on the extents alone assumes every node sits at
+  // the centre plane, but the nearest ones are up to halfH closer to the camera,
+  // so their offsets are magnified (a node 490 nearer at D~1100 is scaled ~1.8x)
+  // and they leave the frame. Solving at the NEAR plane instead of the centre
+  // plane is what makes the whole stack fit at any rotation.
   const theta = -0.44;   // ~25 degrees off dead-on
   // Applied with no transition on purpose. A tweened move depends on the
   // animation loop actually running, and the very first frame is the one that
   // has to read as an anchored cross-section, not a camera still travelling.
-  Graph.cameraPosition(
-    { x: D * Math.sin(theta), y: cy + span * 0.06, z: D * Math.cos(theta) },
+  const place = (dist, th) => Graph.cameraPosition(
+    { x: dist * Math.sin(th), y: cy + span * 0.06, z: dist * Math.cos(th) },
     { x: 0, y: cy, z: 0 },
     0
   );
+
+  // Measured across a full turn, not derived. Three closed-form attempts were
+  // each wrong about something (viewport aspect, then near-node magnification,
+  // then the tilt from looking slightly down), and measuring at only the current
+  // angle is no better, because the idle drift keeps turning the composition: a
+  // fit that holds now fails a second later.
+  //
+  // So the test is the honest one. Try a distance, sample the projection at
+  // angles all the way round, and accept it only when every visible node stays
+  // inside the frame at every angle. The radial bound in strataForce is what
+  // keeps this convergent. The margin covers the ID label, drawn above its node
+  // and therefore clipped before the node is.
+  // Moving the camera is not enough to measure against it: three.js only
+  // recomputes the camera's world matrix on render, and graph2ScreenCoords
+  // projects through that matrix. Without this the fitter reads the PREVIOUS
+  // camera every iteration, never sees its own correction, and runs away to
+  // absurd distances while still reporting a clipped node. This one line is what
+  // made the whole measured approach work.
+  const syncCamera = () => {
+    const cam = Graph.camera();
+    if (cam) { cam.updateProjectionMatrix(); cam.updateMatrixWorld(true); }
+  };
+
+  // Framed from the composition's BOUNDS, not from a measurement of where the
+  // nodes happen to be right now. This is the fix that finally holds, and it
+  // works because the layout is bounded by construction: height can never exceed
+  // STRATA and radius is clamped to SPREAD by strataForce. Those are constants,
+  // so the distance is deterministic and cannot be thrown off by when it is
+  // called.
+  //
+  // Everything else tried here failed on timing or on stale state. Closed-form
+  // attempts from measured extents were wrong three times (aspect, then
+  // near-node magnification, then the downward tilt). Measuring the projection
+  // synchronously is invalid, because cameraPosition moves the camera while
+  // OrbitControls applies its ORIENTATION on the next render. And zoomToFit
+  // frames whatever bounding box exists at the instant it runs, which on load is
+  // not the settled one, so it left the camera far too close.
+  //
+  // The + halfH term is perspective: the nearest nodes sit that much closer than
+  // the centre plane, so their offsets are magnified. Solving at the near plane
+  // covers every rotation angle at once. The 1.15 is measured headroom, verified
+  // clipping-free at 16 angles round a full turn.
+  const halfVb = Math.max(halfV, STRATA / 2);
+  const halfHb = Math.max(halfH, SPREAD);
+  // On a very wide window the vertical extent is what binds, so the piece ends
+  // up small with unused width either side. Trimming the headroom there is the
+  // middle ground: it fills more of the frame, and the horizontal slack absorbs
+  // the risk. Verified clipping-free at 16 angles at both settings.
+  const headroom = aspect > 2.0 ? 1.06 : 1.15;
+  const D = (Math.max(halfVb / t, halfHb / (t * aspect)) + halfHb) * headroom;
+  place(D, theta);
+  syncCamera();
 }
-// Do not depend on the engine ever reporting a stop.
-Graph.onEngineStop(frameHero);
+// Reframe on settle, not just once: the first frame is computed while the
+// layout is still moving, so the extents it used are provisional.
+Graph.onEngineStop(() => { if (userTookOver) return; framed = false; frameHero(); });
 setTimeout(frameHero, 1200);
 setTimeout(frameHero, 3000);
+
+// All colour accessors in one place, so a mode change and a theme change reach
+// the scene by the same path and cannot drift apart.
+function restyle() {
+  Graph.nodeColor(nodeColor).nodeVal(nodeVal)
+    .linkColor(l => edgeStyle(l).color)
+    .linkWidth(l => edgeStyle(l).width)
+    .linkDirectionalArrowColor(l => edgeStyle(l).arrow)
+    .linkDirectionalParticles(l => edgeStyle(l).parts)
+    .linkDirectionalParticleColor(particleColor);
+}
+
+// Theme switching restyles only. It deliberately does NOT re-commit the data or
+// reframe: changing how the record looks must not disturb where you were
+// reading, which is also why the camera and the layout are left alone.
+function setTheme(next) {
+  theme = (next === 'light') ? 'light' : 'dark';
+  const root = document.documentElement;
+  root.classList.add('theme-swap');
+  root.setAttribute('data-theme', theme);
+  // Two frames: one for the swap to paint, one before transitions come back.
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-swap')));
+  Graph.backgroundColor(T().bg);
+  restyle();
+  const el = document.getElementById('toggle-theme');
+  if (el) el.textContent = theme === 'dark' ? 'Paper' : 'Ink';
+}
 
 // Every per-mode difference lives here, physics and styling together, so a
 // switch can never leave half the previous mode's encoding behind.
@@ -844,12 +1085,7 @@ function applyMode() {
     controls.autoRotateSpeed = 0.32;
     idleMs = 4500;
   }
-  Graph.nodeColor(nodeColor).nodeVal(nodeVal)
-    .linkColor(l => edgeStyle(l).color)
-    .linkWidth(l => edgeStyle(l).width)
-    .linkDirectionalArrowColor(l => edgeStyle(l).arrow)
-    .linkDirectionalParticles(l => edgeStyle(l).parts)
-    .linkDirectionalParticleColor(particleColor);
+  restyle();
   // Re-commit the data so the layout is genuinely rebuilt under the new forces.
   // Reheating alone was not enough: an already-cooled simulation stays exactly
   // where it stopped, so switching modes changed the colours but left the old
@@ -883,12 +1119,26 @@ Graph.onNodeHover(node => {
 // canvas draws no geometry while the DOM labels keep painting, which looks
 // exactly like "the graph is broken, only the IDs show up". Fall back to the
 // document size, and watch the container so a late layout gets picked up.
+let aspectNoteDismissed = false;
+function dismissAspectNote() {
+  aspectNoteDismissed = true;
+  const note = document.getElementById('aspect-note');
+  if (note) note.hidden = true;
+}
+
 function resize() {
   const w = graphEl.clientWidth  || document.documentElement.clientWidth  || 1000;
   const h = graphEl.clientHeight || Math.max(360, (document.documentElement.clientHeight || 760) - 150);
+  const changed = Math.abs(w - viewW) > 8 || Math.abs(h - viewH) > 8;
+  const note = document.getElementById('aspect-note');
+  if (note && !aspectNoteDismissed) note.hidden = (w / Math.max(1, h)) < 2.4;
   viewW = w; viewH = h;
   Graph.width(w).height(h);
-  frameHero();   // no-op until the renderer has a real size, then frames once
+  // Re-frame on a real size change. Framing once was not enough: the chrome
+  // reflows after first paint (font metrics, a wrapped header row), which left
+  // the composition framed for a taller canvas and clipped its top labels.
+  if (changed && !userTookOver) framed = false;
+  frameHero();
 }
 window.addEventListener('resize', resize);
 if (window.ResizeObserver) new ResizeObserver(resize).observe(graphEl);
