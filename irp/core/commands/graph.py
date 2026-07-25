@@ -213,6 +213,22 @@ h1::before{content:"";width:7px;height:7px;background:var(--brass);flex-shrink:0
 /* The honest trust line, on the record itself rather than buried in docs. */
 .attest{font:9px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);border-top:1px solid var(--rule);padding-top:9px;margin-top:12px;line-height:1.7}
 
+/* Mobile: the record is a sheet, not a floating card. */
+@media (max-width:640px){
+  #overlay{left:10px !important;right:10px;top:auto !important;bottom:10px;
+           max-width:none;width:auto;max-height:min(58vh,420px)}
+  /* Drop the pointer instructions: they describe a mouse, and the sentence that
+     explains how to READ the graph is the part that still applies. */
+  .hint b{display:none}
+  .hint{font-size:12px;padding:8px 14px}
+  header{padding:11px 14px;gap:10px}
+  #modebar{margin-left:0;padding-left:0;border-left:none}
+  .search{margin-left:0;width:100%}
+  #q{width:100%}
+  #q:focus{width:100%}
+  #hits{width:auto;left:0;right:0}
+  footer{padding:8px 14px;font-size:10px;gap:10px}
+}
 footer{padding:8px 22px;border-top:1px solid var(--rule);font:11px var(--ui);color:var(--text-faint);flex-shrink:0;z-index:10;position:relative;display:flex;justify-content:space-between;align-items:center;gap:18px}
 footer em{font-family:var(--serif);font-size:12px}
 .fbtns{display:flex;gap:16px;flex-shrink:0}
@@ -642,14 +658,24 @@ window.addEventListener('mousemove', e => {
 });
 
 function positionOverlay() {
+  // Below this width the stylesheet pins the record to the bottom of the screen,
+  // so leave its position alone entirely.
+  if (window.innerWidth <= 640) {
+    overlay.style.left = '';
+    overlay.style.top = '';
+    return;
+  }
   const margin = 14;
-  const ow = Math.min(380, window.innerWidth - margin * 2);
+  const ow = overlay.offsetWidth || Math.min(390, window.innerWidth - margin * 2);
+  const oh = overlay.offsetHeight || 200;
   let left = cursorX + 18;
   let top  = cursorY - 18;
-  if (left + ow > window.innerWidth  - margin) left = cursorX - ow - 18;
-  const oh = overlay.offsetHeight || 200;
+  if (left + ow > window.innerWidth - margin) left = cursorX - ow - 18;
   if (top + oh > window.innerHeight - margin) top = window.innerHeight - oh - margin;
-  if (top < margin) top = margin;
+  // Clamp both axes. Without the left clamp a tap near the right edge put the
+  // card at a negative x and its first characters were cut off the screen.
+  left = Math.max(margin, Math.min(left, window.innerWidth - ow - margin));
+  top  = Math.max(margin, top);
   overlay.style.left = left + 'px';
   overlay.style.top  = top  + 'px';
 }
@@ -1143,7 +1169,7 @@ function resize() {
   if (changed && !userTookOver) framed = false;
   frameHero();
 }
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); if (overlay.style.display === 'block') positionOverlay(); });
 if (window.ResizeObserver) new ResizeObserver(resize).observe(graphEl);
 resize();
 refreshChrome();
