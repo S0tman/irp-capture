@@ -1458,20 +1458,42 @@ def build_graph_html(
 
     title = f"IRP Decision Graph{(' — ' + title_suffix) if title_suffix else ''}"
     typed_edges = dynamics.derive_typed_edges(decisions)
-    html = (
+    # Title first: these are literal markers, not placeholders, and they cannot
+    # collide with ledger text.
+    shell = (
         _HTML_TEMPLATE
         .replace("<title>IRP Decision Graph</title>", f"<title>{title}</title>")
         .replace("<h1>IRP Decision Graph</h1>", f"<h1>{title}</h1>")
-        .replace("__GENERATED_AT__", generated_at)
-        .replace("__DECISION_COUNT__", str(len(decisions)))
-        .replace("__EDGE_COUNT__", str(edge_count))
-        .replace("__FILTER_BADGE__", filter_badge)
-        .replace("__DECISIONS_JSON__", decisions_json)
-        .replace("__EDGES_JSON__", json.dumps(typed_edges, ensure_ascii=False))
-        .replace("__INITIAL_VIEW__", dynamics.STRUCTURE_VIEW)
-        .replace("__INITIAL_SEED__", "")
     )
-    return html
+    return _fill_template(shell, {
+        "__GENERATED_AT__": generated_at,
+        "__DECISION_COUNT__": str(len(decisions)),
+        "__EDGE_COUNT__": str(edge_count),
+        "__FILTER_BADGE__": filter_badge,
+        "__DECISIONS_JSON__": decisions_json,
+        "__EDGES_JSON__": json.dumps(typed_edges, ensure_ascii=False),
+        "__INITIAL_VIEW__": dynamics.STRUCTURE_VIEW,
+        "__INITIAL_SEED__": "",
+    })
+
+
+def _fill_template(template: str, values: dict[str, str]) -> str:
+    """Substitute every placeholder in ONE pass.
+
+    Chained str.replace calls are unsafe here, because a ledger is allowed to
+    contain any text at all, including this template's own placeholder tokens. A
+    decision that quotes `__EDGES_JSON__` in its `why` gets inserted by the
+    earlier `__DECISIONS_JSON__` replacement, and the later one then rewrites the
+    text INSIDE that decision, corrupting the embedded JSON and leaving a page
+    whose script cannot parse. Found by dogfooding: a capture describing this very
+    substitution broke the author's own graph.
+
+    A single regex pass fixes it, because re.sub never rescans what it inserted.
+    Placeholder tokens that appear in ledger text therefore survive as literal
+    text, which is what a record should do.
+    """
+    pattern = re.compile("|".join(re.escape(k) for k in sorted(values, key=len, reverse=True)))
+    return pattern.sub(lambda m: values[m.group(0)], template)
 
 
 def _is_decision(entry: dict[str, Any]) -> bool:
@@ -1660,17 +1682,16 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     edge_count = _count_edges(decisions)
     decisions_json = json.dumps(decisions, ensure_ascii=False)
 
-    html = (
-        _HTML_TEMPLATE
-        .replace("__GENERATED_AT__", generated_at)
-        .replace("__DECISION_COUNT__", str(len(decisions)))
-        .replace("__EDGE_COUNT__", str(edge_count))
-        .replace("__FILTER_BADGE__", filter_badge)
-        .replace("__DECISIONS_JSON__", decisions_json)
-        .replace("__EDGES_JSON__", json.dumps(typed_edges, ensure_ascii=False))
-        .replace("__INITIAL_VIEW__", view)
-        .replace("__INITIAL_SEED__", seed or "")
-    )
+    html = _fill_template(_HTML_TEMPLATE, {
+        "__GENERATED_AT__": generated_at,
+        "__DECISION_COUNT__": str(len(decisions)),
+        "__EDGE_COUNT__": str(edge_count),
+        "__FILTER_BADGE__": filter_badge,
+        "__DECISIONS_JSON__": decisions_json,
+        "__EDGES_JSON__": json.dumps(typed_edges, ensure_ascii=False),
+        "__INITIAL_VIEW__": view,
+        "__INITIAL_SEED__": seed or "",
+    })
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
