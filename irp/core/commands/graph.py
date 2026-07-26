@@ -261,8 +261,8 @@ footer em{font-family:var(--serif);font-size:12px}
     <div id="hits"></div>
   </div>
   <div class="legend">
-    <div class="li"><div class="dot" style="background:#b08d57"></div>most load-bearing</div>
-    <div class="li"><div class="dot" style="background:#3a4150"></div>rests on others</div>
+    <div class="li"><div class="dot" id="lg-high"></div>most load-bearing</div>
+    <div class="li"><div class="dot" id="lg-low"></div>rests on others</div>
     <div class="li">deep&nbsp;=&nbsp;foundational &middot; high&nbsp;=&nbsp;recent</div>
   </div>
 </header>
@@ -300,7 +300,18 @@ const THEMES = {
   },
   light: {
     bg: '#f2ece0',
-    low: [104, 96, 82], high: [138, 106, 47], locked: '#3a2f18',
+    // On paper the ramp has to run the other way round from ink. Against a
+    // near-black background a decision stands out by getting BRIGHTER, so dark
+    // theme runs muted-grey to bright brass. Against cream it stands out by
+    // getting DARKER, so paper runs light warm grey to deep brass.
+    //
+    // These were previously [104,96,82] -> [138,106,47], which was wrong twice
+    // over: the whole ramp spanned 12 units of luminance against a background
+    // sitting at 236, and the low end was DARKER than the high end, so the
+    // least load-bearing decisions read as the most prominent. The encoding was
+    // inverted and nearly invisible at the same time, which is why it could
+    // only be read in classic view.
+    low: [168, 160, 146], high: [120, 84, 22], locked: '#3a2f18',
     dimAlpha: 0.60, outOfRange: 0.66,
     edge: 'rgba(60,54,44,.64)',    edgeArrow: 'rgba(48,42,34,.76)',
     quiet: 'rgba(64,60,52,.64)',   quietArrow: 'rgba(52,48,42,.74)',
@@ -1074,8 +1085,21 @@ function setTheme(next) {
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-swap')));
   Graph.backgroundColor(T().bg);
   restyle();
+  syncLegend();
   const el = document.getElementById('toggle-theme');
   if (el) el.textContent = theme === 'dark' ? 'Paper' : 'Ink';
+}
+
+// The legend swatches used to be two hardcoded hexes that matched neither
+// theme's ramp, so on paper they claimed a colour scheme the scene was not
+// using. Reading them from the live theme means the key cannot drift from what
+// is actually on screen, whichever way the ramp runs.
+function syncLegend() {
+  const t = T();
+  const hi = document.getElementById('lg-high');
+  const lo = document.getElementById('lg-low');
+  if (hi) hi.style.background = `rgb(${t.high.join(',')})`;
+  if (lo) lo.style.background = `rgb(${t.low.join(',')})`;
 }
 
 // Every per-mode difference lives here, physics and styling together, so a
@@ -1128,6 +1152,7 @@ function applyMode() {
   setTimeout(frameHero, 900);
 }
 applyMode();   // install the default mode's physics and styling authoritatively
+syncLegend();  // paint the key from the live theme, not from a hardcoded guess
 
 // Reading a node must not fight a moving camera, so hovering stops the drift
 // outright and leaving re-arms the idle timer.
