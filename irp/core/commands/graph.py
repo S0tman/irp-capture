@@ -8,7 +8,7 @@ Design rules:
   - No new schema. Reads .irp/ledger.jsonl only.
   - No LLM calls. No inference. Deterministic mapping only.
   - Edges derived from IRP id references in 'why' fields (regex only).
-  - Single self-contained HTML — 3d-force-graph (Three.js/WebGL) via CDN.
+  - Single self-contained HTML — 3d-force-graph (Three.js/WebGL) inlined.
   - Drag to orbit the globe. Scroll to zoom. Click to inspect.
   - Animated particles travel along provenance edges.
   - Date/project filters dim out-of-range nodes without removing them.
@@ -26,13 +26,64 @@ from store import read_ledger
 
 IRP_ID_RE = re.compile(r"\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b")
 
+_FORCE_GRAPH_URL = "https://unpkg.com/3d-force-graph@1/dist/3d-force-graph.min.js"
+_FORCE_GRAPH_CDN_TAG = f'<script src="{_FORCE_GRAPH_URL}"></script>'
+
+
+def _force_graph_cache() -> Path:
+    """Where the rendering library is kept once fetched.
+
+    Cached under the user's home rather than vendored into this repository:
+    it is 1.3 MB of minified third-party JavaScript that changes only when the
+    pin changes, and carrying it in-tree would dominate the diff of a protocol
+    project whose own source is a fraction of that size.
+    """
+    return Path.home() / ".irp" / "vendor" / "3d-force-graph-v1.min.js"
+
+
+def _force_graph_script() -> tuple[str, str]:
+    """Return (script_markup, note) with the library inlined where possible.
+
+    An exported graph is meant to be a record you can hand to someone, and a
+    record that silently needs a CDN is not one: opened offline, or after
+    unpkg has moved on, it renders a blank page rather than the decisions.
+    The library is therefore embedded in the file.
+
+    Fetched once and cached, so later exports work with no network at all. If
+    there is no cache and no connection, fall back to the CDN tag rather than
+    failing the export, and say so, because a graph that needs the internet
+    beats no graph.
+    """
+    cache = _force_graph_cache()
+
+    if not cache.exists():
+        try:
+            import urllib.request
+
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            with urllib.request.urlopen(_FORCE_GRAPH_URL, timeout=30) as response:
+                cache.write_bytes(response.read())
+        except Exception as exc:  # noqa: BLE001 - any failure means fall back
+            return _FORCE_GRAPH_CDN_TAG, f"library not cached, kept CDN link ({exc})"
+
+    try:
+        source = cache.read_text(encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        return _FORCE_GRAPH_CDN_TAG, f"cache unreadable, kept CDN link ({exc})"
+
+    # A literal </script> inside the library text would close this tag early.
+    source = source.replace("</script>", "<\\/script>")
+    size_kb = len(source.encode("utf-8")) // 1024
+    return f"<script>{source}</script>", f"inlined ({size_kb} KB, no network needed)"
+
+
 _HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IRP Decision Graph</title>
-<script src="https://unpkg.com/3d-force-graph@1/dist/3d-force-graph.min.js"></script>
+__FORCE_GRAPH_SCRIPT__
 <style>
 /* ─── IRP graph identity ───────────────────────────────────────────────────
    The layout work made the graph say something. This makes the INTERFACE say
@@ -1517,6 +1568,7 @@ def build_graph_html(
     typed_edges = dynamics.derive_typed_edges(decisions)
     # Title first: these are literal markers, not placeholders, and they cannot
     # collide with ledger text.
+    force_graph_markup, _ = _force_graph_script()
     shell = (
         _HTML_TEMPLATE
         .replace("<title>IRP Decision Graph</title>", f"<title>{title}</title>")
@@ -1531,6 +1583,7 @@ def build_graph_html(
         "__EDGES_JSON__": json.dumps(typed_edges, ensure_ascii=False),
         "__INITIAL_VIEW__": dynamics.STRUCTURE_VIEW,
         "__INITIAL_SEED__": "",
+        "__FORCE_GRAPH_SCRIPT__": force_graph_markup,
     })
 
 
@@ -1738,6 +1791,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     edge_count = _count_edges(decisions)
     decisions_json = json.dumps(decisions, ensure_ascii=False)
+    force_graph_markup, force_graph_note = _force_graph_script()
 
     html = _fill_template(_HTML_TEMPLATE, {
         "__GENERATED_AT__": generated_at,
@@ -1748,6 +1802,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "__EDGES_JSON__": json.dumps(typed_edges, ensure_ascii=False),
         "__INITIAL_VIEW__": view,
         "__INITIAL_SEED__": seed or "",
+        "__FORCE_GRAPH_SCRIPT__": force_graph_markup,
     })
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1773,6 +1828,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     if filter_note:
         detail_lines.append(filter_note)
     detail_lines.append(f"Edges:  {edge_count} provenance reference(s) with animated particles")
+    detail_lines.append(f"Render: 3d-force-graph {force_graph_note}")
 
     if analysis is not None:
         walked = rel_counts.get(dynamics.WALK_RELATION, 0)
