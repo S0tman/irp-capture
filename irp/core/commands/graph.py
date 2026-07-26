@@ -290,7 +290,13 @@ const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' }; // re
 const THEMES = {
   dark: {
     bg: '#0b0c0f',
-    low: [122, 116, 104], high: [193, 155, 96], locked: '#f7edd6',
+    // Slate to brass, which is what the encoding has always claimed to be. The
+    // low end used to be a warm grey [122,116,104], only a hue step away from
+    // the brass it was supposed to contrast with, so the scale carried almost
+    // no signal beyond a slight brightening. Cool-to-warm gives the reading a
+    // second channel: a load-bearing decision is both warmer and brighter, and
+    // either one alone is enough to see it.
+    low: [74, 84, 102], high: [214, 172, 100], locked: '#f7edd6',
     dimAlpha: 0.32, outOfRange: 0.38,
     edge: 'rgba(206,196,178,.50)',  edgeArrow: 'rgba(222,212,192,.68)',
     quiet: 'rgba(190,198,212,.50)', quietArrow: 'rgba(190,198,212,.62)',
@@ -311,7 +317,7 @@ const THEMES = {
     // least load-bearing decisions read as the most prominent. The encoding was
     // inverted and nearly invisible at the same time, which is why it could
     // only be read in classic view.
-    low: [168, 160, 146], high: [120, 84, 22], locked: '#3a2f18',
+    low: [158, 166, 180], high: [112, 74, 14], locked: '#3a2f18',
     dimAlpha: 0.60, outOfRange: 0.66,
     edge: 'rgba(60,54,44,.64)',    edgeArrow: 'rgba(48,42,34,.76)',
     quiet: 'rgba(64,60,52,.64)',   quietArrow: 'rgba(52,48,42,.74)',
@@ -325,8 +331,13 @@ const T = () => THEMES[theme];
 
 const CONF_ALPHA = { high: 1.0, medium: 0.82, low: 0.62 };
 function _lerp(a, b, t) { return Math.round(a + (b - a) * t); }
+// `p` arrives already stretched across the range present in the record (see
+// spread()), so it is used linearly here. The sqrt that used to sit on this
+// line was compounding the problem it looked like it was solving: applied to a
+// value already bunched near the top, it pushed the whole record higher still,
+// so a node at 29% of maximum rendered at 54% of the ramp.
 function foundationColor(p, alpha) {
-  const t = Math.max(0, Math.min(1, Math.sqrt(p)));
+  const t = Math.max(0, Math.min(1, p));
   const lo = T().low, hi = T().high;
   return `rgba(${_lerp(lo[0],hi[0],t)},${_lerp(lo[1],hi[1],t)},${_lerp(lo[2],hi[2],t)},${alpha})`;
 }
@@ -388,8 +399,28 @@ function pagerank(seed, reverse) {
 // active lens probability. Confidence stays its own colour dimension.
 const foundationScores = pagerank(null, false);
 const maxFound = Math.max(1e-12, ...Object.values(foundationScores));
+let minFound = Math.min(...Object.values(foundationScores));
+
+// Normalise a score across the range actually present, not from zero.
+//
+// PageRank on a sparse ledger gives every node that nothing depends on the
+// same floor score, and that floor is a long way above zero. Dividing by the
+// maximum therefore squeezed the whole record into the top of the ramp: on a
+// 20-decision ledger with 5 depends_on edges, 16 nodes shared one identical
+// colour and nothing used the lower half of the scale at all. Widening the
+// palette could not fix that, because the palette was never the problem.
+//
+// Stretching from the observed minimum instead means the least load-bearing
+// decisions actually reach the low end. Ties stay tied, which matters: those
+// 16 decisions genuinely are equally un-depended-upon, and spreading them by
+// rank would invent an ordering the record does not contain.
+function spread(score, lo, hi) {
+  if (!(hi > lo)) return 1;
+  return Math.max(0, Math.min(1, (score - lo) / (hi - lo)));
+}
 let lensScores = {};
 let maxLens = 1e-12;
+let minLens = 0;
 
 // Decisions ordered by foundation weight, ties broken oldest first. Used by both
 // the strata heights and the label budget, so the two can never disagree.
@@ -419,6 +450,7 @@ function computeLens() {
   else lensScores = {};
   const vals = Object.values(lensScores);
   maxLens = vals.length ? Math.max(1e-12, ...vals) : 1e-12;
+  minLens = vals.length ? Math.min(...vals) : 0;
 }
 
 function linksForView() {
@@ -458,12 +490,12 @@ function nodeColorBedrock(d) {
   // Filter dim wins over search dim. `dimmed` means "outside the range you
   // asked for", a more permanent statement than "not what you just typed".
   if (d.dimmed) return foundationColor(0, T().outOfRange);
-  const pFound = (foundationScores[d.id] || 0) / maxFound;
+  const pFound = spread(foundationScores[d.id] || 0, minFound, maxFound);
   const alpha = CONF_ALPHA[d.confidence] || 0.6;
   if (searchHits && !searchHits.has(d.id)) return foundationColor(pFound, T().dimAlpha);
   if (view === 'lineage' || view === 'impact') {
     if (!seedId) return foundationColor(pFound, alpha);
-    const pl = (lensScores[d.id] || 0) / maxLens;
+    const pl = spread(lensScores[d.id] || 0, minLens, maxLens);
     return pl > 0 ? foundationColor(0.4 + 0.6 * pl, 0.4 + 0.6 * Math.sqrt(pl))
                   : foundationColor(pFound, Math.max(T().dimAlpha, alpha * 0.12));
   }
