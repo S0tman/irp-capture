@@ -160,6 +160,39 @@ class TestNextIrpId:
         ledger = [{"id": "IRP-x"}]  # no timestamp
         assert next_irp_id(ledger) == f"IRP-{today}-001"
 
+    def test_backdated_timestamp_still_increments_the_sequence(self):
+        """
+        Regression: the sequence used to be counted from entries whose
+        `timestamp` was today, while the id was named from today's date. A
+        record captured today but carrying a backdated timestamp, the date the
+        decision was actually taken, therefore never incremented the counter,
+        and the next capture reused its number. Seeding one project's ledger
+        with true decision dates produced fourteen records sharing one id.
+        """
+        from datetime import date
+        today = date.today().isoformat()
+        ledger = [
+            {"id": f"IRP-{today}-001", "timestamp": "2026-07-23"},
+            {"id": f"IRP-{today}-002", "timestamp": "2026-07-25"},
+        ]
+        assert next_irp_id(ledger) == f"IRP-{today}-003"
+
+    def test_sequence_survives_a_gap(self):
+        """max + 1, not count + 1, so a hand-removed entry cannot cause a collision."""
+        from datetime import date
+        today = date.today().isoformat()
+        ledger = [
+            {"id": f"IRP-{today}-001", "timestamp": today},
+            {"id": f"IRP-{today}-007", "timestamp": today},
+        ]
+        assert next_irp_id(ledger) == f"IRP-{today}-008"
+
+    def test_malformed_ids_with_todays_prefix_are_ignored(self):
+        from datetime import date
+        today = date.today().isoformat()
+        ledger = [{"id": f"IRP-{today}-abc", "timestamp": today}]
+        assert next_irp_id(ledger) == f"IRP-{today}-001"
+
 
 # ── rebuild_current ───────────────────────────────────────────────────────────
 

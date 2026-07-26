@@ -42,10 +42,34 @@ def append_ledger_entry(irp_dir: Path, entry: dict[str, Any]) -> None:
 
 
 def next_irp_id(ledger: list[dict[str, Any]]) -> str:
-    """Return the next sequential IRP-YYYY-MM-DD-NNN id for today."""
+    """Return the next sequential IRP-YYYY-MM-DD-NNN id for today.
+
+    The sequence is counted from existing *ids* carrying today's prefix, not
+    from entries whose `timestamp` is today. Those are not the same thing: a
+    record may legitimately carry a backdated timestamp, the date the decision
+    was actually taken, while being captured today. Counting timestamps meant
+    such a record never incremented the counter, so the next capture reused
+    the same number and duplicate ids appeared in an append-only ledger.
+    Seeding one project's ledger with true decision dates produced fourteen
+    records sharing IRP-2026-07-26-001.
+
+    Taking max + 1 rather than a count also survives gaps, so a ledger that
+    has had an entry removed by hand still allocates a fresh id rather than
+    colliding with the highest one already present.
+    """
     today = date.today().isoformat()
-    todays_entries = [x for x in ledger if str(x.get("timestamp", "")).startswith(today)]
-    seq = len(todays_entries) + 1
+    prefix = f"IRP-{today}-"
+
+    used: list[int] = []
+    for entry in ledger:
+        entry_id = str(entry.get("id", ""))
+        if not entry_id.startswith(prefix):
+            continue
+        suffix = entry_id[len(prefix):]
+        if suffix.isdigit():
+            used.append(int(suffix))
+
+    seq = max(used) + 1 if used else 1
     return f"IRP-{today}-{seq:03d}"
 
 
