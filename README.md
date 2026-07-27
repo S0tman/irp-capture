@@ -322,6 +322,20 @@ typed edges and runs the same PageRank the CLI uses. Explore the
 [live, draggable 3D version](https://book.irp-compliance.xyz/demo-graph.html), or
 run `irp export graph --demo` to make your own.
 
+### Applied to a record you already know
+
+The demo above is IRP reading its own reasoning. To see the same engine on a real,
+documented record, there is a worked example built from
+[Sweden's pandemic decisions, 2020 to 2022](https://book.irp-compliance.xyz/sweden-2020.html):
+25 decisions, every one carrying its source and a confidence.
+
+It is a **reconstruction**, assembled from public sources and carrying no
+attestation, which is why it is exported with `--reconstruction` and uses its own
+`SE-` id namespace. It takes no position on whether Sweden was right. Where the
+sources disagree, and on the central questions they do, the graph shows the
+disagreement rather than resolving it. Source data and method:
+[`examples/sweden-2020/`](examples/sweden-2020/).
+
 ## Get started
 
 ```bash

@@ -1,0 +1,552 @@
+{
+  "_meta": {
+    "title": "Sweden's pandemic decisions, 2020 to 2022",
+    "kind": "RECONSTRUCTION",
+    "not_an_irp_record": "These are reconstructed from public sources. They were NOT captured through IRP at the time, carry no attestation, and must never be presented with the 'appended, never rewritten' language reserved for attested records. See IRP-2026-07-27-001.",
+    "assembled": "2026-07-27",
+    "status": "25 nodes, all sourced and verified. Ready to publish.",
+    "sourcing_standard": "Every node carries at least one citable source and an honest confidence. Nodes marked NEEDS VERIFICATION were written from general knowledge and have not yet been confirmed against a primary source; they must be verified or dropped before publication.",
+    "editorial_rule": "The piece does not assert that Sweden was vindicated. Where the record disagrees with itself, the disagreement is shown.",
+    "id_namespace": "SE-* on purpose, NOT IRP-*. A reconstruction must not be able to be mistaken for a ledger entry, and a separate namespace makes that structural rather than a matter of labelling. Note the export's reference regex currently only matches IRP-ids, so edges are carried in the explicit refs field instead. Ids are date-shaped (<NS>-YYYY-MM-DD-NNN) because the engine's reference pattern requires it; a 9xx sequence marks a node that is context, constraint or outcome rather than a decision, and node_type carries the detail."
+  },
+  "decisions": [
+    {
+      "id": "SE-2020-02-01-001",
+      "date": "2020-02-01",
+      "actor": "Regeringen",
+      "what": "Apply the allmänfarlig and samhällsfarlig provisions of smittskyddslagen to covid-19, by regulation",
+      "why_at_the_time": "Förordning 2020:20, decided 1 February 2020 under chapter 2 section 9 of smittskyddslagen (2004:168) and in force from 2 February. Classification unlocks mandatory reporting, contact tracing and powers over infected individuals. The permanent listing in the Act's appendices followed later, from 1 July 2020. This is the enabling step everything else rests on, and it was taken five weeks before the first restriction.",
+      "refs": [],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27 (förordning 2020:20, decided 1 Feb, in force 2 Feb, permanent listing 1 Jul 2020)",
+      "sources": [
+        {
+          "title": "Regeringen klassar coronavirus som samhällsfarlig sjukdom (Krisinformation.se)",
+          "url": "https://www.krisinformation.se/nyheter/2020/februari/regeringen-klassar-corona-som-samhallsfarlig/"
+        },
+        {
+          "title": "Prop. 2019/20:144 Covid-19 och ändringar i smittskyddslagen (Regeringen)",
+          "url": "https://www.regeringen.se/rattsliga-dokument/proposition/2020/04/prop.-201920144"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-03-01-901",
+      "date": "2020-03-01",
+      "actor": "Constitutional constraint, not a decision",
+      "what": "The government had no legal mandate for a general lockdown",
+      "why_at_the_time": "Chapter 2 of the Instrument of Government protects freedom of movement, and neither existing legislation nor emergency-powers doctrine gave the government authority for a nationwide lockdown in peacetime. Much of what looks like a chosen strategy was, at least in part, the only lawful option available at the time.",
+      "refs": [],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27, AND the interpretation is itself contested, which is the point",
+      "sources": [
+        {
+          "title": "Sweden's constitution decides its exceptional Covid-19 policy (CEPR)",
+          "url": "https://cepr.org/voxeu/columns/swedens-constitution-decides-its-exceptional-covid-19-policy"
+        },
+        {
+          "title": "Does Sweden's constitution really prevent tougher coronavirus measures? (The Local)",
+          "url": "https://www.thelocal.se/20201119/does-swedens-constitution-really-prevent-tough-covid-measures"
+        }
+      ],
+      "contested": "Whether the constitution genuinely barred a lockdown, or whether that was a post-hoc justification for a policy preference, is actively disputed. Show BOTH readings. This is the single best node in the piece for demonstrating that a record can disagree with itself.",
+      "node_type": "constraint"
+    },
+    {
+      "id": "SE-2020-03-11-001",
+      "date": "2020-03-11",
+      "actor": "Regeringen",
+      "what": "Ban public gatherings of more than 500 people",
+      "why_at_the_time": "First binding national restriction. Chosen as a proportionate limit on mass events while leaving daily life, workplaces and schools untouched.",
+      "refs": [
+        "SE-2020-02-01-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "COVID-19 pandemic in Sweden",
+          "url": "https://en.m.wikipedia.org/wiki/COVID-19_pandemic_in_Sweden"
+        },
+        {
+          "title": "Sweden: Legal Response to Covid-19 (Oxford Constitutional Law)",
+          "url": "https://oxcon.ouplaw.com/display/10.1093/law-occ19/law-occ19-e12"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-03-11-002",
+      "date": "2020-03-11",
+      "actor": "WHO",
+      "node_type": "context",
+      "what": "WHO characterises covid-19 as a pandemic",
+      "why_at_the_time": "The international backdrop against which every national choice below was made, and the same day Sweden banned gatherings over 500.",
+      "refs": [],
+      "confidence": "high",
+      "verification": "well established",
+      "sources": [
+        {
+          "title": "COVID-19 pandemic in Sweden",
+          "url": "https://en.m.wikipedia.org/wiki/COVID-19_pandemic_in_Sweden"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-03-16-001",
+      "date": "2020-03-16",
+      "actor": "Folkhälsomyndigheten and regeringen",
+      "what": "Govern the pandemic through non-binding recommendations rather than legal mandates",
+      "why_at_the_time": "Sweden leaned on allmänna råd and personal responsibility, on the reasoning that measures people accept voluntarily can be sustained for the long haul, and that trust in institutions makes advice work without coercion. This is the choice everything else in 2020 follows from, and it is inseparable from the legal constraint the government was operating under.",
+      "refs": [
+        "SE-2020-03-01-901",
+        "SE-2020-03-11-001",
+        "SE-2020-02-01-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27. Date is indicative of the approach settling in mid-March, not a single instrument; label it as such in the piece.",
+      "sources": [
+        {
+          "title": "Sweden: Non-binding Rules against the Pandemic (European Journal of Risk Regulation)",
+          "url": "https://www.cambridge.org/core/journals/european-journal-of-risk-regulation/article/sweden-nonbinding-rules-against-the-pandemic-formalism-pragmatism-and-some-legal-realism/3BA365BAE971C3061086AE4A462A72DB"
+        },
+        {
+          "title": "Soft law and individual responsibility: a review of the Swedish policy response to COVID-19",
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8387683/"
+        }
+      ],
+      "contested": "Read as principled restraint by defenders and as abdication by critics. Both readings are in the sources."
+    },
+    {
+      "id": "SE-2020-03-17-001",
+      "date": "2020-03-17",
+      "actor": "Folkhälsomyndigheten, acted on by regeringen",
+      "what": "Move upper secondary schools and universities to distance learning",
+      "why_at_the_time": "Older students can study remotely without requiring a parent to leave work. The measure reduces contacts without the knock-on effects of closing schools for younger children.",
+      "refs": [
+        "SE-2020-03-11-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "The first eight months of Sweden's COVID-19 strategy (Ludvigsson, Acta Paediatrica 2020)",
+          "url": "https://onlinelibrary.wiley.com/doi/10.1111/apa.15582"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-03-17-002",
+      "date": "2020-03-17",
+      "actor": "Folkhälsomyndigheten",
+      "what": "Keep schools open for children up to age 16, and keep kindergartens open, for the whole pandemic",
+      "why_at_the_time": "Closing schools was judged to carry large costs for children's welfare and learning, and to remove healthcare staff from work to provide childcare, while the evidence for children as major drivers of transmission was considered weak. This is the single most internationally conspicuous Swedish choice.",
+      "refs": [
+        "SE-2020-03-17-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "The first eight months of Sweden's COVID-19 strategy (Ludvigsson, Acta Paediatrica 2020)",
+          "url": "https://onlinelibrary.wiley.com/doi/10.1111/apa.15582"
+        }
+      ],
+      "contested": "Defended by the Corona Commission and by later comparative work on learning loss; criticised at the time as reckless."
+    },
+    {
+      "id": "SE-2020-03-27-001",
+      "date": "2020-03-27",
+      "actor": "Regeringen",
+      "what": "Lower the limit on public gatherings from 500 to 50",
+      "why_at_the_time": "Tightening as case numbers climbed, while still stopping short of a general lockdown.",
+      "refs": [
+        "SE-2020-03-11-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "COVID-19 pandemic in Sweden",
+          "url": "https://en.m.wikipedia.org/wiki/COVID-19_pandemic_in_Sweden"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-04-01-001",
+      "date": "2020-04-01",
+      "actor": "Regeringen",
+      "what": "Prohibit visits to residential care homes for older people",
+      "why_at_the_time": "Elderly care residents were dying in large numbers. The ban was the most intrusive national measure taken in 2020, and it was aimed at the group the strategy was failing.",
+      "refs": [
+        "SE-2020-03-27-001",
+        "SE-2020-02-01-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27. Source conflict RESOLVED: the national ban ran 1 April to 1 October 2020, announced as lifting on 15 September. The '31 October' figure seen elsewhere is wrong.",
+      "sources": [
+        {
+          "title": "Sweden: Legal Response to Covid-19 (Oxford Constitutional Law)",
+          "url": "https://oxcon.ouplaw.com/display/10.1093/law-occ19/law-occ19-e12"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-04-14-001",
+      "date": "2020-04-14",
+      "actor": "22 researchers, published in Dagens Nyheter",
+      "what": "Publicly declare the strategy a failure and call on politicians to take over from the agency",
+      "why_at_the_time": "Headline: 'Folkhälsomyndigheten har misslyckats. Nu måste politikerna gripa in.' The authors noted that between 7 and 9 April more people per million had died in Sweden than in Italy, and ten times more than in Finland, and wrote that agency officials had shown no talent for predicting or limiting the epidemic.",
+      "refs": [
+        "SE-2020-04-01-001",
+        "SE-2020-03-17-002"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "Sweden: 22 Scientists Say Coronavirus Strategy Has Failed (Forbes)",
+          "url": "https://www.forbes.com/sites/davidnikel/2020/04/14/sweden-22-scientists-say-coronavirus-strategy-has-failed-as-deaths-top-1000/"
+        },
+        {
+          "title": "Critics of Sweden's lax pandemic policies face fierce backlash (Science)",
+          "url": "https://www.science.org/content/article/it-s-been-so-so-surreal-critics-sweden-s-lax-pandemic-policies-face-fierce-backlash"
+        }
+      ],
+      "node_type": "dissent"
+    },
+    {
+      "id": "SE-2020-04-15-001",
+      "date": "2020-04-14",
+      "actor": "Anders Tegnell, Folkhälsomyndigheten",
+      "what": "Reject the criticism, disputing both the authors' standing and their use of the data",
+      "why_at_the_time": "Tegnell said the authors were not leaders in their field and had cherrypicked the days with the highest death tolls. Commentators also disputed the figures. Tegnell responded publicly in the days immediately following publication; the exchange, not its precise hour, is what the record turns on.",
+      "refs": [
+        "SE-2020-04-14-001"
+      ],
+      "confidence": "high",
+      "verification": "Substance confirmed via Science. Exact date of the response could not be pinned to a single day, so the node is dated to the exchange rather than asserting a day we cannot source.",
+      "sources": [
+        {
+          "title": "Critics of Sweden's lax pandemic policies face fierce backlash (Science)",
+          "url": "https://www.science.org/content/article/it-s-been-so-so-surreal-critics-sweden-s-lax-pandemic-policies-face-fierce-backlash"
+        }
+      ],
+      "node_type": "rebuttal"
+    },
+    {
+      "id": "SE-2020-06-04-001",
+      "date": "2020-06-04",
+      "actor": "Regeringen and regionerna",
+      "node_type": "decision",
+      "what": "Expand testing sharply and make it free for everyone with symptoms",
+      "why_at_the_time": "Testing moved from prioritised groups only to large-scale national testing of anyone symptomatic. Sweden's testing was slow to scale, a consequence of responsibility being split between the state, 21 regions and the agency, which the research literature identifies as a structural cause rather than a single bad call.",
+      "refs": [
+        "SE-2020-03-16-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "COVID-19 Testing in Sweden During 2020: Split Responsibilities and Multi-Level Challenges (Frontiers in Public Health)",
+          "url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2021.754861/full"
+        }
+      ],
+      "contested": "Read as a fixable capacity problem or as evidence that the decentralised model failed under load."
+    },
+    {
+      "id": "SE-2020-09-15-001",
+      "date": "2020-09-15",
+      "actor": "Regeringen",
+      "node_type": "reversal",
+      "what": "Announce the lifting of the national care-home visiting ban, effective 1 October",
+      "why_at_the_time": "Reversed on the grounds that isolation was itself harming residents. The most intrusive measure of 2020 was also the first undone.",
+      "refs": [
+        "SE-2020-04-01-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "Sweden to lift ban on visits to elderly care homes (The Local)",
+          "url": "https://www.thelocal.se/20200915/sweden-to-lift-ban-on-visits-to-elderly-care-homes"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-11-20-001",
+      "date": "2020-11-20",
+      "actor": "Regeringen",
+      "node_type": "reversal",
+      "what": "Permit local visiting bans at care homes again",
+      "why_at_the_time": "Seven weeks after the national ban ended, the power to close homes to visitors returned in local form as the second wave hit. A decision reversed, then partly re-reversed, inside two months.",
+      "refs": [
+        "SE-2020-09-15-001",
+        "SE-2020-11-24-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "Sweden permits local bans on visiting elderly care homes (The Local)",
+          "url": "https://www.thelocal.se/20201120/sweden-brings-in-local-visit-bans-to-elderly-care-homes/"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-11-24-001",
+      "date": "2020-11-24",
+      "actor": "Regeringen",
+      "what": "Cut the limit on public gatherings to eight people",
+      "why_at_the_time": "Announced 16 November, in force 24 November, initially for four weeks, as the second wave broke. Made under the Public Order Act, so this was binding law with fines or up to six months' imprisonment, not a recommendation. The sharpest reversal of the spring posture.",
+      "refs": [
+        "SE-2020-03-27-001",
+        "SE-2020-03-16-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27 (announced 16 Nov, in force 24 Nov)",
+      "sources": [
+        {
+          "title": "Sweden bans public events of more than eight people (The Local)",
+          "url": "https://www.thelocal.se/20201116/breaking-sweden-introduces-limit-of-eight-coronavirus/"
+        },
+        {
+          "title": "Government limits public gatherings to eight people (Sveriges Radio)",
+          "url": "https://sverigesradio.se/artikel/7600841"
+        }
+      ],
+      "node_type": "reversal"
+    },
+    {
+      "id": "SE-2020-12-15-001",
+      "date": "2020-12-15",
+      "actor": "Coronakommissionen",
+      "what": "First interim report: the strategy to protect the elderly has failed",
+      "why_at_the_time": "SOU 2020:80, 'Äldreomsorgen under pandemin'. The commission found elderly care was unprepared and ill-equipped because of structural defects known before the outbreak, and held that the current and previous governments bear ultimate responsibility for them.",
+      "refs": [
+        "SE-2020-04-01-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27 (SOU number, title and findings). Exact publication DAY still to confirm; month is December 2020.",
+      "sources": [
+        {
+          "title": "Summary of SOU 2020:80 Elderly care during the pandemic (Government.se)",
+          "url": "https://www.government.se/legal-documents/2020/12/summary-of-sou-202080-elderly-care-during-the-pandemic/"
+        }
+      ],
+      "node_type": "assessment"
+    },
+    {
+      "id": "SE-2020-12-27-001",
+      "date": "2020-12-27",
+      "actor": "Regeringen and regionerna",
+      "node_type": "decision",
+      "what": "Begin vaccination, prioritising care-home residents and the staff around them",
+      "why_at_the_time": "Supply was short, so the programme ran in three phases with residents of elderly homes and their carers first. The group the strategy had failed in the spring was placed at the front of the queue.",
+      "refs": [
+        "SE-2020-12-15-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "Covid-19 vaccination begins on 27 December (Krisinformation.se)",
+          "url": "https://www.krisinformation.se/en/news/2020/december/vaccination-27-december/"
+        },
+        {
+          "title": "COVID-19 vaccination in Sweden",
+          "url": "https://en.wikipedia.org/wiki/COVID-19_vaccination_in_Sweden"
+        }
+      ]
+    },
+    {
+      "id": "SE-2020-12-30-001",
+      "date": "2020-12-30",
+      "actor": "Folkhälsomyndigheten",
+      "what": "Recommend face masks on public transport at rush hour, reversing a year of advice against them",
+      "why_at_the_time": "In force 7 January 2021, for people born before 2004, on weekdays 07:00 to 09:00 and 16:00 to 18:00, and only where distance could not be kept. Medical CE-marked masks specified, cloth masks explicitly not recommended. Until this point Sweden had resisted masks outside healthcare, so this is the clearest documented reversal in the record.",
+      "refs": [
+        "SE-2020-11-24-001",
+        "SE-2020-03-16-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "Masks in public transport from 7 January (Krisinformation.se)",
+          "url": "https://www.krisinformation.se/en/news/2020/december/masks-in-public-transport-from-7-january"
+        },
+        {
+          "title": "Swedish Public Health Agency: wear medical masks on public transport, not cloth masks (The Local)",
+          "url": "https://www.thelocal.se/20210122/swedish-public-health-agency-wear-medical-masks-on-public-transport-not-cloth-masks"
+        }
+      ],
+      "node_type": "reversal"
+    },
+    {
+      "id": "SE-2021-01-08-001",
+      "date": "2021-01-08",
+      "actor": "Riksdagen",
+      "what": "Adopt a temporary covid-19 act granting broader powers to restrict",
+      "why_at_the_time": "Passed in a special session and in force from 10 January 2021. It supplied the legal authority the government had lacked in 2020, alongside the Public Order Act and the Communicable Diseases Act.",
+      "refs": [
+        "SE-2020-03-01-901",
+        "SE-2020-11-24-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "Sweden: New COVID-19 Act Enters into Force (Library of Congress)",
+          "url": "https://www.loc.gov/item/global-legal-monitor/2021-01-21/sweden-new-covid-19-act-enters-into-force"
+        }
+      ]
+    },
+    {
+      "id": "SE-2021-01-10-902",
+      "date": "2021-01-10",
+      "actor": "Structural condition, not a decision",
+      "node_type": "constraint",
+      "what": "Responsibility was split three ways, between the state, 21 self-governing regions and an independent agency",
+      "why_at_the_time": "Swedish agencies operate at arm's length from ministers, and healthcare is run by the regions. Much of what outsiders read as a national strategy was the output of a system with no single decision-maker, which matters for any question about who was answerable.",
+      "refs": [
+        "SE-2020-03-01-901",
+        "SE-2020-06-04-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27 via the testing literature and the science-advice evaluation",
+      "sources": [
+        {
+          "title": "Evaluation of science advice during the COVID-19 pandemic in Sweden (Nature HSSC)",
+          "url": "https://www.nature.com/articles/s41599-022-01097-5"
+        },
+        {
+          "title": "COVID-19 Testing in Sweden During 2020 (Frontiers)",
+          "url": "https://www.frontiersin.org/journals/public-health/articles/10.3389/fpubh.2021.754861/full"
+        }
+      ],
+      "contested": "Central to the accountability question: a diffuse system makes it genuinely hard to say who decided, which is the essay's whole theme."
+    },
+    {
+      "id": "SE-2021-10-29-001",
+      "date": "2021-10-29",
+      "actor": "Coronakommissionen",
+      "node_type": "assessment",
+      "what": "Second interim report: the response in early 2020 was insufficient and late",
+      "why_at_the_time": "SOU 2021:89 'Sverige under pandemin', dated 18 October and delivered 29 October 2021. It found the handling characterised by lateness, with initial protective measures insufficient to stop or even significantly limit spread.",
+      "refs": [
+        "SE-2020-03-16-001",
+        "SE-2020-12-15-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "SOU 2021:89 Sverige under pandemin, Volym 1 (Regeringen)",
+          "url": "https://regeringen.se/rattsliga-dokument/statens-offentliga-utredningar/2021/10/sou-202189"
+        },
+        {
+          "title": "Coronakommissionen",
+          "url": "https://en.wikipedia.org/wiki/Coronakommissionen"
+        }
+      ],
+      "contested": "Sits awkwardly beside the final report's 'fundamentally correct'. Both are the same commission. Show them together."
+    },
+    {
+      "id": "SE-2022-02-03-001",
+      "date": "2022-02-03",
+      "actor": "Regeringen",
+      "node_type": "decision",
+      "what": "Announce that nearly all restrictions end on 9 February 2022",
+      "why_at_the_time": "Andersson: 'The pandemic is not over, but is entering a completely new phase.' Reasoning given was high vaccination coverage, milder Omicron outcomes and falling intensive care admissions. Vaccine passes, the mask recommendation on transport and limits on gatherings all went at once.",
+      "refs": [
+        "SE-2020-12-27-001",
+        "SE-2021-01-08-001",
+        "SE-2020-12-30-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27 (announced 3 Feb, effective 9 Feb 2022)",
+      "sources": [
+        {
+          "title": "Sweden to lift nearly all Covid-19 restrictions next week (The Local)",
+          "url": "https://www.thelocal.se/20220203/breaking-swedish-government-will-lift-covid-19-restrictions-on-february-9th/"
+        }
+      ]
+    },
+    {
+      "id": "SE-2022-02-25-001",
+      "date": "2022-02-25",
+      "actor": "Coronakommissionen",
+      "what": "Final report: the strategy was fundamentally correct, and the measures were too weak and too late",
+      "why_at_the_time": "SOU 2022:10, 'Sverige under pandemin'. The commission held that relying on voluntary measures rather than lockdown was fundamentally correct, in part for preserving personal freedom, while criticising the failure to take more rigorous measures in February and March 2020. By publication 15,800 people had died, 1.5 per 1000 inhabitants.",
+      "refs": [
+        "SE-2020-03-17-002",
+        "SE-2020-04-14-001",
+        "SE-2020-03-01-901",
+        "SE-2020-12-15-001",
+        "SE-2020-12-30-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27",
+      "sources": [
+        {
+          "title": "KEY POINTS: The final verdict on Sweden's Covid-19 response (The Local)",
+          "url": "https://www.thelocal.se/20220225/swedens-pandemic-strategy-fundamentally-correct-coronavirus-commission/"
+        },
+        {
+          "title": "How Sweden approached the COVID-19 pandemic: summary and commentary on the National Commission Inquiry (Ludvigsson, Acta Paediatrica 2023)",
+          "url": "https://onlinelibrary.wiley.com/doi/full/10.1111/apa.16535"
+        },
+        {
+          "title": "Coronakommissionen",
+          "url": "https://en.wikipedia.org/wiki/Coronakommissionen"
+        }
+      ],
+      "node_type": "assessment",
+      "contested": "This is the verdict most often quoted in only one of its two halves. The piece must carry both."
+    },
+    {
+      "id": "SE-2022-02-25-903",
+      "date": "2022-02-25",
+      "actor": "Outcome, not a decision",
+      "what": "Excess mortality across 2020 and 2021 was +0.79%, lower than in many European countries, while spring 2020 death rates were high",
+      "why_at_the_time": "The two facts sit together and are usually cited apart. Which one you lead with determines the story you tell, and that is exactly what the piece should make visible rather than resolve.",
+      "refs": [
+        "SE-2022-02-25-001"
+      ],
+      "confidence": "medium",
+      "verification": "Figure confirmed via the Acta Paediatrica commentary; comparisons are highly sensitive to baseline and period, so the piece must state the basis alongside the number.",
+      "sources": [
+        {
+          "title": "How Sweden approached the COVID-19 pandemic (Ludvigsson, Acta Paediatrica 2023)",
+          "url": "https://onlinelibrary.wiley.com/doi/full/10.1111/apa.16535"
+        }
+      ],
+      "node_type": "outcome"
+    },
+    {
+      "id": "SE-2022-02-25-904",
+      "date": "2022-02-25",
+      "actor": "Outcome, not a decision",
+      "node_type": "outcome",
+      "what": "About 88 percent of Swedish covid deaths were among people aged 70 or over",
+      "why_at_the_time": "Socialstyrelsen recorded 14,703 deaths with covid among people aged 70 or over between 1 March 2020 and 31 March 2022, against 1,928 under 70, so roughly 88 percent of deaths fell in the oldest group. The corrective matters as much as the figure: the share was above 80 percent in all four Nordic countries, so the concentration among the old was not distinctively Swedish. What the commission found distinctive was the state of elderly care itself. References SE-2020-12-15-001, SE-2022-02-25-001.",
+      "refs": [
+        "SE-2020-12-15-001",
+        "SE-2022-02-25-001"
+      ],
+      "confidence": "high",
+      "verification": "confirmed 2026-07-27 (Socialstyrelsen, 1 Mar 2020 to 31 Mar 2022; 14,703 vs 1,928 = 88.4%)",
+      "sources": [
+        {
+          "title": "Statistics on COVID-19 (Socialstyrelsen)",
+          "url": "https://www.socialstyrelsen.se/en/statistics-and-data/statistics/statistics-subjects/statistics-on-covid-19/"
+        },
+        {
+          "title": "The aftermath of COVID-19: mortality impact on older persons in Sweden and other Nordic countries, 2020-2023",
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12159333/"
+        }
+      ],
+      "contested": "Usually quoted to imply Swedish exceptionalism. The Nordic comparison shows the age concentration was regional, not Swedish. Carry both or the number misleads."
+    }
+  ]
+}
