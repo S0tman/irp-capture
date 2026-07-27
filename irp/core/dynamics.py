@@ -26,7 +26,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-IRP_ID_RE = re.compile(r"\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b")
+# Ids are <NAMESPACE>-YYYY-MM-DD-NNN. The namespace is not fixed to IRP, so that
+# reconstructed datasets (historical records rendered with this engine, which
+# carry no attestation) can use their own prefix and never be mistaken for
+# ledger entries. See IRP-2026-07-27-005.
+IRP_ID_RE = re.compile(r"\b[A-Z][A-Z0-9]{1,7}-\d{4}-\d{2}-\d{2}-\d{3}\b")
 
 EDGE_LAYER_VERSION = "irp-dynamics-edges/0.1"
 ANALYSIS_VERSION = "irp-dynamics-analysis/0.1"

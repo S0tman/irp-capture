@@ -16,6 +16,9 @@ import re
 from pathlib import Path
 from typing import Any
 
+# Deliberately IRP-only, unlike the graph exporter. Reconstructed records carry
+# their own namespace and must NOT be wikilinked into a personal vault as if
+# they were captured decisions. See IRP-2026-07-27-005.
 _IRP_ID_RE = re.compile(r"\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b")
 
 def _wikilink_irp_ids(text: str) -> str:

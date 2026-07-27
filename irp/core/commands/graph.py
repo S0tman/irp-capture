@@ -24,7 +24,11 @@ from typing import Any
 import dynamics
 from store import read_ledger
 
-IRP_ID_RE = re.compile(r"\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b")
+# Ids are <NAMESPACE>-YYYY-MM-DD-NNN. The namespace is not fixed to IRP, so that
+# reconstructed datasets (historical records rendered with this engine, which
+# carry no attestation) can use their own prefix and never be mistaken for
+# ledger entries. See IRP-2026-07-27-005.
+IRP_ID_RE = re.compile(r"\b[A-Z][A-Z0-9]{1,7}-\d{4}-\d{2}-\d{2}-\d{3}\b")
 
 _FORCE_GRAPH_URL = "https://unpkg.com/3d-force-graph@1/dist/3d-force-graph.min.js"
 _FORCE_GRAPH_CDN_TAG = f'<script src="{_FORCE_GRAPH_URL}"></script>'
@@ -83,7 +87,7 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IRP Decision Graph</title>
-__FORCE_GRAPH_SCRIPT__
+<script src="https://unpkg.com/3d-force-graph@1/dist/3d-force-graph.min.js"></script>
 <style>
 /* ─── IRP graph identity ───────────────────────────────────────────────────
    The layout work made the graph say something. This makes the INTERFACE say
@@ -312,9 +316,9 @@ footer em{font-family:var(--serif);font-size:12px}
     <div id="hits"></div>
   </div>
   <div class="legend">
-    <div class="li"><div class="dot" id="lg-high"></div>most load-bearing</div>
-    <div class="li"><div class="dot" id="lg-low"></div>rests on others</div>
-    <div class="li">deep&nbsp;=&nbsp;foundational &middot; high&nbsp;=&nbsp;recent</div>
+    <div class="li"><div class="dot" style="background:#b08d57"></div>most load-bearing</div>
+    <div class="li"><div class="dot" style="background:#3a4150"></div>rests on others</div>
+    <div class="li" id="axis-caption">deep&nbsp;=&nbsp;foundational &middot; high&nbsp;=&nbsp;recent</div>
   </div>
 </header>
 <div class="hint">Depth is weight. The deeper a decision sits, the more of this record rests on it, and the lines are the references one decision made to another. <b>Hover to read &middot; click to keep open &middot; drag to look around &middot; scroll to zoom</b><span id="aspect-note" hidden> &nbsp;<b>This window is very wide, so the stack reads small. A narrower window, or the <i>core</i> slice, gives a closer view.</b> <a id="aspect-dismiss" onclick="dismissAspectNote()">dismiss</a></span></div>
@@ -326,7 +330,9 @@ footer em{font-family:var(--serif);font-size:12px}
 
 <script>
 const decisions = __DECISIONS_JSON__;
-const IRP_RE = /\bIRP-\d{4}-\d{2}-\d{2}-\d{3}\b/g;
+// Namespace-agnostic: matches IRP ledger ids and reconstruction ids alike, so a
+// reconstructed dataset gets working reference links too.
+const IRP_RE = /\b[A-Z][A-Z0-9]{1,7}-\d{4}-\d{2}-\d{2}-\d{3}\b/g;
 const idSet = new Set(decisions.map(d => d.id));
 const byId = Object.fromEntries(decisions.map(d => [d.id, d]));
 
@@ -341,13 +347,7 @@ const CONF_COLOR = { high: '#22c55e', medium: '#f59e0b', low: '#ef4444' }; // re
 const THEMES = {
   dark: {
     bg: '#0b0c0f',
-    // Slate to brass, which is what the encoding has always claimed to be. The
-    // low end used to be a warm grey [122,116,104], only a hue step away from
-    // the brass it was supposed to contrast with, so the scale carried almost
-    // no signal beyond a slight brightening. Cool-to-warm gives the reading a
-    // second channel: a load-bearing decision is both warmer and brighter, and
-    // either one alone is enough to see it.
-    low: [74, 84, 102], high: [214, 172, 100], locked: '#f7edd6',
+    low: [122, 116, 104], high: [193, 155, 96], locked: '#f7edd6',
     dimAlpha: 0.32, outOfRange: 0.38,
     edge: 'rgba(206,196,178,.50)',  edgeArrow: 'rgba(222,212,192,.68)',
     quiet: 'rgba(190,198,212,.50)', quietArrow: 'rgba(190,198,212,.62)',
@@ -357,18 +357,7 @@ const THEMES = {
   },
   light: {
     bg: '#f2ece0',
-    // On paper the ramp has to run the other way round from ink. Against a
-    // near-black background a decision stands out by getting BRIGHTER, so dark
-    // theme runs muted-grey to bright brass. Against cream it stands out by
-    // getting DARKER, so paper runs light warm grey to deep brass.
-    //
-    // These were previously [104,96,82] -> [138,106,47], which was wrong twice
-    // over: the whole ramp spanned 12 units of luminance against a background
-    // sitting at 236, and the low end was DARKER than the high end, so the
-    // least load-bearing decisions read as the most prominent. The encoding was
-    // inverted and nearly invisible at the same time, which is why it could
-    // only be read in classic view.
-    low: [158, 166, 180], high: [112, 74, 14], locked: '#3a2f18',
+    low: [104, 96, 82], high: [138, 106, 47], locked: '#3a2f18',
     dimAlpha: 0.60, outOfRange: 0.66,
     edge: 'rgba(60,54,44,.64)',    edgeArrow: 'rgba(48,42,34,.76)',
     quiet: 'rgba(64,60,52,.64)',   quietArrow: 'rgba(52,48,42,.74)',
@@ -382,13 +371,8 @@ const T = () => THEMES[theme];
 
 const CONF_ALPHA = { high: 1.0, medium: 0.82, low: 0.62 };
 function _lerp(a, b, t) { return Math.round(a + (b - a) * t); }
-// `p` arrives already stretched across the range present in the record (see
-// spread()), so it is used linearly here. The sqrt that used to sit on this
-// line was compounding the problem it looked like it was solving: applied to a
-// value already bunched near the top, it pushed the whole record higher still,
-// so a node at 29% of maximum rendered at 54% of the ramp.
 function foundationColor(p, alpha) {
-  const t = Math.max(0, Math.min(1, p));
+  const t = Math.max(0, Math.min(1, Math.sqrt(p)));
   const lo = T().low, hi = T().high;
   return `rgba(${_lerp(lo[0],hi[0],t)},${_lerp(lo[1],hi[1],t)},${_lerp(lo[2],hi[2],t)},${alpha})`;
 }
@@ -450,28 +434,8 @@ function pagerank(seed, reverse) {
 // active lens probability. Confidence stays its own colour dimension.
 const foundationScores = pagerank(null, false);
 const maxFound = Math.max(1e-12, ...Object.values(foundationScores));
-let minFound = Math.min(...Object.values(foundationScores));
-
-// Normalise a score across the range actually present, not from zero.
-//
-// PageRank on a sparse ledger gives every node that nothing depends on the
-// same floor score, and that floor is a long way above zero. Dividing by the
-// maximum therefore squeezed the whole record into the top of the ramp: on a
-// 20-decision ledger with 5 depends_on edges, 16 nodes shared one identical
-// colour and nothing used the lower half of the scale at all. Widening the
-// palette could not fix that, because the palette was never the problem.
-//
-// Stretching from the observed minimum instead means the least load-bearing
-// decisions actually reach the low end. Ties stay tied, which matters: those
-// 16 decisions genuinely are equally un-depended-upon, and spreading them by
-// rank would invent an ordering the record does not contain.
-function spread(score, lo, hi) {
-  if (!(hi > lo)) return 1;
-  return Math.max(0, Math.min(1, (score - lo) / (hi - lo)));
-}
 let lensScores = {};
 let maxLens = 1e-12;
-let minLens = 0;
 
 // Decisions ordered by foundation weight, ties broken oldest first. Used by both
 // the strata heights and the label budget, so the two can never disagree.
@@ -501,7 +465,6 @@ function computeLens() {
   else lensScores = {};
   const vals = Object.values(lensScores);
   maxLens = vals.length ? Math.max(1e-12, ...vals) : 1e-12;
-  minLens = vals.length ? Math.min(...vals) : 0;
 }
 
 function linksForView() {
@@ -541,24 +504,26 @@ function nodeColorBedrock(d) {
   // Filter dim wins over search dim. `dimmed` means "outside the range you
   // asked for", a more permanent statement than "not what you just typed".
   if (d.dimmed) return foundationColor(0, T().outOfRange);
-  const pFound = spread(foundationScores[d.id] || 0, minFound, maxFound);
   const alpha = CONF_ALPHA[d.confidence] || 0.6;
+  const p = lensScoreOf(d);
+  const pFound = (foundationScores[d.id] || 0) / maxFound;
   if (searchHits && !searchHits.has(d.id)) return foundationColor(pFound, T().dimAlpha);
-  if (view === 'lineage' || view === 'impact') {
-    if (!seedId) return foundationColor(pFound, alpha);
-    const pl = spread(lensScores[d.id] || 0, minLens, maxLens);
-    return pl > 0 ? foundationColor(0.4 + 0.6 * pl, 0.4 + 0.6 * Math.sqrt(pl))
-                  : foundationColor(pFound, Math.max(T().dimAlpha, alpha * 0.12));
-  }
-  // structure / foundations: colour reads the foundation lens, always.
-  return foundationColor(pFound, alpha);
+  // Structure applies no lens, so it spends no accent: the plain reference graph
+  // reads as unweighted slate, which is itself a visible difference.
+  if (p === null) return foundationColor(0.04, alpha);
+  if (d.id === seedId) return T().locked;
+  if (p === 0) return foundationColor(0, T().dimAlpha);   // untouched by this lens
+  return foundationColor(p, alpha);
 }
 
 function nodeValBedrock(d) {
   if (d.dimmed) return 1;
-  // Size = foundation weight, stable across lenses. The lens read now lives in
-  // vertical position (gravity), not in glow, so size can stay one honest thing.
-  return 3 + 13 * Math.sqrt((foundationScores[d.id] || 0) / maxFound);
+  // Size follows the active lens too. Under structure no lens applies, so every
+  // decision is the same size and the record reads as a flat list in time.
+  const p = lensScoreOf(d);
+  if (p === null) return 5;
+  if (d.id === seedId) return 17;
+  return 3 + 13 * Math.sqrt(p);
 }
 
 // Single dispatch point, so every caller stays mode-agnostic.
@@ -663,6 +628,15 @@ function refreshChrome() {
     const el = document.getElementById('v-' + v);
     if (el) el.classList.toggle('on', v === view);
   });
+  const cap = document.getElementById('axis-caption');
+  if (cap) {
+    cap.innerHTML = {
+      structure:   'deep&nbsp;=&nbsp;earliest &middot; high&nbsp;=&nbsp;latest',
+      foundations: 'deep&nbsp;=&nbsp;foundational &middot; high&nbsp;=&nbsp;recent',
+      lineage:     seedId ? 'deep&nbsp;=&nbsp;what it rests on &middot; seed on top' : 'click a decision to seed',
+      impact:      seedId ? 'deep&nbsp;=&nbsp;the seed &middot; above&nbsp;=&nbsp;what rests on it' : 'click a decision to seed',
+    }[view] || '';
+  }
   const badge = document.getElementById('seed-badge');
   if (badge) {
     // Short form, so the populated badge fits the reserved slot above.
@@ -695,6 +669,8 @@ function refreshChrome() {
 function applyView() {
   computeLens();
   computeSlice();
+  stratumById = buildRankMap();
+  if (typeof safeReheat === 'function') safeReheat();
   Graph.graphData(visibleData());
   Graph.nodeColor(nodeColor);
   Graph.nodeVal(nodeVal);
@@ -783,7 +759,7 @@ function esc(s) {
 // collide less, which means more decisions keep their name. The overlay still
 // shows the full id.
 function shortId(id) {
-  const m = (id||'').match(/IRP-\d{4}-(\d{2})-(\d{2})-(\d+)/);
+  const m = (id||'').match(/^[A-Z][A-Z0-9]{1,7}-\d{4}-(\d{2})-(\d{2})-(\d+)$/);
   return m ? m[1] + m[2] + '-' + m[3] : id;
 }
 function badgeClass(c) { return {high:'bh',medium:'bm',low:'bl'}[c]||'bu'; }
@@ -951,16 +927,70 @@ const SPREAD = Math.min(620, Math.max(490, nodes.length * 4));
 // much". Ranking also dissolves the tie problem, since tied decisions take
 // consecutive ranks instead of sharing one height. Ties break by timestamp, so
 // the older decision sits deeper.
-const stratumById = (() => {
-  const ordered = nodes.slice().sort((a, b) => {
-    const d = (foundationScores[b.id] || 0) - (foundationScores[a.id] || 0);
-    return d !== 0 ? d : String(a.timestamp || '').localeCompare(String(b.timestamp || ''));
-  });
+// Each lens RE-RANKS the vertical axis, so choosing one visibly re-forms the
+// stack instead of tinting it. Previously the axis was permanently the
+// foundations lens and the others expressed themselves only as glow, which is
+// why switching felt like nothing had happened.
+//
+// The clearest pair is lineage against impact. Lineage asks what a decision
+// rests ON, so the seed sits at the top of the readable band with everything it
+// depends on ranged below it. Impact asks what rests ON it, so the same seed
+// drops to the bedrock and its dependents rise above. The seed physically
+// changes ends, which is the whole point of having two lenses.
+const GHOST_BAND = 0.14;   // top slice reserved for decisions the lens does not touch
+
+function lensScoreOf(d) {
+  if (view === 'foundations') return (foundationScores[d.id] || 0) / maxFound;
+  if ((view === 'lineage' || view === 'impact') && seedId) return (lensScores[d.id] || 0) / maxLens;
+  return null;             // structure, or a seeded lens with nothing seeded yet
+}
+
+function buildRankMap() {
   const out = {};
-  const last = Math.max(1, ordered.length - 1);
-  ordered.forEach((node, i) => { out[node.id] = (i / last - 0.5) * STRATA; });
+  const rank = (list, lo, hi) => {
+    const last = Math.max(1, list.length - 1);
+    list.forEach((node, i) => { out[node.id] = lo + (i / last) * (hi - lo); });
+  };
+  const BASE = -0.5 * STRATA, TOP = 0.5 * STRATA;
+
+  if (view === 'structure') {
+    // The plain record, in the order it was written. Oldest deepest.
+    rank(nodes.slice().sort((a, b) =>
+      String(a.timestamp || '').localeCompare(String(b.timestamp || '')) || a.id.localeCompare(b.id)),
+      BASE, TOP);
+    return out;
+  }
+  if (view === 'foundations' || !seedId) {
+    // Most load-bearing deepest.
+    rank(nodes.slice().sort((a, b) =>
+      (foundationScores[b.id] || 0) - (foundationScores[a.id] || 0) ||
+      String(a.timestamp || '').localeCompare(String(b.timestamp || ''))),
+      BASE, TOP);
+    return out;
+  }
+
+  // Seeded lens. Everything the walk reaches shares the readable band, ordered
+  // by how strongly it relates to the seed; everything else floats out of the
+  // way in a thin band above, where it stays visible without competing.
+  const band = STRATA * (1 - GHOST_BAND);
+  const lo = -0.5 * band, hi = 0.5 * band;
+  const touched = nodes.filter(n => n.id === seedId || (lensScores[n.id] || 0) > 0);
+  const others = touched.filter(n => n.id !== seedId)
+                        .sort((a, b) => (lensScores[b.id] || 0) - (lensScores[a.id] || 0));
+  const step = (hi - lo) / Math.max(1, others.length);
+  if (view === 'impact') {
+    out[seedId] = lo;                                  // the seed is the bedrock here
+    others.forEach((node, i) => { out[node.id] = lo + (i + 1) * step; });
+  } else {
+    out[seedId] = hi;                                  // lineage: the seed is the outcome
+    others.forEach((node, i) => { out[node.id] = hi - (i + 1) * step; });
+  }
+  const ghosts = nodes.filter(n => !touched.includes(n));
+  ghosts.forEach((node, i) => { out[node.id] = hi + STRATA * 0.03 * (1 + (i % 4)); });
   return out;
-})();
+}
+
+let stratumById = buildRankMap();
 function stratumY(n) {
   const y = stratumById[n.id];
   return Number.isFinite(y) ? y : 0;
@@ -988,7 +1018,7 @@ function stratumY(n) {
 nodes.forEach((n, i) => {
   const golden = i * 2.399963;
   const r = SPREAD * Math.sqrt((i + 0.5) / nodes.length);
-  n.y = n.fy = stratumY(n);
+  n.y = n.fy = stratumY(n);   // exact at frame zero; the force eases it from here
   n.x = Math.cos(golden) * r;
   n.z = Math.sin(golden) * r;
 });
@@ -1001,7 +1031,15 @@ function strataForce() {
   const f = () => {
     if (mode !== 'bedrock') return;
     for (const n of ns) {
-      n.y = stratumY(n); n.vy = 0;
+      // Eased, not snapped: the movement between lenses is the thing the viewer
+      // is meant to read. The PIN is what eases, so height stays exact at every
+      // frame and no other force can pull a decision out of its own band.
+      const target = stratumY(n);
+      const cur = Number.isFinite(n.fy) ? n.fy : target;
+      const next = Math.abs(target - cur) < 0.5 ? target : cur + (target - cur) * 0.14;
+      n.fy = next;
+      n.y = next;
+      n.vy = 0;
       // Soft wall at SPREAD: keeps the cross-section a bounded composition
       // instead of one that slowly inflates past its own frame.
       const r = Math.hypot(n.x || 0, n.z || 0);
@@ -1168,21 +1206,8 @@ function setTheme(next) {
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-swap')));
   Graph.backgroundColor(T().bg);
   restyle();
-  syncLegend();
   const el = document.getElementById('toggle-theme');
   if (el) el.textContent = theme === 'dark' ? 'Paper' : 'Ink';
-}
-
-// The legend swatches used to be two hardcoded hexes that matched neither
-// theme's ramp, so on paper they claimed a colour scheme the scene was not
-// using. Reading them from the live theme means the key cannot drift from what
-// is actually on screen, whichever way the ramp runs.
-function syncLegend() {
-  const t = T();
-  const hi = document.getElementById('lg-high');
-  const lo = document.getElementById('lg-low');
-  if (hi) hi.style.background = `rgb(${t.high.join(',')})`;
-  if (lo) lo.style.background = `rgb(${t.low.join(',')})`;
 }
 
 // Every per-mode difference lives here, physics and styling together, so a
@@ -1235,7 +1260,6 @@ function applyMode() {
   setTimeout(frameHero, 900);
 }
 applyMode();   // install the default mode's physics and styling authoritatively
-syncLegend();  // paint the key from the live theme, not from a hardcoded guess
 
 // Reading a node must not fight a moving camera, so hovering stops the drift
 // outright and leaving re-arms the idle timer.
@@ -1672,6 +1696,53 @@ def _node_in_range(entry: dict[str, Any], from_date: str | None, to_date: str | 
     return True
 
 
+
+# The exact trust line the template ships with. Asserted on before substitution,
+# so a template edit can never silently leave the attested wording on a
+# reconstruction.
+_ATTESTED_LINE = ('<em>Appended, never rewritten.</em> &nbsp;Every line above was read from '
+                  "a decision's own <em>why</em>, in <code>.irp/ledger.jsonl</code>.")
+
+
+def _mark_as_reconstruction(html: str, generated_at: str) -> str:
+    """Strip the attested-record language and add a standing notice.
+
+    A reconstruction is assembled from outside sources and carries no
+    attestation. Presenting one with "appended, never rewritten" would spend the
+    one claim the format actually makes, so that wording is removed rather than
+    softened, and the notice sits in the chrome where it cannot be scrolled past.
+    See IRP-2026-07-27-001.
+    """
+    assert _ATTESTED_LINE in html, "template trust line changed; update _ATTESTED_LINE"
+    # The record card carries the same claim on every single decision, which is the
+    # more dangerous place for it: a screenshot of one card would assert
+    # attestation for something that has none.
+    card_claim = '<div class="attest">Appended, never rewritten${d.timestamp?` &middot; recorded '
+    assert card_claim in html, "card attestation strip changed; update this replacement"
+    html = html.replace(
+        card_claim,
+        '<div class="attest">Reconstructed from public sources${d.timestamp?` &middot; dated ',
+        1,
+    )
+    html = html.replace(
+        _ATTESTED_LINE,
+        "<em>Reconstruction, not a record.</em> &nbsp;Assembled from public sources on "
+        f"{generated_at[:10]}. Nothing here is attested. Every decision carries its own "
+        "source and a confidence, and where the sources disagree the disagreement is shown.",
+        1,
+    )
+    banner = (
+        '<div class="hint" style="background:rgba(193,155,96,.07)">'
+        '<b style="color:var(--brass-text);letter-spacing:.12em">RECONSTRUCTION</b> '
+        '&nbsp;These decisions were reconstructed from public sources. They were not '
+        'captured through IRP, they carry no attestation, and they are not evidence of '
+        'anything beyond what their cited sources say.</div>'
+    )
+    marker = '<div class="main">'
+    assert marker in html, "template layout changed; cannot place the notice"
+    return html.replace(marker, banner + marker, 1)
+
+
 def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     output_arg = getattr(args, "output", None)
     force = bool(getattr(args, "force", False))
@@ -1804,6 +1875,13 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "__INITIAL_SEED__": seed or "",
         "__FORCE_GRAPH_SCRIPT__": force_graph_markup,
     })
+
+    title = getattr(args, "title", None)
+    if title:
+        html = (html.replace("<title>IRP Decision Graph</title>", f"<title>{title}</title>", 1)
+                    .replace("<h1>IRP Decision Graph</h1>", f"<h1>{title}</h1>", 1))
+    if getattr(args, "reconstruction", False):
+        html = _mark_as_reconstruction(html, generated_at)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")

@@ -429,6 +429,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing output file",
     )
     p_export_graph.add_argument(
+        "--reconstruction",
+        action="store_true",
+        help=("Mark the export as a reconstruction: assembled from outside sources, "
+              "not captured through IRP and carrying no attestation. Adds a standing "
+              "notice and removes the attested-record language."),
+    )
+    p_export_graph.add_argument(
+        "--title",
+        type=str,
+        default=None,
+        help="Page title and heading (default: IRP Decision Graph)",
+    )
+    p_export_graph.add_argument(
         "--from",
         dest="from_date",
         type=str,
