@@ -42,7 +42,7 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
       <div class="grid md:grid-cols-2 gap-6">
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Ledger as source of truth</h3>
-          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">Why JSONL instead of a database. Why append-only is the only safe design. How immutable logs make decisions portable.</p>
+          <p class="text-sm text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">Why JSONL instead of a database. Why append-only is the only safe design. How an append-only log makes decisions portable.</p>
         </div>
         <div class="p-5 rounded-lg border border-[var(--color-border)] dark:border-[#333]">
           <h3 class="font-semibold text-[var(--color-charcoal)] dark:text-[var(--color-cream)] mb-2">Derived state &amp; conflict detection</h3>
@@ -133,7 +133,10 @@ const base = rawBase.endsWith('/') ? rawBase : rawBase + '/';
       </h2>
       <div class="space-y-4 text-[var(--color-secondary)] dark:text-[var(--color-muted-dark)] leading-relaxed">
         <p>
-          IRP is built on five core principles: <strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">immutability, portability, auditability, explainability, and team autonomy.</strong>
+          IRP is built on five core principles: <strong class="text-[var(--color-charcoal)] dark:text-[var(--color-cream)]">append-only design, portability, auditability, explainability, and team autonomy.</strong>
+        </p>
+        <p>
+          Append-only is a property of how the tool behaves, not a cryptographic guarantee. A ledger held by its owner is not tamper-proof on its own; anchoring a snapshot to an independent timestamp authority is what makes it verifiable to an outsider. The <a href="https://github.com/S0tman/irp-capture/blob/main/TRUST.md" class="underline">trust model</a> sets out exactly what IRP does and does not prove.
         </p>
         <div class="grid sm:grid-cols-2 gap-4 my-6">
           <div class="flex gap-3 items-start p-4 rounded-lg bg-[var(--color-beige)]/50 dark:bg-[var(--color-dark-surface)]/50">

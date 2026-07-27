@@ -20,7 +20,7 @@ const nodesData: Omit<Node, 'index' | 'x' | 'y' | 'vx' | 'vy' | 'fx' | 'fy'>[] =
     id: 'ledger',
     label: 'Ledger',
     shortLabel: 'L',
-    description: 'Immutable append-only source of truth. JSONL format, survives tool death.',
+    description: 'Append-only source of truth. JSONL format, survives tool death.',
     chapter: 1,
     color: '#d97706',
   },
