@@ -758,9 +758,32 @@ function esc(s) {
 // prefix is 26% of the label width carrying no information. Narrower labels
 // collide less, which means more decisions keep their name. The overlay still
 // shows the full id.
+function _idParts(id) {
+  const m = (id||'').match(/^[A-Z][A-Z0-9]{1,7}-(\d{4})-(\d{2})-(\d{2})-(\d+)$/);
+  return m ? { y: m[1], mm: m[2], dd: m[3], n: m[4] } : null;
+}
+
+// Labels drop the year to stay compact, but two decisions sharing a month, day
+// and sequence in DIFFERENT years then render identically, which is worse than a
+// long label: the graph shows the same name on two different nodes. When that
+// would happen anywhere in the set, every label carries a two-digit year, so the
+// format stays consistent across the whole graph rather than varying per node.
+const _labelNeedsYear = (() => {
+  const seen = new Set();
+  for (const d of decisions) {
+    const p = _idParts(d.id);
+    if (!p) continue;
+    const k = p.mm + p.dd + '-' + p.n;
+    if (seen.has(k)) return true;
+    seen.add(k);
+  }
+  return false;
+})();
+
 function shortId(id) {
-  const m = (id||'').match(/^[A-Z][A-Z0-9]{1,7}-\d{4}-(\d{2})-(\d{2})-(\d+)$/);
-  return m ? m[1] + m[2] + '-' + m[3] : id;
+  const p = _idParts(id);
+  if (!p) return id;
+  return (_labelNeedsYear ? p.y.slice(2) + '-' : '') + p.mm + p.dd + '-' + p.n;
 }
 function badgeClass(c) { return {high:'bh',medium:'bm',low:'bl'}[c]||'bu'; }
 
