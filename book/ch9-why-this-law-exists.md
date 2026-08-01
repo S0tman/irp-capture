@@ -41,25 +41,31 @@ These three pillars are expressed across the Act's articles. But they all connec
 
 The EU AI Act entered into force on 1 August 2024. It does not arrive all at once.
 
-```mermaid
-gantt
-    title EU AI Act Phase-In Timeline
-    dateFormat  YYYY-MM-DD
-    section Prohibitions
-    Unacceptable-risk AI banned     :done, 2025-02-02, 2025-02-02
-    section GPAI Models
-    General-purpose AI model rules  :done, 2025-08-02, 2025-08-02
-    section High-Risk (Main Wave)
-    Articles 8-15 obligations live  :active, 2027-12-02, 2027-12-02
-    section High-Risk (Existing Products)
-    Annex I legacy systems          :2028-08-02, 2028-08-02
-```
+<div style="margin:1.75rem 0; border-left:2px solid rgba(128,128,128,0.35); padding-left:1.1rem;">
+  <div style="font-size:0.8rem; letter-spacing:0.04em; text-transform:uppercase; opacity:0.6; margin-bottom:0.9rem;">EU AI Act phase-in</div>
+  <div style="margin-bottom:1rem;">
+    <div style="font-weight:600;">2 February 2025 <span style="font-weight:400; opacity:0.6;">· in force</span></div>
+    <div style="opacity:0.85;">Unacceptable-risk AI banned</div>
+  </div>
+  <div style="margin-bottom:1rem;">
+    <div style="font-weight:600;">2 August 2025 <span style="font-weight:400; opacity:0.6;">· in force</span></div>
+    <div style="opacity:0.85;">General-purpose AI (GPAI) model rules</div>
+  </div>
+  <div style="margin-bottom:1rem;">
+    <div style="font-weight:600;">2 December 2027 <span style="font-weight:400; opacity:0.6;">· main wave</span></div>
+    <div style="opacity:0.85;">High-risk obligations live, Articles 8-15 (Annex III)</div>
+  </div>
+  <div>
+    <div style="font-weight:600;">2 August 2028 <span style="font-weight:400; opacity:0.6;">· legacy products</span></div>
+    <div style="opacity:0.85;">High-risk AI embedded in existing regulated products (Annex I)</div>
+  </div>
+</div>
 
 **February 2, 2025** — the ban on unacceptable-risk AI systems took effect. Social scoring by governments, real-time biometric surveillance in public spaces, subliminal manipulation techniques — these are now prohibited outright across the EU.
 
 **August 2, 2025** — rules for general-purpose AI (GPAI) models came into force. If your organisation develops or deploys foundation models, these rules apply now.
 
-**December 2, 2027** — the date that matters most to the majority of organisations. This is when Articles 8 through 15 — the core obligations for high-risk AI systems — become enforceable. Logging, transparency, human oversight, technical documentation, conformity assessment. This wave was originally set for 2 August 2026; the Digital AI Omnibus, given final Council approval on 29 June 2026, deferred it to give organisations and standards bodies more time to prepare. It is the wave most SMBs, government agencies, and enterprise deployers must prepare for.
+**December 2, 2027** — the date that matters most to the majority of organisations. This is when Articles 8 through 15 — the core obligations for high-risk AI systems — become enforceable. Logging, transparency, human oversight, technical documentation, conformity assessment. This wave was originally set for 2 August 2026; the Digital Omnibus, now in force as Regulation (EU) 2026/1744, deferred it to give organisations and standards bodies more time to prepare. It is the wave most SMBs, government agencies, and enterprise deployers must prepare for.
 
 **August 2, 2028** — existing high-risk AI systems already embedded in legacy products (under the Machinery Directive, Medical Device Regulation, etc.) get additional time. But this extension does not apply to new deployments.
 
