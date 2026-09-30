@@ -210,3 +210,98 @@ def test_snapshot_hash_changes_when_the_input_changes():
     mutated[0] = dict(mutated[0], what="something else")
     b = dyn.snapshot_hash(None, mutated, demo=True)
     assert a != b and a.startswith("sha256:")
+
+
+# ── declared references (rests_on) ───────────────────────────────────────────
+# Records may carry an optional `rests_on` list of ids. It is honoured as a
+# declared antecedent next to the ids found in `why`; the record format is
+# unchanged and `why` stays primary.
+
+A, B = "IRP-2026-01-01-001", "IRP-2026-01-05-002"
+
+
+def _pair(**extra):
+    return [
+        {"id": A, "timestamp": "2026-01-01T00:00:00Z", "why": "no ids here"},
+        {"id": B, "timestamp": "2026-01-05T00:00:00Z", "why": "no ids here either", **extra},
+    ]
+
+
+def _edge(edges, source, target):
+    return next((e for e in edges if e["source"] == source and e["target"] == target), None)
+
+
+def test_declared_rests_on_yields_a_depends_on_edge():
+    edges = dyn.derive_typed_edges(_pair(rests_on=[A]))
+    e = _edge(edges, B, A)
+    assert e is not None and e["relation"] == "depends_on" and e["derivation"] == "declared"
+
+
+def test_rests_on_accepts_a_single_id_string():
+    assert _rel(dyn.derive_typed_edges(_pair(rests_on=A)), B, A) == "depends_on"
+
+
+def test_declared_forward_reference_is_not_walked():
+    decisions = _pair()
+    decisions[0] = dict(decisions[0], rests_on=[B])  # the earlier record claims to rest on a later one
+    assert _rel(dyn.derive_typed_edges(decisions), A, B) == "mentions"
+
+
+def test_declared_same_day_orders_by_id_sequence():
+    same = "2026-01-01T00:00:00Z"
+    first, second = "IRP-2026-01-01-001", "IRP-2026-01-01-002"
+    decisions = [{"id": first, "timestamp": same, "why": "x", "rests_on": [second]},
+                 {"id": second, "timestamp": same, "why": "y", "rests_on": [first]}]
+    edges = dyn.derive_typed_edges(decisions)
+    assert _rel(edges, second, first) == "depends_on"
+    assert _rel(edges, first, second) == "mentions"
+
+
+def test_declared_reference_without_timestamps_is_mentions():
+    decisions = [{"id": A, "why": "x"}, {"id": B, "why": "y", "rests_on": [A]}]
+    assert _rel(dyn.derive_typed_edges(decisions), B, A) == "mentions"
+
+
+def test_declared_and_why_text_collapse_to_one_edge():
+    decisions = _pair(rests_on=[A])
+    decisions[1] = dict(decisions[1], why=f"builds on {A}")
+    edges = [e for e in dyn.derive_typed_edges(decisions) if e["source"] == B and e["target"] == A]
+    assert len(edges) == 1 and edges[0]["derivation"] == "declared"
+
+
+def test_declared_unknown_self_and_malformed_references_are_dropped():
+    assert dyn.derive_typed_edges(_pair(rests_on=["IRP-2099-01-01-999", B, 42, None, "not an id"])) == []
+    assert dyn.derive_typed_edges(_pair(rests_on={"id": A})) == []
+
+
+def test_walk_stays_acyclic_with_declared_and_heuristic_edges_mixed():
+    """Every depends_on edge, declared or heuristic, points backward in (timestamp, id) order."""
+    ids = [f"IRP-2026-01-0{d}-00{n}" for d in (1, 2) for n in (1, 2, 3)]
+    decisions = []
+    for i, did in enumerate(ids):
+        others = [x for x in ids if x != did]
+        decisions.append({"id": did, "timestamp": did[4:14] + "T00:00:00Z",
+                          "why": "see " + " ".join(others[:2]), "rests_on": others[2:]})
+    walk = {(e["source"], e["target"]) for e in dyn.derive_typed_edges(decisions)
+            if e["relation"] == dyn.WALK_RELATION}
+    graph = {d: [t for s, t in walk if s == d] for d in ids}
+    state = {}
+
+    def visit(n):
+        state[n] = "open"
+        for m in graph[n]:
+            assert state.get(m) != "open", f"cycle through {n} -> {m}"
+            if m not in state:
+                visit(m)
+        state[n] = "done"
+
+    for n in ids:
+        if n not in state:
+            visit(n)
+    assert walk  # the fixture really does produce walk edges
+
+
+def test_graph_export_counts_declared_references():
+    from commands.graph import _count_edges
+    assert _count_edges(_pair(rests_on=[A])) == 1
+    assert _count_edges(_pair()) == 0

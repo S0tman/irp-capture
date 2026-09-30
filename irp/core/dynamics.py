@@ -13,7 +13,9 @@ Invariants this module must not break:
   - DYN-I4  Every artifact carries the snapshot hash it was computed from.
 
 Design rules:
-  - No new schema. The ledger record format is unchanged.
+  - No new schema. The ledger record format is unchanged. An optional
+    `rests_on` list that records may already carry is read as declared
+    references (see derive_typed_edges); nothing requires it.
   - No dependencies. Pure-Python power iteration.
   - Deterministic. Identical input bytes give identical scores.
 """
@@ -32,9 +34,9 @@ from typing import Any
 # ledger entries. See IRP-2026-07-27-005.
 IRP_ID_RE = re.compile(r"\b[A-Z][A-Z0-9]{1,7}-\d{4}-\d{2}-\d{2}-\d{3}\b")
 
-EDGE_LAYER_VERSION = "irp-dynamics-edges/0.1"
+EDGE_LAYER_VERSION = "irp-dynamics-edges/0.2"
 ANALYSIS_VERSION = "irp-dynamics-analysis/0.1"
-EDGE_POLICY = "depends_on_only; timestamp-heuristic edges/0.1"
+EDGE_POLICY = "depends_on_only; timestamp-heuristic + declared rests_on edges/0.2"
 
 DEFAULT_ALPHA = 0.85
 EPSILON = 1e-9
@@ -77,6 +79,31 @@ def _timestamp(entry: dict[str, Any]) -> str | None:
     return ts if isinstance(ts, str) and ts else None
 
 
+DECLARED_FIELD = "rests_on"
+_ID_TAIL_RE = re.compile(r"(\d{4}-\d{2}-\d{2})-(\d{3})$")
+
+
+def declared_refs(entry: dict[str, Any]) -> list[str]:
+    """Ids an entry declares it rests on, from the optional `rests_on` field.
+
+    Accepts a list of ids or a single id string. Anything else (numbers, dicts,
+    malformed ids) is ignored, so a malformed field can never break an export.
+    """
+    raw = entry.get(DECLARED_FIELD)
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return []
+    return sorted({r for r in raw if isinstance(r, str) and IRP_ID_RE.fullmatch(r)})
+
+
+def _order_key(entry: dict[str, Any]) -> tuple[str, str, int] | None:
+    """Strict order for declared references: timestamp, then the date and sequence in the id."""
+    ts = _timestamp(entry)
+    m = _ID_TAIL_RE.search(entry.get("id") or "")
+    return (ts, m.group(1), int(m.group(2))) if ts and m else None
+
+
 def derive_typed_edges(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Derive typed provenance edges from `why` text plus timestamps.
 
@@ -99,6 +126,15 @@ def derive_typed_edges(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     forward-looking dependence is mistyped, and honest timestamps are assumed.
     The durable answer is an optional structured `refs` field in the record
     format, which is a future protocol RFC and out of scope. `why` stays primary.
+
+    Declared references: ids listed in an optional `rests_on` field are read
+    first, as `derivation: "declared"`. A declared reference is `depends_on`
+    only when it points strictly backward in (timestamp, id date, id sequence)
+    order, and `mentions` otherwise (forward, or a timestamp missing). Heuristic
+    `depends_on` edges also point strictly backward in time, so every walk edge
+    of either kind points backward in one total order and the walk graph stays
+    acyclic. A pair named both in `rests_on` and in `why` yields one edge,
+    the declared one.
     """
     by_id = {d["id"]: d for d in decisions if d.get("id")}
     edges: list[dict[str, Any]] = []
@@ -108,6 +144,20 @@ def derive_typed_edges(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         did = d.get("id")
         if not did:
             continue
+        d_key = _order_key(d)
+        for ref in declared_refs(d):
+            if ref == did or ref not in by_id or (did, ref) in seen:
+                continue
+            seen.add((did, ref))
+            r_key = _order_key(by_id[ref])
+            edges.append({
+                "source": did,
+                "target": ref,
+                "relation": "depends_on" if d_key and r_key and r_key < d_key else "mentions",
+                "derivation": "declared",
+                "confidence": 1.0,
+            })
+
         d_ts = _timestamp(d)
         for ref in sorted(set(IRP_ID_RE.findall(d.get("why") or ""))):
             if ref == did or ref not in by_id:
@@ -143,7 +193,7 @@ def build_edge_layer(decisions: list[dict[str, Any]], snapshot: str, demo: bool 
         "edge_layer_version": EDGE_LAYER_VERSION,
         "ledger_snapshot_hash": snapshot,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "derivation": "timestamp-heuristic",
+        "derivation": "timestamp-heuristic + declared rests_on",
         "demo": bool(demo),
         "edges": edges,
     }

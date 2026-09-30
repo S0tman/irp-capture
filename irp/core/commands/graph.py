@@ -788,7 +788,8 @@ function shortId(id) {
 function badgeClass(c) { return {high:'bh',medium:'bm',low:'bl'}[c]||'bu'; }
 
 function buildOverlayContent(d) {
-  const refs = [...new Set((d.why||'').match(IRP_RE)||[])].filter(r=>idSet.has(r)&&r!==d.id);
+  const refs = [...new Set([...((d.why||'').match(IRP_RE)||[]),
+                            ...typedEdges.filter(e=>e.source===d.id).map(e=>e.target)])].filter(r=>idSet.has(r)&&r!==d.id);
   return `
     <div class="did">${esc(d.id)}</div>
     <div class="dwhat">${esc(d.what||'')}</div>
@@ -1660,16 +1661,8 @@ def _is_decision(entry: dict[str, Any]) -> bool:
 
 
 def _count_edges(decisions: list[dict[str, Any]]) -> int:
-    id_set = {d["id"] for d in decisions}
-    seen: set[str] = set()
-    count = 0
-    for d in decisions:
-        for ref in set(IRP_ID_RE.findall(d.get("why") or "")):
-            key = f"{d['id']}|{ref}"
-            if ref != d["id"] and ref in id_set and key not in seen:
-                seen.add(key)
-                count += 1
-    return count
+    """Edges the page draws: one per (source, target) pair, from `why` ids and declared `rests_on` ids."""
+    return len(dynamics.derive_typed_edges(decisions))
 
 
 _SAMPLE_DECISIONS: list[dict[str, Any]] = json.loads(
