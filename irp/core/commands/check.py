@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from store import read_ledger
-from resolver import resolve as _resolve
+from irp.core.store import read_ledger
+from irp.core.resolver import resolve as _resolve
 
 _DIVIDER = "─" * 48
 

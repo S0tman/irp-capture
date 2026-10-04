@@ -34,11 +34,12 @@ from irp.core.store import ensure_irp_dir
 from irp.core.commands.capture import run_capture
 from irp.core.commands.why import run_why
 from irp.core.commands.inherit import run_inherit
+from irp.core.compact import compact_inherit
 from irp.core.commands.check import run_check
 
 mcp = FastMCP(
     "irp",
-    description="Intent Record Protocol — decision ledger for teams and agents",
+    instructions="Intent Record Protocol: decision ledger for teams and agents",
 )
 
 def _resolve_paths() -> tuple[Path, Path]:
@@ -128,19 +129,25 @@ def irp_why(id: str = "") -> dict:
     }
 
 @mcp.tool()
-def irp_inherit() -> dict:
+def irp_inherit(full: bool = False) -> dict:
     """Return the active IRP decisions (project context).
 
     Superseded and retired decisions are left out, so each decision shown is
     the current one. Returns up to the 50 most recent active decisions, each
-    with its why and, when recorded, the options turned down. Use this to
+    with its id, date, what, why and, when recorded, the options turned down
+    ("rejected") and the decision it replaced ("supersedes"). Use this to
     understand what has already been decided before making new decisions.
+
+    Args:
+        full: Return the complete ledger entries instead of the slim view.
     """
     project_root, irp_dir = _resolve_paths()
 
     args = SimpleNamespace(json=True)
     result = run_inherit(project_root=project_root, irp_dir=irp_dir, args=args)
 
+    if not full:
+        return compact_inherit(result)
     return {
         "project_root": result.get("project_root"),
         "active_count": result.get("active_count"),

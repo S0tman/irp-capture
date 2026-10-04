@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "irp-capture"
-version = "0.9.1"
+version = "0.9.2"
 description = "An append-only ledger that records why decisions were made."
 readme = "README.md"
 license = "MIT"
@@ -24,7 +24,7 @@ classifiers = [
 
 [project.optional-dependencies]
 api = ["fastapi>=0.100", "uvicorn>=0.20"]
-mcp = ["mcp>=1.0"]
+mcp = ["mcp>=1.0,<2"]  # 2.x renamed FastMCP; migrate before lifting the cap
 mempalace = ["chromadb>=0.5"]
 sovereign = ["chromadb>=0.5"]
 integrity = ["rfc8785>=0.1.2", "asn1crypto>=1.5", "cryptography>=42"]
