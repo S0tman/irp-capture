@@ -347,12 +347,12 @@ pip install irp-capture
 ```
 
 ```bash
-# Set the context for your project
-irp inherit "Project: My project, backend API, Q2 2026"
+# Capture a decision: it asks what, why and how confident you are,
+# then asks you to confirm before anything is written
+irp capture
 
-# Capture a decision
-irp capture "Decision: Use Postgres for the reporting service" \
-  --why "Redis considered but rejected, query patterns require joins"
+# See the active decisions, the context an agent inherits
+irp inherit
 
 # Review recent decisions
 irp why
@@ -725,7 +725,14 @@ a Slack thread resolved, a Figma comment approved, a commit pushed.
 For decisions made in conversation or in a document, use the CLI:
 
 ```bash
-irp capture "Decision: [what was decided]" --why "[why it was decided]"
+irp capture
+```
+
+From a script or an agent, pass the decision as JSON. This path writes without
+asking, so confirming is up to the caller:
+
+```bash
+echo '{"what": "[what was decided]", "why": "[why it was decided]"}' | irp capture --stdin
 ```
 
 **What makes a good entry**
@@ -781,12 +788,11 @@ Start capturing from day one, even if the entries are simple.
 | Task | Command |
 |---|---|
 | Capture inside a Claude session | `capture` (Claude Code skill) |
-| Set project context | `irp inherit "Project: [name and context]"` |
-| Capture a decision | `irp capture "Decision: [what]" --why "[why]"` |
+| Capture a decision (asks, then confirms) | `irp capture` |
+| Show the active decisions an agent inherits | `irp inherit` |
 | Review recent decisions | `irp why` |
 | Review specific decision | `irp why --id IRP-2026-04-08-001` |
 | Capture from stdin | `irp capture --stdin` |
-| Check installation health | `irp doctor` |
 | **Gate a single action (agent runtime)** | **`irp gate "proposed action"`** |
 | **Gate with strict mode** | **`irp gate --strict "proposed action"`** |
 | **Stream actions through gate** | **`cat actions.txt \| irp watch`** |

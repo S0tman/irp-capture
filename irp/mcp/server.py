@@ -129,11 +129,12 @@ def irp_why(id: str = "") -> dict:
 
 @mcp.tool()
 def irp_inherit() -> dict:
-    """Return current active IRP decisions (project context).
+    """Return the active IRP decisions (project context).
 
-    Returns the last 10 confirmed decisions from current.json.
-    Use this to understand what has already been decided before
-    making new decisions.
+    Superseded and retired decisions are left out, so each decision shown is
+    the current one. Returns up to the 50 most recent active decisions, each
+    with its why and, when recorded, the options turned down. Use this to
+    understand what has already been decided before making new decisions.
     """
     project_root, irp_dir = _resolve_paths()
 
@@ -143,6 +144,7 @@ def irp_inherit() -> dict:
     return {
         "project_root": result.get("project_root"),
         "active_count": result.get("active_count"),
+        "omitted": result.get("omitted", 0),
         "active": result.get("active", []),
     }
 
