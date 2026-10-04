@@ -1,0 +1,25 @@
+{
+  "registered": "2026-10-04T21:38:54+00:00",
+  "hashes": {
+    "projects.json": "e487edac8174026a391f80fe45d668254222b4d5d6997a9153cf0e0a71ff9e98",
+    "tasks.json": "6ac9d93dca5266c7048667538714fe754ffbc6bb031cbc03474f2289eacc04df",
+    "ivsa.py": "c4bd40bd380f129418db14711bdb63fbcc2f578485e9c63e0807969b47abc2f8",
+    "run.py": "ec0e821e2172385760c851512f118d6875c454d21af16098b2a2ebb11a260f23",
+    "../why-in/whyin.py": "53e2704a871cc609f712d96d3550092f8c173f9c6d411ecaf9c273f9031b7591",
+    "../../irp/core/commands/inherit.py": "42b0eeec940a3e8113ca2ff79f1ae9e9690b556668322b190f92ddd8f2235292"
+  },
+  "primary_models": [
+    "anthropic/claude-haiku-4.5",
+    "google/gemini-3.8-flash",
+    "openai/gpt-oss-120b"
+  ],
+  "extra_models": [
+    "grunden/glm-5.3"
+  ],
+  "thresholds": {
+    "superseded_gap": 0.1,
+    "models_needed": 2,
+    "bootstrap_n": 2000,
+    "bootstrap_seed": 20261004
+  }
+}

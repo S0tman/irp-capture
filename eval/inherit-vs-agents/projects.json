@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "note": "Four synthetic projects. Each is a decision record built up over time, the way a team's IRP ledger would be. Some decisions supersede earlier ones; many name the options turned down.",
+  "projects": [
+    {
+      "key": "ledgerly",
+      "name": "Ledgerly payments API",
+      "decisions": [
+        {"id": "IRP-2025-11-03-001", "date": "2025-11-03", "what": "Use PostgreSQL as the primary datastore for all services.", "why": "Payments need ACID transactions across several tables, and finance needs relational reporting.", "alternatives": "MongoDB: rejected, no multi-document transactions we trust for money. DynamoDB: rejected, vendor lock-in."},
+        {"id": "IRP-2025-11-10-001", "date": "2025-11-10", "what": "Internal services talk to each other over REST with JSON.", "why": "Simplest option for a team of three.", "alternatives": "gRPC: rejected for now, tooling overhead."},
+        {"id": "IRP-2025-12-01-001", "date": "2025-12-01", "what": "Store money as integer minor units (cents) and do all money arithmetic through the ledgerly-money library.", "why": "Floating-point rounding errors caused a reconciliation mismatch in the prototype.", "alternatives": "Decimal strings: rejected, parsing everywhere."},
+        {"id": "IRP-2026-01-12-001", "date": "2026-01-12", "what": "Webhook deliveries retry with exponential backoff, up to 5 attempts, then are marked failed.", "why": "Keeps the delivery queue short."},
+        {"id": "IRP-2026-01-20-001", "date": "2026-01-20", "what": "Feature flags live in an in-house config table.", "why": "Customer data must stay in the EU, and the hosted flag services we looked at were US-only.", "alternatives": "LaunchDarkly: rejected, US data residency."},
+        {"id": "IRP-2026-02-02-001", "date": "2026-02-02", "what": "Internal services talk to each other over gRPC.", "why": "Latency between the ledger and risk services became the bottleneck.", "alternatives": "Keeping REST over HTTP/2: rejected, measured and not fast enough.", "supersedes": "IRP-2025-11-10-001"},
+        {"id": "IRP-2026-02-15-001", "date": "2026-02-15", "what": "Redis is used only as a cache, never as the source of truth for any balance or record.", "why": "In the February incident Redis evicted keys under memory pressure and balances had to be rebuilt.", "alternatives": "Redis with AOF persistence as a store: rejected, still not durable enough for money."},
+        {"id": "IRP-2026-03-20-001", "date": "2026-03-20", "what": "Version the public API in the URL path (/v1/, /v2/).", "why": "Our clients are banks with slow upgrade cycles and fixed gateway configurations.", "alternatives": "Header-based versioning: rejected, several bank gateways strip custom and Accept headers."},
+        {"id": "IRP-2026-04-05-001", "date": "2026-04-05", "what": "Webhook deliveries retry for up to 24 hours (8 attempts) before they are marked failed.", "why": "Partner banks have maintenance windows of up to 12 hours.", "supersedes": "IRP-2026-01-12-001"},
+        {"id": "IRP-2026-05-04-001", "date": "2026-05-04", "what": "Every pull request touching the ledger service needs a review from the payments team.", "why": "The ledger is the system of record."},
+        {"id": "IRP-2026-06-08-001", "date": "2026-06-08", "what": "Feature flags and gradual rollouts use Unleash, self-hosted in our EU region.", "why": "The in-house table couldn't do percentage rollouts; self-hosting keeps data in the EU.", "supersedes": "IRP-2026-01-20-001"}
+      ]
+    },
+    {
+      "key": "fjord",
+      "name": "Fjord design system",
+      "decisions": [
+        {"id": "IRP-2025-10-06-001", "date": "2025-10-06", "what": "Design tokens are defined in Figma variables, which are the single source of truth, and synced to code.", "why": "Designers own the tokens and work in Figma every day.", "alternatives": "Defining tokens in code and syncing to Figma: rejected, designers lost ownership and edits drifted."},
+        {"id": "IRP-2025-10-13-001", "date": "2025-10-13", "what": "The primary brand colour is Fjord Blue (#1F4FD8).", "why": "Matches the 2025 brand guidelines."},
+        {"id": "IRP-2025-10-20-001", "date": "2025-10-20", "what": "Icons come from Material Symbols.", "why": "Broad coverage and free licence.", "alternatives": "A custom icon set: rejected for now, cost."},
+        {"id": "IRP-2025-11-03-001", "date": "2025-11-03", "what": "Body text is never smaller than 16px.", "why": "Our accessibility audit flagged 14px text as hard to read for many users."},
+        {"id": "IRP-2025-11-17-001", "date": "2025-11-17", "what": "Dark mode is built with token modes, not separate stylesheets.", "why": "One set of components, switched by mode.", "alternatives": "A separate dark stylesheet: rejected, doubles maintenance and drifts."},
+        {"id": "IRP-2025-12-08-001", "date": "2025-12-08", "what": "Use Inter as the typeface everywhere, including exported PDF reports.", "why": "Reports must render identically on every machine.", "alternatives": "System fonts: rejected, PDF reports rendered inconsistently across operating systems."},
+        {"id": "IRP-2026-01-19-001", "date": "2026-01-19", "what": "At most one primary button per view.", "why": "Usability tests showed users hesitated when two actions looked equally important."},
+        {"id": "IRP-2026-02-23-001", "date": "2026-02-23", "what": "Icons come from the in-house Fjord Icons set.", "why": "The brand refresh needed a distinctive icon style; Material looked generic.", "supersedes": "IRP-2025-10-20-001"},
+        {"id": "IRP-2026-03-09-001", "date": "2026-03-09", "what": "Spacing follows a 4px base scale.", "why": "Aligns with the token grid."},
+        {"id": "IRP-2026-04-14-001", "date": "2026-04-14", "what": "The primary brand colour is Fjord Teal (#0F766E).", "why": "Fjord Blue failed contrast in dark mode and clashed with a competitor's identity.", "supersedes": "IRP-2025-10-13-001"}
+      ]
+    },
+    {
+      "key": "riverbank",
+      "name": "Riverbank data platform",
+      "decisions": [
+        {"id": "IRP-2025-09-15-001", "date": "2025-09-15", "what": "Batch pipelines are Airflow DAGs that run nightly at 02:00 UTC.", "why": "Retries and visibility that cron scripts lacked.", "alternatives": "Cron scripts: rejected, no retries or visibility."},
+        {"id": "IRP-2025-09-22-001", "date": "2025-09-22", "what": "Customer email addresses are hashed before they enter the warehouse; analysts only ever see the hash.", "why": "GDPR data minimisation: analysts don't need raw emails.", "alternatives": "Raw emails protected by column-level access rules: rejected, one misconfigured role exposes everything."},
+        {"id": "IRP-2025-10-06-001", "date": "2025-10-06", "what": "Dashboards are built in Metabase.", "why": "Free and quick to set up.", "alternatives": "Tableau: rejected, licence cost."},
+        {"id": "IRP-2025-10-20-001", "date": "2025-10-20", "what": "Raw event data is kept for 13 months.", "why": "Year-over-year comparisons."},
+        {"id": "IRP-2025-11-10-001", "date": "2025-11-10", "what": "Transformations are written in dbt.", "why": "Testable and versioned.", "alternatives": "Stored procedures: rejected, untestable."},
+        {"id": "IRP-2025-12-01-001", "date": "2025-12-01", "what": "No streaming infrastructure: everything is batch or micro-batch.", "why": "We are a three-person team and nobody needs data fresher than 15 minutes.", "alternatives": "Kafka: rejected, operational cost far beyond our team's capacity."},
+        {"id": "IRP-2026-01-26-001", "date": "2026-01-26", "what": "Pipelines are Dagster assets.", "why": "Asset-based lineage and testing; the Airflow DAGs had sprawled.", "alternatives": "Staying on Airflow 2: rejected, DAG sprawl.", "supersedes": "IRP-2025-09-15-001"},
+        {"id": "IRP-2026-02-16-001", "date": "2026-02-16", "what": "Every new source table needs a data contract before it is loaded.", "why": "Unannounced schema changes broke three pipelines last quarter."},
+        {"id": "IRP-2026-03-16-001", "date": "2026-03-16", "what": "Dashboards are built in Superset.", "why": "We now need row-level security per region, which Metabase couldn't do for us.", "supersedes": "IRP-2025-10-06-001"},
+        {"id": "IRP-2026-05-11-001", "date": "2026-05-11", "what": "Raw event data is kept for 6 months.", "why": "Legal review of our consent wording.", "supersedes": "IRP-2025-10-20-001"}
+      ]
+    },
+    {
+      "key": "hearth",
+      "name": "Hearth HR app",
+      "decisions": [
+        {"id": "IRP-2025-08-04-001", "date": "2025-08-04", "what": "Users sign in only through their company's single sign-on (SAML or OIDC).", "why": "We don't want to store or protect passwords.", "alternatives": "Our own username and password login: rejected, security burden and liability."},
+        {"id": "IRP-2025-08-18-001", "date": "2025-08-18", "what": "Salaries are visible only to HR and the employee's own manager.", "why": "Customer policy."},
+        {"id": "IRP-2025-09-01-001", "date": "2025-09-01", "what": "The mobile app is built with React Native.", "why": "One codebase for a team of four.", "alternatives": "Separate native iOS and Android apps: rejected, two codebases."},
+        {"id": "IRP-2025-09-15-001", "date": "2025-09-15", "what": "All notifications are sent by email.", "why": "Simplest to build first."},
+        {"id": "IRP-2025-10-13-001", "date": "2025-10-13", "what": "Employee data is hosted in the EU region (Frankfurt).", "why": "Our customer contracts require EU hosting."},
+        {"id": "IRP-2025-11-03-001", "date": "2025-11-03", "what": "Leave requests are approved by the manager; requests over 10 days also go to HR.", "why": "HR wanted oversight of long absences."},
+        {"id": "IRP-2025-12-08-001", "date": "2025-12-08", "what": "Search uses PostgreSQL full-text search.", "why": "Our largest customer has 2,000 employees; that's small data.", "alternatives": "Elasticsearch: rejected, another service to run for very little gain."},
+        {"id": "IRP-2026-01-19-001", "date": "2026-01-19", "what": "Notifications are in-app and push; email is used only for payslips.", "why": "Employees told us in the survey that email notifications were overwhelming.", "supersedes": "IRP-2025-09-15-001"},
+        {"id": "IRP-2026-03-02-001", "date": "2026-03-02", "what": "Every screen meets WCAG 2.2 AA before release.", "why": "Public-sector customers require it."},
+        {"id": "IRP-2026-04-20-001", "date": "2026-04-20", "what": "Managers approve all leave requests; HR is no longer in the approval flow.", "why": "HR had become a bottleneck, and an audit found no issues with manager-only approval.", "supersedes": "IRP-2025-11-03-001"}
+      ]
+    }
+  ]
+}
