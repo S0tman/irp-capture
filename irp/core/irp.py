@@ -365,8 +365,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--target",
         type=str,
         required=True,
-        choices=["agents.md", "decisions.md"],
-        help="Target format: agents.md (agent constraints) or decisions.md (human log)",
+        choices=["agents.md", "claude.md", "cursor", "copilot", "decisions.md"],
+        help="Target format: agents.md, claude.md, cursor (.cursor/rules) or copilot "
+             "(.github/copilot-instructions.md) for agents; decisions.md for the human log",
     )
     p_export_ctx.add_argument(
         "--output",

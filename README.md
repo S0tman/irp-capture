@@ -20,6 +20,22 @@ length. See the [pre-registered eval](https://github.com/S0tman/irp-capture/tree
 
 Confirm a decision → it's appended to a local file → any later edit shows.
 
+**Why it works**
+
+- **Tool-agnostic.** One plain, append-only file in your repository. It isn't
+  bound to a model, a vendor or an editor, and it outlives all of them.
+  `irp export context` writes the same decisions into AGENTS.md, CLAUDE.md,
+  Cursor rules and Copilot instructions, so every agent your team uses reads
+  the same why.
+- **Captured when the decision is made.** In Slack, Figma, Discord, a git hook,
+  VS Code, the CLI or through MCP: wherever the decision happens, confirmed by
+  a person in that moment, while the reasons are still fresh.
+- **Simple enough to become a habit.** One command and a few seconds. People
+  keep the tools that fit the job at hand, and IRP stays out of the way.
+- **Current and accountable.** A new decision records what it supersedes, so
+  agents only get what still holds, and the history stays tamper-evident for
+  the day someone asks why.
+
 ```bash
 # Before starting something new
 irp why
@@ -461,8 +477,11 @@ All three. All local. No SaaS required.
 IRP decisions travel with your work. Export them as portable files that any agent or human can read, with full provenance.
 
 ```bash
-# Export agent-facing rules (AGENTS.md)
+# Export agent-facing rules: AGENTS.md, CLAUDE.md, Cursor or Copilot
 irp export context --target agents.md
+irp export context --target claude.md
+irp export context --target cursor     # .cursor/rules/irp-decisions.mdc
+irp export context --target copilot    # .github/copilot-instructions.md
 
 # Export human-readable decision log (DECISIONS.md)
 irp export decisions
@@ -493,7 +512,7 @@ irp export evidence --framework custom --config framework.json  # your own mappi
 irp export evidence --demo
 ```
 
-`AGENTS.md` derives single-line constraints from your decisions, each citing its source IRP id. Drop it in any project root and agents know not just *what* the rules are, but *where they came from*.
+`AGENTS.md` derives single-line constraints from your active decisions, each citing its source IRP id. Superseded and retired decisions are left out, so agents only get what still holds. The `claude.md`, `cursor` and `copilot` targets write the same content where Claude Code, Cursor and GitHub Copilot look for it: one ledger, every agent's file.
 
 `DECISIONS.md` renders your full decision history newest-first, confidence, tags, source, reasoning. Readable by any collaborator who doesn't run IRP.
 
@@ -802,7 +821,7 @@ Start capturing from day one, even if the entries are simple.
 | **List recent mod events** | **`irp mod list`** |
 | Check proposal for conflicts (keyword overlap) | `irp check "proposal text"` |
 | Resolve with ranked conflicts | `irp resolve "proposal text"` |
-| Export agent constraints | `irp export context --target agents.md` |
+| Export agent constraints | `irp export context --target agents.md` (or `claude.md`, `cursor`, `copilot`) |
 | Export human decision log | `irp export context --target decisions.md` |
 | Export interactive 3D graph | `irp export graph` |
 | **Foundations lens (what the reasoning rests on)** | **`irp export graph --view foundations`** |
