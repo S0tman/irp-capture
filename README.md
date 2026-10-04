@@ -14,6 +14,10 @@ Agents can read it through MCP before they act, so they don't reopen settled
 debates or break a rule they can't see the point of. People read the same
 record when a decision is questioned later. Human why in, accountability out.
 
+We tested that claim in public: given the reason, agents applied a rule to cases it
+didn't name far more often than with the bare rule or with filler text of the same
+length. See the [pre-registered eval](https://github.com/S0tman/irp-capture/tree/main/eval/why-in).
+
 Confirm a decision → it's appended to a local file → any later edit shows.
 
 ```bash
