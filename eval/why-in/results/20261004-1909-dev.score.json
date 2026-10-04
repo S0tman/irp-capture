@@ -1,0 +1,151 @@
+{
+  "models": {
+    "anthropic/claude-haiku-4.5": {
+      "extend": {
+        "bare": 0.5,
+        "reason": 0.5,
+        "filler": 0.5,
+        "stale": 0.5
+      },
+      "extend_ask": {
+        "bare": 0.5,
+        "reason": 0.5,
+        "filler": 0.5,
+        "stale": 0.5
+      },
+      "hold_wrongful": {
+        "bare": 0.0,
+        "reason": 0.0,
+        "filler": 0.0,
+        "stale": 0.0
+      },
+      "plain": {
+        "bare": 1.0,
+        "reason": 1.0,
+        "filler": 1.0,
+        "stale": 1.0
+      },
+      "stale_probe_wrongful": {
+        "bare": 0.0,
+        "reason": 0.0,
+        "filler": 0.0,
+        "stale": 0.0
+      },
+      "invalid": 0,
+      "calls": 16,
+      "extend_gap": 0.0,
+      "extend_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "clears": false,
+      "clearly_below": true
+    },
+    "google/gemini-3.8-flash": {
+      "extend": {
+        "bare": 0.0,
+        "reason": 0.5,
+        "filler": 0.0,
+        "stale": 0.5
+      },
+      "extend_ask": {
+        "bare": 0.5,
+        "reason": 0.5,
+        "filler": 0.5,
+        "stale": 0.5
+      },
+      "hold_wrongful": {
+        "bare": 0.0,
+        "reason": 0.0,
+        "filler": 0.0,
+        "stale": 0.0
+      },
+      "plain": {
+        "bare": 1.0,
+        "reason": 1.0,
+        "filler": 1.0,
+        "stale": 1.0
+      },
+      "stale_probe_wrongful": {
+        "bare": 0.0,
+        "reason": 0.0,
+        "filler": 0.0,
+        "stale": 0.0
+      },
+      "invalid": 0,
+      "calls": 16,
+      "extend_gap": 0.5,
+      "extend_gap_ci": [
+        0.0,
+        1.0
+      ],
+      "clears": false,
+      "clearly_below": false
+    },
+    "openai/gpt-oss-120b": {
+      "extend": {
+        "bare": 0.5,
+        "reason": 1.0,
+        "filler": 0.5,
+        "stale": 0.0
+      },
+      "extend_ask": {
+        "bare": 0.0,
+        "reason": 0.0,
+        "filler": 0.0,
+        "stale": 0.5
+      },
+      "hold_wrongful": {
+        "bare": 0.0,
+        "reason": 0.0,
+        "filler": 0.0,
+        "stale": 0.0
+      },
+      "plain": {
+        "bare": 1.0,
+        "reason": 1.0,
+        "filler": 1.0,
+        "stale": 1.0
+      },
+      "stale_probe_wrongful": {
+        "bare": 0.0,
+        "reason": 0.0,
+        "filler": 0.0,
+        "stale": 0.0
+      },
+      "invalid": 0,
+      "calls": 16,
+      "extend_gap": 0.5,
+      "extend_gap_ci": [
+        0.0,
+        1.0
+      ],
+      "clears": false,
+      "clearly_below": false
+    }
+  },
+  "verdict": {
+    "claim": "inconclusive",
+    "hold_safety": "ok",
+    "hold_wrongful_delta": 0.0,
+    "models_clearing": 0,
+    "models_clearly_below": 1,
+    "of": 3
+  },
+  "without_model": {
+    "anthropic/claude-haiku-4.5": {
+      "models_clearing": 0,
+      "of": 2
+    },
+    "google/gemini-3.8-flash": {
+      "models_clearing": 0,
+      "of": 2
+    },
+    "openai/gpt-oss-120b": {
+      "models_clearing": 0,
+      "of": 2
+    }
+  },
+  "cost_usd": 0.0323,
+  "errors": 0
+}

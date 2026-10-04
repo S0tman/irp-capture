@@ -1,0 +1,16 @@
+{
+  "registered": "2026-10-04T19:35:50+00:00",
+  "hashes": {
+    "tasks.json": "5dc3eb941ec162c240d5cbe3209a8319997f78e7f5169a674ab3c131e41d8ff2",
+    "dev.json": "fbef6fe85a73b0efdeb274e78ec72db6027195449fa290150c9b35ae70c9ba8c",
+    "whyin.py": "53e2704a871cc609f712d96d3550092f8c173f9c6d411ecaf9c273f9031b7591",
+    "run.py": "20c4ef54c5818d89cee3f6e8e44e1593e96a248b6734ba40e235a53278019377"
+  },
+  "thresholds": {
+    "extend_gap": 0.1,
+    "models_needed": 2,
+    "hold_limit": 0.05,
+    "bootstrap_n": 2000,
+    "bootstrap_seed": 20261004
+  }
+}
