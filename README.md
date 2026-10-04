@@ -8,13 +8,13 @@
 
 ## Intent Record Protocol
 
-**IRP keeps the reason behind a decision, so someone can answer for it later.**
+**IRP gives agents the reasons behind your decisions, including the options you turned down.**
 
-Agents will make more decisions than anyone can answer for. IRP records why a
-decision was made, at the moment a human confirms it, in a plain file that
-outlives the tool that produced it.
+Agents can read it through MCP before they act, so they don't reopen settled
+debates or break a rule they can't see the point of. People read the same
+record when a decision is questioned later. Human why in, accountability out.
 
-Confirm a decision → it is written to a local file → it stays forever.
+Confirm a decision → it's appended to a local file → any later edit shows.
 
 ```bash
 # Before starting something new
@@ -389,6 +389,11 @@ Nothing changes about how you work.
 | **VS Code** | Extension, `IRP: Capture Decision` (⌘⇧I), status bar, `irp why` output panel. Install: drag `irp-capture-0.5.0.vsix` into Extensions. |
 
 No tool talks to another. Everything talks to the ledger.
+
+The CLI asks you to confirm before it writes. Sensors, the REST API, MCP and
+`irp capture --stdin` write what they're given, so confirming is the caller's
+job, for example your client's tool-approval prompt. Each entry's `source`
+field says where it came from.
 
 ---
 
@@ -785,7 +790,7 @@ Start capturing from day one, even if the entries are simple.
 | **Supersede a decision** | **`irp mod supersede IRP-ID --decision "..." --reason "..."`** |
 | **Retire a decision** | **`irp mod retire IRP-ID --reason "..."`** |
 | **List recent mod events** | **`irp mod list`** |
-| Check proposal for conflicts | `irp check "proposal text"` |
+| Check proposal for conflicts (keyword overlap) | `irp check "proposal text"` |
 | Resolve with ranked conflicts | `irp resolve "proposal text"` |
 | Export agent constraints | `irp export context --target agents.md` |
 | Export human decision log | `irp export context --target decisions.md` |
