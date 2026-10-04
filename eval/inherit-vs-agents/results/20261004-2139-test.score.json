@@ -1,0 +1,202 @@
+{
+  "models": {
+    "anthropic/claude-haiku-4.5": {
+      "superseded": {
+        "none": 0.0333,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "superseded_ask": {
+        "none": 0.9,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_adopt": {
+        "none": 0.0,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_ask": {
+        "none": 0.7667,
+        "agents-rules": 0.1333,
+        "agents-full": 0.2,
+        "irp": 0.0333
+      },
+      "plain": {
+        "none": 0.9167,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "invalid": 0,
+      "calls": 288,
+      "superseded_gap": 0.0,
+      "superseded_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "reopen_adopt_gap": 0.0,
+      "reopen_adopt_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "clears": false,
+      "clearly_below": true
+    },
+    "google/gemini-3.8-flash": {
+      "superseded": {
+        "none": 0.0,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "superseded_ask": {
+        "none": 1.0,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_adopt": {
+        "none": 0.0,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_ask": {
+        "none": 0.2,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "plain": {
+        "none": 0.4167,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "invalid": 0,
+      "calls": 288,
+      "superseded_gap": 0.0,
+      "superseded_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "reopen_adopt_gap": 0.0,
+      "reopen_adopt_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "clears": false,
+      "clearly_below": true
+    },
+    "grunden/glm-5.3": {
+      "superseded": {
+        "none": 0.1379,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "superseded_ask": {
+        "none": 0.7586,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_adopt": {
+        "none": 0.0333,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_ask": {
+        "none": 0.2667,
+        "agents-rules": 0.0333,
+        "agents-full": 0.0,
+        "irp": 0.0333
+      },
+      "plain": {
+        "none": 1.0,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "invalid": 2,
+      "calls": 288,
+      "superseded_gap": 0.0,
+      "superseded_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "reopen_adopt_gap": 0.0,
+      "reopen_adopt_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "clears": false,
+      "clearly_below": true
+    },
+    "openai/gpt-oss-120b": {
+      "superseded": {
+        "none": 0.2333,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "superseded_ask": {
+        "none": 0.6,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_adopt": {
+        "none": 0.0,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "reopen_ask": {
+        "none": 0.2667,
+        "agents-rules": 0.0,
+        "agents-full": 0.0,
+        "irp": 0.0
+      },
+      "plain": {
+        "none": 1.0,
+        "agents-rules": 1.0,
+        "agents-full": 1.0,
+        "irp": 1.0
+      },
+      "invalid": 0,
+      "calls": 288,
+      "superseded_gap": 0.0,
+      "superseded_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "reopen_adopt_gap": 0.0,
+      "reopen_adopt_gap_ci": [
+        0.0,
+        0.0
+      ],
+      "clears": false,
+      "clearly_below": true
+    }
+  },
+  "verdict": {
+    "supersession": "killed",
+    "primary_clearing": 0,
+    "primary_clearly_below": 3,
+    "of": 3
+  },
+  "cost_usd": 0.6227,
+  "errors": 0,
+  "served": [
+    "anthropic/claude-haiku-4.5 -> anthropic/claude-haiku-4.5",
+    "google/gemini-3.8-flash -> google/gemini-3.8-flash",
+    "grunden/glm-5.3 -> glm-5.3",
+    "openai/gpt-oss-120b -> openai/gpt-oss-120b"
+  ]
+}

@@ -69,3 +69,27 @@ Keys go in `eval/.env` (copy [../.env.example](../.env.example)). They are never
 ## Review
 
 Claude drafted the projects and tasks. The maintainer reviewed every expected answer ([review.md](review.md)) before the freeze.
+
+## Results (scored run, 4 October 2026)
+
+Run `20261004-2139-test`: 1,152 calls, 0 errors, $0.62 (GLM-5.3 was free). There were 2 unreadable answers, both GLM replies missing their closing brace, which the frozen parser couldn't read; both are excluded. Raw answers: [results/20261004-2139-test.jsonl](results/20261004-2139-test.jsonl). Scores: [results/20261004-2139-test.score.json](results/20261004-2139-test.score.json).
+
+**Verdict: supersession killed.** No primary model shows any gap: irp and agents-full were both perfect.
+
+| Model | Superseded correct: none / agents-rules / agents-full / irp | irp minus agents-full | Reopen: rejected option adopted, any arm |
+|---|---|---|---|
+| claude-haiku-4.5 | 3% / 100% / 100% / 100% | 0 points | 0% |
+| gemini-3.8-flash | 0% / 100% / 100% / 100% | 0 points | 0% |
+| gpt-oss-120b | 23% / 100% / 100% / 100% | 0 points | 0% |
+| glm-5.3 (extra) | 14% / 100% / 100% / 100% | 0 points | 0% (3% with no context) |
+
+**What it shows:**
+
+- **At this size, a plain AGENTS.md is enough.** With about 10 decisions per project and dated "Update:" entries, every model picked the current decision every time, whether it came from IRP or from a file with the full history. IRP's structure added nothing to how the agent read the record.
+- **Context mattered; its form didn't.** Without any context, models mostly asked the owner (97 of 119 valid answers on Superseded) and rarely guessed right. Any of the three context forms fixed that completely.
+- **The Reopen tasks didn't discriminate.** No model adopted a rejected option in any arm, even with no context at all. The "keep" options were simply better engineering, so these tasks don't test whether the record helps. That's a flaw in the task design, recorded here rather than fixed after the fact.
+- **The irp context was the longest, not the shortest.** The registered design assumed irp would be shorter because it drops superseded entries. In fact the JSON the MCP tool returns ran to 12,215 characters across the four projects, against 7,502 for agents-full and 2,265 for agents-rules. That's a real cost, and a finding about `irp_inherit` itself: a compact text form would serve agents better.
+
+**What this means for IRP** (the consequence registered above): the edge isn't in how an agent reads the record. A well-kept AGENTS.md with reasons steers just as well. IRP's job is keeping it well kept: capturing the decision when it's made, recording what each new decision supersedes, and keeping a tamper-evident history. `irp export context --target agents.md` already writes the AGENTS.md from the ledger.
+
+**Limits, and what a harder test would need:** small records (10 to 11 decisions), explicit "Update:" headings, and tasks that name their topic directly. Curation should matter more with hundreds of decisions, supersessions buried far from what they replace, and no update markers. That's a separate eval, to be designed and registered on its own, not a reason to reread this one.
