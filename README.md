@@ -4,7 +4,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/irp-capture?color=4A90D9)](https://pypi.org/project/irp-capture/)
 [![Discussions](https://img.shields.io/github/discussions/S0tman/irp-capture?color=4A90D9)](https://github.com/S0tman/irp-capture/discussions)
 
-![Test coverage by module](./assets/test-coverage.svg)
+![Test coverage by module](https://raw.githubusercontent.com/S0tman/irp-capture/main/assets/test-coverage.svg)
 
 ## Intent Record Protocol
 
@@ -304,7 +304,7 @@ And IRP dogfoods itself. Below is the built-in demo ledger seen through the
 foundations lens: the same 18 decisions you get from `irp export graph --demo`,
 with node size showing which decisions the rest of the graph rests on.
 
-[![IRP demo decision graph](./assets/decision-lineage.svg)](https://book.irp-compliance.xyz/demo-graph.html)
+[![IRP demo decision graph](https://raw.githubusercontent.com/S0tman/irp-capture/main/assets/decision-lineage.svg)](https://book.irp-compliance.xyz/demo-graph.html)
 
 **New to this? Here is how to read it, in plain words:**
 
