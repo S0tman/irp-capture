@@ -2,7 +2,7 @@
 
 Subcommands:
   export decisions                        (US-007 shorthand)
-  export context --target agents.md
+  export context --target agents.md      (also claude.md, cursor, copilot)
   export context --target decisions.md
 
 Design rules (matched to IRP-2026-04-28-002):
@@ -28,13 +28,14 @@ from pathlib import Path
 from typing import Any
 
 from store import read_ledger, read_config
+from irp.core.resolver import build_retirement_set, build_supersession_map
 from commands.graph import run_export_graph, _SAMPLE_DECISIONS as _GRAPH_SAMPLE
 from commands.evidence import run_export_evidence
 
 
 # ── header copy ──────────────────────────────────────────────────────────────
 
-_HEADER_TEMPLATE = """# AGENTS.md
+_HEADER_TEMPLATE = """{title}
 
 This file was generated from IRP decision records.
 
@@ -49,13 +50,31 @@ Do not treat this file as the source of truth. The source of truth is:
 Regenerate this file with:
 
 ```bash
-irp export context --target agents.md
+irp export context --target {target}
 ```
 
 Generated: {generated_at}
-Source: {decision_count} confirmed decision(s) from `.irp/ledger.jsonl`
+Source: {decision_count} active decision(s) from `.irp/ledger.jsonl` (superseded and retired decisions are left out)
 control_level: {control_level}
 """
+
+# One ledger, every agent's instruction file. Each tool reads its own file;
+# the content is the same, built from the same active decisions.
+AGENT_TARGETS: dict[str, dict[str, str]] = {
+    "agents.md": {"path": "AGENTS.md", "title": "# AGENTS.md", "front_matter": ""},
+    "claude.md": {"path": "CLAUDE.md", "title": "# CLAUDE.md", "front_matter": ""},
+    "cursor": {
+        "path": ".cursor/rules/irp-decisions.mdc",
+        "title": "# IRP decisions",
+        "front_matter": (
+            "---\n"
+            "description: The team's active decisions, generated from the IRP ledger\n"
+            "alwaysApply: true\n"
+            "---\n\n"
+        ),
+    },
+    "copilot": {"path": ".github/copilot-instructions.md", "title": "# Copilot instructions", "front_matter": ""},
+}
 
 # ── control-level behavioral sections ────────────────────────────────────────
 
@@ -200,13 +219,23 @@ def _format_constraint(entry: dict[str, Any], rule: str) -> str:
     return f"- **{rule}** *(Source: {irp_id})*"
 
 
-def _build_agents_md(decisions: list[dict[str, Any]], control_level: str = "advanced") -> str:
-    """Render the AGENTS.md body from a list of decision entries."""
+def _active(decisions: list[dict[str, Any]], ledger: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Decisions an agent should follow: superseded and retired ones left out."""
+    gone = build_supersession_map(ledger) | build_retirement_set(ledger)
+    return [d for d in decisions if d.get("id") not in gone]
+
+
+def _build_agents_md(decisions: list[dict[str, Any]], control_level: str = "advanced",
+                     target: str = "agents.md") -> str:
+    """Render an agent instruction file (AGENTS.md, CLAUDE.md, ...) from decision entries."""
+    spec = AGENT_TARGETS.get(target, AGENT_TARGETS["agents.md"])
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     level = control_level if control_level in _CONTROL_LEVEL_SECTIONS else _CONTROL_LEVEL_DEFAULT
 
-    parts: list[str] = []
+    parts: list[str] = [spec["front_matter"]] if spec["front_matter"] else []
     parts.append(_HEADER_TEMPLATE.format(
+        title=spec["title"],
+        target=target,
         generated_at=generated_at,
         decision_count=len(decisions),
         control_level=level,
@@ -492,7 +521,7 @@ def _run_export_decisions(project_root: Path, irp_dir: Path, args) -> dict:
 
 
 _TARGET_DEFAULTS = {
-    "agents.md":    "AGENTS.md",
+    **{name: spec["path"] for name, spec in AGENT_TARGETS.items()},
     "decisions.md": "DECISIONS.md",
 }
 
@@ -517,15 +546,19 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
 
-    # Read ledger and filter to decisions.
+    # Read ledger and filter to decisions. Agent files get the active ones
+    # only; DECISIONS.md is the full human history.
     ledger = read_ledger(irp_dir)
     decisions = [row for row in ledger if _is_decision(row)]
+    is_agent_file = target in AGENT_TARGETS
+    if is_agent_file:
+        decisions = _active(decisions, ledger)
 
     # Build target-specific body.
-    if target == "agents.md":
+    if is_agent_file:
         cfg = read_config(irp_dir)
         control_level = cfg.get("control_level", "advanced")
-        body = _build_agents_md(decisions, control_level=control_level)
+        body = _build_agents_md(decisions, control_level=control_level, target=target)
     else:  # decisions.md
         body = _build_decisions_md(decisions)
 
@@ -537,7 +570,7 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
     ]
 
     if output_path.exists() and not force:
-        if target == "agents.md":
+        if is_agent_file:
             detail = (
                 f"Would have written {len(decisions)} decision(s) "
                 f"({sum(1 for d in decisions if _derive_rule(d))} as rules)."
@@ -580,7 +613,7 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
         except OSError:
             pass
 
-    if target == "agents.md":
+    if is_agent_file:
         cfg = read_config(irp_dir)
         control_level = cfg.get("control_level", "advanced")
         rule_count = sum(1 for d in decisions if _derive_rule(d))
