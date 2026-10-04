@@ -1,7 +1,7 @@
 # irp-capture
 
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/irp-capture?color=4A90D9)](https://pypi.org/project/irp-capture/)
-[![PyPI - Version](https://img.shields.io/pypi/v/irp-capture?color=4A90D9)](https://pypi.org/project/irp-capture/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/irp-capture?color=4A90D9&cacheSeconds=3600)](https://pypi.org/project/irp-capture/)
+[![PyPI - Version](https://img.shields.io/pypi/v/irp-capture?color=4A90D9&cacheSeconds=3600)](https://pypi.org/project/irp-capture/)
 [![Discussions](https://img.shields.io/github/discussions/S0tman/irp-capture?color=4A90D9)](https://github.com/S0tman/irp-capture/discussions)
 
 ![Test coverage by module](https://raw.githubusercontent.com/S0tman/irp-capture/main/assets/test-coverage.svg)
