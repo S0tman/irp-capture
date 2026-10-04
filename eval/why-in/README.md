@@ -67,3 +67,27 @@ Raw answers and scores are written to `results/`. The whole scored run costs wel
 ## Provenance
 
 Designed in a three-model review on 4 October 2026: Claude and GPT diverged, and Gemini triaged. GPT proposed the four-arm design with the filler control, and Gemini endorsed it.
+
+## Results (scored run, 4 October 2026)
+
+Run `20261004-1936-test`: 864 calls, 0 errors, 2 unreadable answers (gpt-oss returned no text twice; both excluded), $0.61. Raw answers: [results/20261004-1936-test.jsonl](results/20261004-1936-test.jsonl). Scores: [results/20261004-1936-test.score.json](results/20261004-1936-test.score.json).
+
+**Verdict: the claim is supported.** Two of three models clear the registered bar, and the reason caused no wrongful exceptions.
+
+| Model | Extend correct: bare / reason / filler / stale | Reason minus filler (95% CI) | Clears? |
+|---|---|---|---|
+| claude-haiku-4.5 | 37% / 57% / 30% / 3% | +27 points (−3 to +57) | no: the interval includes zero |
+| gemini-3.8-flash | 30% / 77% / 30% / 40% | +47 points (+17 to +77) | yes |
+| gpt-oss-120b | 37% / 97% / 53% / 53% | +43 points (+20 to +67) | yes |
+
+**What else the run shows:**
+
+- **Length isn't the explanation.** Filler helped gpt-oss a little (37% to 53%), but the reason helped far more (97%). For the other two models, filler did nothing.
+- **Haiku asks instead of acting.** It chose "ask the owner" on 43% to 47% of Extend answers in every arm. That's what kept its interval wide.
+- **The result doesn't rest on Haiku.** Claude wrote the tasks, so we checked the run without Claude: the two remaining models both clear. Without either Gemini or gpt-oss, only one model of two clears. So the support rests on Gemini and gpt-oss together, not on Claude.
+- **The effect is concentrated.** It's largest where the reason is unusual and common sense can't guess it: E01, E04, E05, E06 and E07, on the text-to-speech, support-team, hospital-alarm, snapshot and locked-door tasks. Where common sense already points the right way (E08, E09, E10), every arm scores high. E03 is flat, because most answers chose "ask" in every arm.
+- **Hold safety is untested in practice.** No model took a wrongful exception on any Hold task in the bare, reason or filler arms. The tasks were too easy to show a risk, so "no harm" here means no harm detected, not no harm.
+- **Stale reasons push agents to ask.** With the outdated why, models chose "ask" on Hold tasks 24 times, against 10 with the bare rule, and took one wrongful exception (H07, Gemini). On Extend, a stale why made Haiku worse than no why at all (3% against 37%). An outdated reason isn't neutral, which is why IRP marks superseded decisions explicitly.
+- **Plain sanity:** Gemini and gpt-oss were at 100% in every arm. Haiku's only misses were "ask" answers on P04.
+
+**Limits:** 24 tasks written by one author, single-turn and multiple-choice, three cheap models. This supports the README sentence. It doesn't show that the effect carries over to multi-step agent work, which is the bar IRP Compliance would need.
