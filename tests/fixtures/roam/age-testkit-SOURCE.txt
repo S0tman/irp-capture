@@ -1,0 +1,9 @@
+age test vectors (age-testkit/)
+
+Source:  https://github.com/C2SP/CCTV (age/testdata)
+Commit:  50a8ecf2a220f4c8bdc4f085789b8e85c26829e7
+Files:   147, copied unchanged
+License: 0BSD, CC0 1.0 or the Unlicense, at the user's choice (no attribution required)
+
+Used by tests/test_roam_age.py. Vectors outside the roaming profile (armor,
+passphrase, hybrid, non-X25519 stanzas) are expected to be rejected.
