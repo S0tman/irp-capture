@@ -421,7 +421,7 @@ def test_unpack_refuses_swapped_required_members(kind, members, first):
 
 def _files_map(members):
     exempt = {"irp/content.json", "irp/content.sig", "irp/disclosure.json", "irp/disclosure.sig", "manifest.json"}
-    return {n: "sha256-" + _sha(v) for n, v in members.items() if n not in exempt and not n.startswith("artefacts/")}
+    return {n: "sha256-" + _sha(v) for n, v in members.items() if n not in exempt}
 
 
 def test_binding_of_a_slice_against_its_signed_files_map():
@@ -429,6 +429,9 @@ def test_binding_of_a_slice_against_its_signed_files_map():
     m = slice_members(tsr=False, artefact=True)
     files = _files_map(m)
     check_binding("rekadu", m, files)
+    unsigned_artefact = {n: d for n, d in files.items() if not n.startswith("artefacts/")}
+    with pytest.raises(ContainerError, match="artefacts/"):
+        check_binding("rekadu", m, unsigned_artefact)  # a hash-named artefact still needs the signature
     with pytest.raises(ContainerError, match="irp/checkpoint.tsr"):
         check_binding("rekadu", {**m, "irp/checkpoint.tsr": b"forged token"}, files)  # unsigned tsr
     with pytest.raises(ContainerError, match="ledger.jsonl"):

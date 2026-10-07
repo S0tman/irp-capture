@@ -1,0 +1,11 @@
+Ed25519 edge-case vectors (ed25519vectors.json)
+
+Source:  https://github.com/C2SP/CCTV (ed25519/ed25519vectors.json)
+Commit:  50a8ecf2a220f4c8bdc4f085789b8e85c26829e7
+Files:   ed25519vectors.json, copied unchanged
+License: BSD 3-Clause, Copyright 2019 Google LLC, Copyright 2022 Filippo Valsorda
+         (full text in ed25519vectors-LICENSE.txt, kept with the vectors)
+
+Used by tests/test_roam_sig.py. The roaming profile (spec v0.3 §15.2) accepts
+exactly the vectors with no flags: canonical encodings and points of prime order
+only, so every implementation (Python, the viewer, the relay) agrees.

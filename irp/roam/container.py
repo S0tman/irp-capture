@@ -276,8 +276,9 @@ def check_hashes(members: Mapping[str, bytes], files: Mapping[str, str], *, requ
 
 
 # Members a Slice's signed files map never lists, because something else binds them: the statements are
-# signed over their exact bytes, the manifest by the §15.3 binding rules, artefacts by their content-hash
-# names (checked by unpack).
+# signed over their exact bytes and the manifest by the §15.3 binding rules. Artefacts are listed like any
+# other file: a content-hash name ties the bytes to the name, but only the signature ties the name to the
+# custodian.
 _SLICE_BOUND_ELSEWHERE = frozenset({"irp/content.json", "irp/content.sig", "irp/disclosure.json",
                                     "irp/disclosure.sig", "manifest.json"})
 
@@ -290,7 +291,6 @@ def check_binding(kind: str, members: Mapping[str, bytes], files: Mapping[str, s
     if kind != "rekadu":
         raise ContainerError(f"a {kind} container is bound by its checkpoint, not by a Slice files map")
     check_hashes(members, files)
-    unbound = sorted(n for n in members
-                     if n not in files and n not in _SLICE_BOUND_ELSEWHERE and not _ARTEFACT.fullmatch(n))
+    unbound = sorted(n for n in members if n not in files and n not in _SLICE_BOUND_ELSEWHERE)
     if unbound:
         raise ContainerError(f"{', '.join(unbound)} not listed in the signed files map")

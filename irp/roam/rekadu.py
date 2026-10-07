@@ -44,6 +44,7 @@ import re
 import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -56,6 +57,8 @@ CLASS0_FIELD_PREFIXES = ("confidential", "private", "secret")
 MIN_DEPTH, MAX_DEPTH = 1, 4
 STUB_WHAT_MAX = 160
 VOLATILE = ("generated_at", "disclosure", "rekadu_digest")
+MANIFEST_KEYS = ("rekadu_version", "canonicalization", "generated_at", "selection_params", "checkpoint", "records",
+                 "artefacts", "pruning", "omitted", "omitted_counts", "disclosure", "rekadu_digest")
 OMITTED_REASONS = ("exposure_class", "unknown_id", "type_not_in_scope", "pending_review")
 DISCLOSURE_KEYS = ("disclosure_id", "reader_id", "surface", "scope", "expires", "identity_assurance")
 CHECKPOINT_KEYS = ("id", "strand", "seq", "hash", "signed_ts")
@@ -114,6 +117,13 @@ def _canonical(obj: Any) -> bytes:
     from irp.integrity.canonical import canonicalize
 
     return canonicalize(obj)
+
+
+def digest_for(manifest: dict[str, Any], ledger_bytes: bytes) -> str:
+    """rekadu_digest = "sha256-" + hex(sha256(JCS(stable manifest) ‖ "\\n" ‖ ledger.jsonl)), where the stable
+    manifest leaves out the volatile keys (spec §8a). Readers recompute it to check the binding rules."""
+    stable = {k: v for k, v in manifest.items() if k not in VOLATILE}
+    return "sha256-" + hashlib.sha256(_canonical(stable) + b"\n" + ledger_bytes).hexdigest()
 
 
 # ── Reading ledger values (lenient: odd shapes are ignored, never crash) ──
@@ -273,8 +283,19 @@ def _pos_int(name: str, val: Any) -> int:
     return val
 
 
-def _timestamp(name: str, val: Any) -> None:
+def _is_real_time(val: Any) -> bool:
+    """The §15.1 shape and a real UTC instant: no 24:00, :60, 30 February or year 0000."""
     if not (isinstance(val, str) and _TIMESTAMP.fullmatch(val)):
+        return False
+    try:
+        datetime.strptime(val, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return True
+
+
+def _timestamp(name: str, val: Any) -> None:
+    if not _is_real_time(val):
         raise RekaduError(f"{name} must be a UTC timestamp like 2026-10-06T09:00:00Z, got {val!r}")
 
 
@@ -288,7 +309,7 @@ def _check_disclosure(disclosure: Any, surface: str, generated_at: Any) -> None:
             raise RekaduError(f"disclosure surface {disclosure['surface']!r} doesn't match the reader surface {surface!r}")
         if disclosure["scope"] != "read":
             raise RekaduError("disclosure scope must be 'read' in Cut 1")
-        if not (isinstance(disclosure["expires"], str) and _TIMESTAMP.fullmatch(disclosure["expires"])):
+        if not _is_real_time(disclosure["expires"]):
             raise RekaduError("disclosure expires must be a UTC timestamp like 2026-10-06T09:00:00Z")
         if not all(isinstance(disclosure[k], str) for k in ("disclosure_id", "reader_id", "identity_assurance")):
             raise RekaduError("disclosure ids and identity_assurance must be strings")
@@ -304,7 +325,7 @@ def _check_checkpoint(ck: Any) -> None:
           and isinstance(ck["strand"], str) and ck["strand"].startswith("dk-")
           and type(ck["seq"]) is int and ck["seq"] >= 0
           and isinstance(ck["hash"], str) and _DIGEST.fullmatch(ck["hash"])
-          and isinstance(ck["signed_ts"], str) and _TIMESTAMP.fullmatch(ck["signed_ts"]))
+          and _is_real_time(ck["signed_ts"]))
     if not ok:
         raise RekaduError("checkpoint must be None or {id: ckpt-…, strand: dk-…, seq: int >= 0, "
                           "hash: sha256-<64 hex>, signed_ts: UTC timestamp}")
@@ -604,8 +625,7 @@ def build_rekadu(
                           "(fewer targets, lower ancestor_depth, or a larger budget)")
 
     manifest = manifest_for(records)
-    stable = {k: v for k, v in manifest.items() if k not in VOLATILE}
-    digest = "sha256-" + hashlib.sha256(_canonical(stable) + b"\n" + data).hexdigest()
+    digest = digest_for(manifest, data)
     manifest["rekadu_digest"] = digest
     return Rekadu(manifest=manifest, records=records, ledger_bytes=data, digest=digest, size=size)
 

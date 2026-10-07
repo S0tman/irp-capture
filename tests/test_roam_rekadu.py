@@ -787,6 +787,26 @@ def test_non_json_containers_fail_closed():
     assert "IRP-2001-10-06-001" not in _ids(rk)
 
 
+IMPOSSIBLE_TIMESTAMPS = ["2001-02-03T24:00:00Z", "2001-02-03T04:05:60Z", "2001-02-03T04:60:00Z", "2001-02-30T00:00:00Z",
+                         "2001-02-29T00:00:00Z", "2001-00-10T00:00:00Z", "0000-01-01T00:00:00Z"]
+
+
+@pytest.mark.parametrize("ts", IMPOSSIBLE_TIMESTAMPS)
+def test_timestamps_must_be_real_utc_times(ts):
+    # Shape alone isn't enough: a JS reader's Date.parse rolls 30 February into March and gives NaN for :60.
+    with pytest.raises(RekaduError, match="generated_at"):
+        build_rekadu([A], targets=["IRP-2001-01-02-001"], generated_at=ts)
+    with pytest.raises(RekaduError, match="disclosure"):
+        build_rekadu([A], targets=["IRP-2001-01-02-001"], disclosure={**DISCLOSURE, "expires": ts})
+    ck = {"id": "ckpt-1", "strand": "dk-a", "seq": 41, "hash": "sha256-" + "a" * 64, "signed_ts": ts}
+    with pytest.raises(RekaduError, match="checkpoint"):
+        build_rekadu([A], targets=["IRP-2001-01-02-001"], checkpoint=ck)
+
+
+def test_a_leap_day_is_a_real_time():
+    build_rekadu([A], targets=["IRP-2001-01-02-001"], generated_at="2000-02-29T00:00:00Z")
+
+
 @pytest.mark.parametrize("ts", ["2026-10-06T09:00:00Z\n", "２026-10-06T09:00:00Z"])
 def test_timestamps_are_exact_ascii(ts):
     with pytest.raises(RekaduError, match="generated_at"):
