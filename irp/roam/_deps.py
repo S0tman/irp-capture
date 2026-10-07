@@ -42,3 +42,15 @@ def ed25519() -> SimpleNamespace:
         ) from exc
     return SimpleNamespace(InvalidSignature=InvalidSignature, Ed25519PrivateKey=Ed25519PrivateKey,
                            Ed25519PublicKey=Ed25519PublicKey, Encoding=Encoding, PublicFormat=PublicFormat)
+
+
+def aesgcm():
+    """AES-256-GCM, for the keystore."""
+    try:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    except ImportError as exc:  # pragma: no cover - exercised only without the extra
+        raise RoamDependencyError(
+            "Roaming IRP needs the 'cryptography' package. Install with: "
+            "pip install 'irp-capture[integrity]'"
+        ) from exc
+    return AESGCM
