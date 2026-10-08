@@ -54,3 +54,24 @@ def aesgcm():
             "pip install 'irp-capture[integrity]'"
         ) from exc
     return AESGCM
+
+
+def ec() -> SimpleNamespace:
+    """ECDSA P-256, for hardware-key and passkey assertions."""
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric.ec import (
+            ECDSA,
+            SECP256R1,
+            EllipticCurvePublicKey,
+        )
+        from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature, encode_dss_signature
+    except ImportError as exc:  # pragma: no cover - exercised only without the extra
+        raise RoamDependencyError(
+            "Roaming IRP needs the 'cryptography' package. Install with: "
+            "pip install 'irp-capture[integrity]'"
+        ) from exc
+    return SimpleNamespace(InvalidSignature=InvalidSignature, hashes=hashes, ECDSA=ECDSA, SECP256R1=SECP256R1,
+                           EllipticCurvePublicKey=EllipticCurvePublicKey,
+                           decode_dss_signature=decode_dss_signature, encode_dss_signature=encode_dss_signature)

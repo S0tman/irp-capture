@@ -295,6 +295,17 @@ def _prime_order(p: tuple[int, int, int, int]) -> bool:
     return not _is_identity(p) and _is_identity(_mul(_L, p))
 
 
+def check_ed25519_public(pub: Any) -> bytes:
+    """A 32-byte canonical encoding of a point of prime order L: the §15.2 rule for A, applied at enrolment."""
+    pub = _pub32(pub)
+    point = _decode_point(pub)
+    if point is None:
+        raise SigError("the public key isn't a canonical point encoding")
+    if not _prime_order(point):
+        raise SigError("the public key isn't a point of prime order (small-order or mixed-order)")
+    return pub
+
+
 def verify_ed25519(pub: bytes, msg: bytes, signature: bytes) -> None:
     """Strict Ed25519 verification (spec §15.2). Raises SigError on anything outside the profile."""
     if not isinstance(pub, (bytes, bytearray)) or len(pub) != 32:
