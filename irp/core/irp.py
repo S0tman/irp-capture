@@ -365,21 +365,21 @@ def build_parser() -> argparse.ArgumentParser:
     # ── docs ─────────────────────────────────────────────────────────────────
     p_docs = sub.add_parser(
         "docs",
-        help="Pull/push iCloud strategic docs to/from /tmp staging area",
+        help="Pull/push your docs folder (IRP_DOCS_DIR) to/from /tmp staging area",
     )
     docs_sub = p_docs.add_subparsers(dest="docs_action", required=True)
 
-    p_docs_pull = docs_sub.add_parser("pull", help="Copy iCloud docs → /tmp")
+    p_docs_pull = docs_sub.add_parser("pull", help="Copy docs from your docs folder → /tmp")
     p_docs_pull.add_argument("--file", type=str, default=None,
                              help="Specific filename (default: all known docs)")
     p_docs_pull.add_argument("--json", action="store_true")
 
-    p_docs_push = docs_sub.add_parser("push", help="Copy /tmp docs → iCloud")
+    p_docs_push = docs_sub.add_parser("push", help="Copy /tmp docs → your docs folder")
     p_docs_push.add_argument("--file", type=str, default=None,
                              help="Specific filename (default: all known docs)")
     p_docs_push.add_argument("--json", action="store_true")
 
-    p_docs_list = docs_sub.add_parser("list", help="List .md files in iCloud docs folder")
+    p_docs_list = docs_sub.add_parser("list", help="List .md files in your docs folder")
     p_docs_list.add_argument("--json", action="store_true")
 
     # ── export ───────────────────────────────────────────────────────────────
@@ -714,6 +714,10 @@ def main() -> int:
             and result.get("problems")
             and not (result.get("accepted") or result.get("would_accept"))
         ):
+            return 1
+        # `docs` with no usable docs folder (IRP_DOCS_DIR unset or missing), or
+        # nothing copied, exits 1 so scripts don't carry on with stale files.
+        if args.command == "docs" and result.get("status") == "error":
             return 1
         # exit 10 = conflict detected (warn-only signal for hook consumers)
         # exit 0  = clean
