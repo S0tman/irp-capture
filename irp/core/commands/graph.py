@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import dynamics
-from store import read_ledger
+from store import confirmed_only, read_ledger
 
 # Ids are <NAMESPACE>-YYYY-MM-DD-NNN. The namespace is not fixed to IRP, so that
 # reconstructed datasets (historical records rendered with this engine, which
@@ -1768,17 +1768,23 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     project = getattr(args, "project", None) or None
     has_filter = bool(from_date or to_date or project)
 
+    unconfirmed_excluded = 0
     if demo:
         decisions = _SAMPLE_DECISIONS
         default_name = "GRAPH-demo.html"
     else:
         ledger = read_ledger(irp_dir)
-        decisions = [row for row in ledger if _is_decision(row)]
+        all_decisions = [row for row in ledger if _is_decision(row)]
+        # The graph's footer and every card say "appended, never rewritten", so
+        # legacy bootstrap guesses (unconfirmed) are left out of it.
+        decisions = confirmed_only(all_decisions)
+        unconfirmed_excluded = len(all_decisions) - len(decisions)
         default_name = "GRAPH.html"
         if not decisions:
             return {
                 "command": "export.graph",
                 "status": "empty",
+                "unconfirmed_excluded": unconfirmed_excluded,
                 "text": (
                     "No decisions found in .irp/ledger.jsonl\n\n"
                     "Capture your first decision with:\n"
@@ -1923,6 +1929,12 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         detail_lines.append(filter_note)
     detail_lines.append(f"Edges:  {edge_count} provenance reference(s) with animated particles")
     detail_lines.append(f"Render: 3d-force-graph {force_graph_note}")
+    if unconfirmed_excluded:
+        noun, pron = ("entry", "it") if unconfirmed_excluded == 1 else ("entries", "them")
+        detail_lines.append(
+            f"Left out: {unconfirmed_excluded} unconfirmed bootstrap {noun} "
+            f"(nobody confirmed {pron} as a decision)"
+        )
 
     if analysis is not None:
         walked = rel_counts.get(dynamics.WALK_RELATION, 0)
@@ -1959,6 +1971,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "view": view,
         "seed": seed,
         "relations": rel_counts,
+        "unconfirmed_excluded": unconfirmed_excluded,
         "text": text,
     }
     if analysis is not None:

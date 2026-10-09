@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from store import append_ledger_entry, next_irp_id, read_config, read_ledger, rebuild_current, write_current
+from store import append_ledger_entry, confirmed_only, next_irp_id, read_config, read_ledger, rebuild_current, write_current
 
 
 # ── verdict display ──────────────────────────────────────────────────────────
@@ -272,7 +272,9 @@ def run_defer(project_root: Path, irp_dir: Path, args) -> dict[str, Any]:
         }
 
     # ── 2. Load ledger + config ───────────────────────────────────────────────
-    ledger = read_ledger(irp_dir)
+    # The "relevant past decisions" shown (and returned with --json) are
+    # confirmed ones; legacy bootstrap guesses are not decisions.
+    ledger = confirmed_only(read_ledger(irp_dir))
     decisions = [r for r in ledger if r.get("type") == "decision" or (r.get("what") and r.get("why"))]
     relevant = _relevant_decisions(defer_question, decisions)
 

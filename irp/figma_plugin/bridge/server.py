@@ -164,6 +164,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             project_root = Path(PROJECT_ROOT)
             irp_dir = ensure_irp_dir(project_root)
+            # read_ledger is unfiltered on purpose: ids must see every line,
+            # including legacy bootstrap guesses. rebuild_current below leaves
+            # those guesses out of current.json.
             ledger = read_ledger(irp_dir)
 
             entry = {

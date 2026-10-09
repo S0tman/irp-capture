@@ -156,6 +156,10 @@ def read_irp_context(project_root, topic=None):
         except (json.JSONDecodeError, IOError):
             pass
 
+    # Leave out unconfirmed bootstrap guesses (legacy ledger lines flagged
+    # bootstrapped: true). They would reach the models as if they were decisions.
+    active = [d for d in active if d.get("bootstrapped") is not True]
+
     if not active:
         return None
 

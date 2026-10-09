@@ -38,8 +38,9 @@ except ImportError:
     sys.exit(1)
 
 from irp.core.store import (
+    decision_rows_for_id,
     ensure_irp_dir,
-    read_current,
+    read_active,
     read_ledger,
     append_ledger_entry,
     next_irp_id,
@@ -106,23 +107,37 @@ def health():
 
 @app.get("/decisions")
 def get_decisions():
-    """Return active decisions from current.json (last 10)."""
+    """Return active decisions from current.json (last 10).
+
+    Unconfirmed bootstrap guesses (legacy ledger lines) are never served as
+    decisions, even if an old current.json still lists them.
+    """
     irp_dir = get_irp_dir()
-    current = read_current(irp_dir)
+    active, _ = read_active(irp_dir)
     return {
-        "count": len(current.get("active", [])),
-        "decisions": current.get("active", []),
+        "count": len(active),
+        "decisions": active,
     }
 
 @app.get("/decisions/{decision_id}")
 def get_decision(decision_id: str):
-    """Return a specific decision by ID from the full ledger."""
+    """Return a specific decision by ID from the full ledger.
+
+    A legacy bootstrap guess is not a decision, so it is answered with a 404.
+    """
     irp_dir = get_irp_dir()
     ledger = read_ledger(irp_dir)
-    match = next((e for e in ledger if e.get("id") == decision_id), None)
-    if not match:
-        raise HTTPException(status_code=404, detail=f"{decision_id} not found in ledger")
-    return match
+    # Decision rows only (a retirement event shares its target's id and is not a
+    # decision). A confirmed decision wins over a guess that shares its id.
+    confirmed, guesses = decision_rows_for_id(ledger, decision_id)
+    if confirmed:
+        return confirmed[0]
+    if guesses:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{decision_id} is an unconfirmed bootstrap guess, not a decision",
+        )
+    raise HTTPException(status_code=404, detail=f"{decision_id} not found in ledger")
 
 @app.post("/capture", status_code=201)
 def capture(req: CaptureRequest):

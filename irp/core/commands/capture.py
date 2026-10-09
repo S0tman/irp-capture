@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from irp.core.store import append_ledger_entry, next_irp_id, read_ledger, rebuild_current, write_current
+from irp.core.store import append_ledger_entry, confirmed_only, next_irp_id, read_ledger, rebuild_current, write_current
 from irp.integrations import dispatch as _dispatch
 
 _MILESTONES = {
@@ -22,6 +22,8 @@ _SENSOR_LABELS = {
 }
 
 def _milestone_lines(updated_ledger: list[dict], new_entry: dict) -> list[str]:
+    # Milestones count decisions a person captured, not legacy bootstrap guesses.
+    updated_ledger = confirmed_only(updated_ledger)
     decisions = [r for r in updated_ledger if r.get("type") == "decision" or (r.get("what") and r.get("why"))]
     count = len(decisions)
     lines = []

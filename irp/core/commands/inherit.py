@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from irp.core.resolver import active_decisions
-from irp.core.store import read_current, read_ledger
+from irp.core.store import confirmed_only, read_current, read_ledger
 
 # How many active decisions inherit hands an agent. The most recent ones win;
 # older active decisions are still reachable through `irp why <id>`.
@@ -11,13 +11,19 @@ INHERIT_LIMIT = 50
 
 
 def run_inherit(project_root: Path, irp_dir: Path, args) -> dict:
-    """Return the active decisions: superseded and retired ones are left out."""
+    """Return the active decisions: superseded and retired ones are left out.
+
+    Unconfirmed bootstrap guesses are left out too (active_decisions skips them),
+    so an agent never inherits a guess as if a person had decided it.
+    """
     ledger = read_ledger(irp_dir)
     if any(e.get("type") == "decision" for e in ledger):
         active, superseded_count = active_decisions(ledger)
     else:
-        # A project with only current.json (no ledger) keeps working.
-        active, superseded_count = read_current(irp_dir).get("active", []), 0
+        # A project with only current.json (no ledger) keeps working. An old
+        # current.json can still hold guesses written by earlier versions.
+        active = confirmed_only(read_current(irp_dir).get("active", []))
+        superseded_count = 0
 
     shown = active[-INHERIT_LIMIT:]
     omitted = len(active) - len(shown)

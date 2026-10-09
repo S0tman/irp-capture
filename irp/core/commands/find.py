@@ -7,7 +7,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from store import read_ledger, read_craft
+from store import UNCONFIRMED_LABEL, confirmed_only, is_unconfirmed, read_ledger, read_craft
 
 
 def _snippet(value: str, max_len: int = 120) -> str:
@@ -43,6 +43,8 @@ def run_find(project_root: Path, irp_dir: Path, args) -> dict:
                     "timestamp": entry.get("timestamp", ""),
                     "hits": hits,
                     "entry": entry,
+                    # find is a human view, so legacy bootstrap guesses show up, labelled.
+                    "unconfirmed": is_unconfirmed(entry),
                 })
 
     if not getattr(args, "ledger_only", False):
@@ -55,6 +57,7 @@ def run_find(project_root: Path, irp_dir: Path, args) -> dict:
                     "timestamp": entry.get("timestamp", ""),
                     "hits": hits,
                     "entry": entry,
+                    "unconfirmed": False,
                 })
 
     header = [
@@ -76,7 +79,8 @@ def run_find(project_root: Path, irp_dir: Path, args) -> dict:
 
     lines = [f"Found {len(results)} match(es):", ""]
     for r in results:
-        lines.append(f"[{r['source'].upper()}] {r['id']}  ({r['timestamp']})")
+        label = f"  [{UNCONFIRMED_LABEL}]" if r.get("unconfirmed") else ""
+        lines.append(f"[{r['source'].upper()}] {r['id']}  ({r['timestamp']}){label}")
         for hit in r["hits"]:
             lines.append(f"  {hit}")
         lines.append("")
@@ -102,12 +106,14 @@ def _open_find_graph(results: list[dict], query: str, irp_dir: Path) -> Path:
     """Build a graph scoped to find results + their causal references, open in browser."""
     from commands.graph import build_graph_html, IRP_ID_RE
 
-    # Collect matched ledger entries only (craft entries have no graph nodes)
-    matched_ids = {r["id"] for r in results if r["source"] == "ledger"}
-    matched_entries = [r["entry"] for r in results if r["source"] == "ledger"]
+    # Collect matched ledger entries only (craft entries have no graph nodes).
+    # The graph carries an "appended, never rewritten" claim on every card, so
+    # unconfirmed bootstrap guesses stay out of it (they still show in the list).
+    matched_entries = confirmed_only([r["entry"] for r in results if r["source"] == "ledger"])
+    matched_ids = {e.get("id") for e in matched_entries}
 
     # Collect all IRP IDs referenced in matched entries' text fields (causal context)
-    full_ledger = read_ledger(irp_dir)
+    full_ledger = confirmed_only(read_ledger(irp_dir))
     ledger_by_id = {e.get("id"): e for e in full_ledger if e.get("id")}
 
     referenced_ids: set[str] = set()

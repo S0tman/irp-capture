@@ -187,6 +187,11 @@ The ledger is a plain text file. It never changes an existing entry.
   current.json     ← last 10 decisions, derived from ledger
 ```
 
+(If you run `irp bootstrap`, a third file appears, `reconstructions.jsonl`. It
+holds guesses, not decisions. More on that below. Bootstrap also adds a small
+lock file, `.lock`, and an `.irp/.gitignore` that keeps it out of git, so a
+project that commits `.irp/` never commits the lock.)
+
 Every entry looks like this:
 
 ```json
@@ -209,8 +214,30 @@ Open the file. Read it. No tooling required.
 
 IRP does not decide what matters. You do.
 
-Every entry in the ledger was confirmed by a human.
+Every decision IRP presents was confirmed by a human. Lines that older versions
+of `irp bootstrap` guessed stay in the file, flagged, and IRP ignores them.
 This is not a design limitation. It is the point.
+
+Starting IRP on a project that already has history? `irp bootstrap` looks
+through your git log and your docs for lines that sound like decisions. It can
+only guess, and a guess isn't a decision, so nothing it finds goes into the
+ledger. The guesses wait in `.irp/reconstructions.jsonl`, each with a `REC-` id
+and the status `unconfirmed`. Agents, exports and evidence packages never see
+them. When you've read one and agree it was a real decision, you accept it, and
+only then does it become a normal ledger entry, labelled as reconstructed.
+
+```bash
+irp bootstrap --dry-run                     # preview: adds nothing to the ledger or reconstructions.jsonl
+irp bootstrap                               # records guesses in .irp/reconstructions.jsonl
+irp bootstrap --accept REC-2026-10-08-001   # your confirmation: it joins the ledger
+```
+
+Older versions of `irp bootstrap` wrote their guesses straight into the ledger,
+flagged `bootstrapped: true`. The ledger is append-only, so those lines stay,
+but every part of IRP that speaks to an agent, an export or an auditor ignores
+them, and the human views label them "unconfirmed (bootstrap guess)". `irp
+doctor` tells you how many your ledger has and how to retire or confirm them,
+and `irp doctor --fix` rebuilds a `current.json` that still lists them.
 
 An AI can produce a hundred options.
 Only one was chosen, and someone chose it for a reason.
@@ -878,7 +905,7 @@ IRP focuses on the second.
 
 - **Local-first.** The ledger lives on your machine. No cloud required.
 - **Append-only by design.** Official IRP commands add entries and never edit or delete them. Corrections are made by superseding entries, not by rewriting history. Because the ledger is local and owner-held, it is not independently tamper-proof on its own: see [Trust model](TRUST.md) for exactly what IRP does and does not prove.
-- **Human-confirmed.** No entry exists without a human confirming it.
+- **Human-confirmed.** Every decision IRP presents was confirmed by a human. Lines that older versions of `irp bootstrap` guessed stay in the file, flagged, and IRP ignores them.
 - **Model-agnostic.** Works with Claude, GPT, Gemini, or no AI at all.
 - **Tool-agnostic.** Any sensor can write to the same substrate.
 - **Plain text.** The ledger is a `.jsonl` file. Open it in any editor.

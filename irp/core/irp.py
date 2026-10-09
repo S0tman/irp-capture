@@ -34,6 +34,7 @@ from commands.config import run_config
 from commands.craft import run_craft
 from commands.defer import run_defer
 from commands.demo import run_demo
+from commands.doctor import run_doctor
 from commands.bootstrap import run_bootstrap
 from commands.export import run_export
 from commands.find import run_find
@@ -103,11 +104,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_mod_sup.add_argument("--reason", type=str, required=True, help="Why this supersedes the old one")
     p_mod_sup.add_argument("--confidence", type=str, default="high",
                            choices=["low", "medium", "high"], help="Confidence level (default: high)")
+    p_mod_sup.add_argument("--shared-id-ok", dest="shared_id_ok", action="store_true",
+                           help="Go ahead although the id is shared by a bootstrap guess and a confirmed decision "
+                                "(this changes the confirmed decision)")
     p_mod_sup.add_argument("--json", action="store_true")
 
     p_mod_ret = mod_sub.add_parser("retire", help="Retire a decision (no replacement)")
     p_mod_ret.add_argument("target_id", type=str, help="IRP ID to retire")
     p_mod_ret.add_argument("--reason", type=str, required=True, help="Why this decision is retired")
+    p_mod_ret.add_argument("--shared-id-ok", dest="shared_id_ok", action="store_true",
+                           help="Go ahead although the id is shared by a bootstrap guess and a confirmed decision "
+                                "(this changes the confirmed decision)")
     p_mod_ret.add_argument("--json", action="store_true")
 
     p_mod_list = mod_sub.add_parser("list", help="Show recent mod events (supersessions, retirements)")
@@ -294,7 +301,11 @@ def build_parser() -> argparse.ArgumentParser:
     # ── bootstrap ─────────────────────────────────────────────────────────────
     p_boot = sub.add_parser(
         "bootstrap",
-        help="Initialise or enrich .irp/ from existing project artifacts (git, docs, files)",
+        help=(
+            "Look through git history and docs for decisions. Finds are recorded as "
+            "unconfirmed reconstructions in .irp/reconstructions.jsonl, not in the ledger; "
+            "--accept REC-... turns one into a real decision"
+        ),
     )
     p_boot.add_argument(
         "--from",
@@ -314,13 +325,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         dest="dry_run",
-        help="Preview candidates without writing to ledger",
+        help="Preview candidates and provisional REC ids; adds nothing to the ledger or reconstructions.jsonl",
     )
     p_boot.add_argument(
         "--limit",
         type=int,
         default=50,
-        help="Maximum number of entries to write (default: 50)",
+        help="Maximum number of reconstructions to record (default: 50)",
+    )
+    p_boot.add_argument(
+        "--accept",
+        action="append",
+        nargs="+",
+        metavar="REC-ID",
+        default=None,
+        help=(
+            "Accept one or more reconstructions as real decisions (your confirmation): "
+            "appends a normal decision to the ledger and marks the REC line accepted. "
+            "Repeatable, or list several ids. Skips the scan."
+        ),
     )
     p_boot.add_argument(
         "--write-report",
@@ -329,6 +352,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write a bootstrap report to .irp/bootstrap_reports/<timestamp>.md",
     )
     p_boot.add_argument("--json", action="store_true")
+
+    # ── doctor ───────────────────────────────────────────────────────────────
+    p_doctor = sub.add_parser("doctor", help="Check installation health and environment")
+    p_doctor.add_argument(
+        "--fix",
+        action="store_true",
+        help="Rebuild current.json from the ledger if it still lists unconfirmed bootstrap guesses",
+    )
+    p_doctor.add_argument("--json", action="store_true")
 
     # ── docs ─────────────────────────────────────────────────────────────────
     p_docs = sub.add_parser(
@@ -652,6 +684,7 @@ def main() -> int:
             "defer":     run_defer,
             "demo":      run_demo,
             "bootstrap": run_bootstrap,
+            "doctor":    run_doctor,
             "docs":      run_docs,
             "resolve":   run_resolve,
             "export":    run_export,
@@ -674,6 +707,14 @@ def main() -> int:
             return exit_code
 
         print_result(result, getattr(args, "json", False))
+        # `bootstrap --accept` that accepted nothing because of problems (unknown
+        # or already-accepted id, ...) exits 1, like `irp mod` does for a bad id.
+        if (
+            args.command == "bootstrap"
+            and result.get("problems")
+            and not (result.get("accepted") or result.get("would_accept"))
+        ):
+            return 1
         # exit 10 = conflict detected (warn-only signal for hook consumers)
         # exit 0  = clean
         # exit 1  = reserved for errors (handled in except block below)

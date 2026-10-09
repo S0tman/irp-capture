@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from store import read_ledger, read_config
+from store import confirmed_only, read_ledger, read_config
 from irp.core.resolver import build_retirement_set, build_supersession_map
 from commands.graph import run_export_graph, _SAMPLE_DECISIONS as _GRAPH_SAMPLE
 from commands.evidence import run_export_evidence
@@ -217,6 +217,14 @@ def _format_relevant_decision(entry: dict[str, Any]) -> str:
 def _format_constraint(entry: dict[str, Any], rule: str) -> str:
     irp_id = entry.get("id", "unknown")
     return f"- **{rule}** *(Source: {irp_id})*"
+
+
+def _left_out_line(n: int) -> str:
+    noun, verb = ("entry", "it was guessed") if n == 1 else ("entries", "they were guessed")
+    return (
+        f"Left out: {n} unconfirmed bootstrap {noun} "
+        f"({verb} from git history or documents and never confirmed as a decision)"
+    )
 
 
 def _active(decisions: list[dict[str, Any]], ledger: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -450,11 +458,16 @@ def _run_export_decisions(project_root: Path, irp_dir: Path, args) -> dict:
     if not output_path.is_absolute():
         output_path = (project_root / output_path).resolve()
 
+    unconfirmed_excluded = 0
     if demo:
         decisions = _GRAPH_SAMPLE
     else:
         ledger = read_ledger(irp_dir)
-        decisions = [row for row in ledger if _is_decision(row)]
+        all_decisions = [row for row in ledger if _is_decision(row)]
+        # DECISIONS.md is shared with collaborators and agents: only decisions a
+        # person confirmed. Legacy bootstrap guesses are left out.
+        decisions = confirmed_only(all_decisions)
+        unconfirmed_excluded = len(all_decisions) - len(decisions)
 
     body = _build_decisions_md(decisions, demo=demo)
 
@@ -478,6 +491,7 @@ def _run_export_decisions(project_root: Path, irp_dir: Path, args) -> dict:
             "status": "exists",
             "output_path": str(output_path),
             "decision_count": len(decisions),
+            "unconfirmed_excluded": unconfirmed_excluded,
             "text": text,
         }
 
@@ -501,10 +515,12 @@ def _run_export_decisions(project_root: Path, irp_dir: Path, args) -> dict:
         if writable
         else "Lock:    file is read-only — pass --writable on next export to override"
     )
+    left_out = [_left_out_line(unconfirmed_excluded)] if unconfirmed_excluded else []
     text = "\n".join(header + [
         f"Wrote {output_path}",
         f"Source:  {len(decisions)} decision(s) from .irp/ledger.jsonl{demo_note}",
         f"Listed:  {len(decisions)} decision(s) newest-first",
+    ] + left_out + [
         lock_note,
         "",
         "Regenerate any time with:",
@@ -516,6 +532,7 @@ def _run_export_decisions(project_root: Path, irp_dir: Path, args) -> dict:
         "output_path": str(output_path),
         "decision_count": len(decisions),
         "demo": demo,
+        "unconfirmed_excluded": unconfirmed_excluded,
         "text": text,
     }
 
@@ -548,8 +565,12 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
 
     # Read ledger and filter to decisions. Agent files get the active ones
     # only; DECISIONS.md is the full human history.
+    # Legacy bootstrap guesses (unconfirmed) are left out of every target.
     ledger = read_ledger(irp_dir)
-    decisions = [row for row in ledger if _is_decision(row)]
+    all_decisions = [row for row in ledger if _is_decision(row)]
+    ledger = confirmed_only(ledger)
+    decisions = confirmed_only(all_decisions)
+    unconfirmed_excluded = len(all_decisions) - len(decisions)
     is_agent_file = target in AGENT_TARGETS
     if is_agent_file:
         decisions = _active(decisions, ledger)
@@ -590,6 +611,7 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
             "target": target,
             "output_path": str(output_path),
             "decision_count": len(decisions),
+            "unconfirmed_excluded": unconfirmed_excluded,
             "text": text,
         }
 
@@ -639,10 +661,11 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
         else "Lock:    file is read-only — `chmod +w` to override, or pass --writable on next export"
     )
 
+    left_out = [_left_out_line(unconfirmed_excluded)] if unconfirmed_excluded else []
     text = "\n".join(header + [
         f"Wrote {output_path}",
         f"Source: {len(decisions)} decision(s) from .irp/ledger.jsonl",
-    ] + detail_lines + [
+    ] + detail_lines + left_out + [
         lock_note,
         "",
         "Regenerate any time with:",
@@ -655,6 +678,7 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
         "target": target,
         "output_path": str(output_path),
         "decision_count": len(decisions),
+        "unconfirmed_excluded": unconfirmed_excluded,
         "text": text,
     }
     result.update(result_extra)

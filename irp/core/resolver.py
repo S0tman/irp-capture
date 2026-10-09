@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from irp.core.store import confirmed_only
+
 # ── stopwords ────────────────────────────────────────────────────────────────
 
 _STOPWORDS = {
@@ -163,7 +165,13 @@ def active_decisions(
 
     active_entries: decisions not superseded or retired, optionally filtered by tag/scope.
     superseded_count: total number of excluded decisions (superseded + retired).
+
+    Unconfirmed bootstrap guesses (legacy `bootstrapped: true` ledger lines) are
+    never active: nobody confirmed them as decisions, so they cannot conflict
+    with a proposal, appear in agent context, or supersede anything. Every
+    caller (inherit, check, resolve, gate, watch, export) gets this for free.
     """
+    ledger = confirmed_only(ledger)
     superseded = build_supersession_map(ledger)
     retired = build_retirement_set(ledger)
     excluded = superseded | retired

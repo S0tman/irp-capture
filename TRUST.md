@@ -45,6 +45,8 @@ IRP reports these levels separately and never collapses them into a single `trus
 
 `confirmed_by` and `source` are **metadata assertions**, not authenticated identity. `"confirmed_by": "johan"` records a workflow fact (a human confirmed this), not a cryptographic proof of who that human was.
 
+**Reconstructions are labelled, never attested.** `irp bootstrap` guesses decisions from git history and documents. Those guesses are kept in `.irp/reconstructions.jsonl` with the status `unconfirmed`, outside the ledger, until a person accepts one with `irp bootstrap --accept`. Ledgers written by older versions may contain such guesses as lines flagged `bootstrapped: true`. The ledger is append-only, so they stay, but IRP treats them as unconfirmed everywhere: agent context, exports, gates, guards and evidence packages leave them out (the evidence package says how many it left out), and the human views label them. So "human-confirmed" holds for everything IRP presents as a decision. An external timestamp on a ledger snapshot covers the whole file, including any such lines; it does not make them decisions.
+
 ## Describing IRP accurately
 
 This is the line between what the architecture proves and what it does not, and it doubles as a test for any owner-held decision tool: the words in the second list are false for a file that lives on the user's disk, and a serious verifier will find the gap. IRP uses the first list. External anchoring earns back the time claims, with the assumptions stated.
@@ -53,7 +55,7 @@ This is the line between what the architecture proves and what it does not, and 
 - "Append-only by application design"
 - "Local-first, owner-held decision lineage"
 - "Inspectable: open the `.jsonl` in any editor"
-- "Human-confirmed: no entry exists without a human confirming it"
+- "Human-confirmed: every decision IRP presents was confirmed by a human (lines older versions of bootstrap guessed stay in the file, flagged, and IRP ignores them)"
 - "Records what was decided, why, what was rejected, and who confirmed it"
 
 **Overclaiming**

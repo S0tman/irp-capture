@@ -50,3 +50,6 @@ ENV/
 *.log
 /tmp/
 docs/
+
+# IRP advisory lock (irp bootstrap and accept)
+.irp/.lock

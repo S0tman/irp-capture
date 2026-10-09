@@ -298,7 +298,7 @@ Capture can fail at several points. The system is designed to fail gracefully:
 
 ## Bootstrapping: Retroactive Capture
 
-Teams sometimes want to retroactively capture decisions from git history or documentation. The `irp bootstrap` command scans git commits and docs to generate entries retroactively. This is useful for teams starting IRP mid-project. But bootstrapping is not the primary flow—most decisions are captured *when they happen*, not after.
+Teams sometimes want to retroactively capture decisions from git history or documentation. The `irp bootstrap` command scans git commits and docs for lines that sound like decisions. What it finds are guesses, not decisions, so it never writes them to the ledger. It records them in `.irp/reconstructions.jsonl`, marked unconfirmed, and they stay out of agent context, exports and evidence until a person reads one and accepts it with `irp bootstrap --accept REC-...`. This is useful for teams starting IRP mid-project. But bootstrapping is not the primary flow—most decisions are captured *when they happen*, not after.
 
 Real-time capture (interactive or via sensors) is the intended pattern.
 

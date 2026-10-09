@@ -117,7 +117,9 @@ def irp_why(id: str = "") -> dict:
     """
     project_root, irp_dir = _resolve_paths()
 
-    args = SimpleNamespace(id=id if id else None, json=True)
+    # confirmed_only: an agent is never shown a legacy bootstrap guess as if it
+    # were a decision (the CLI's `irp why` shows it, labelled, to a person).
+    args = SimpleNamespace(id=id if id else None, json=True, confirmed_only=True)
     result = run_why(project_root=project_root, irp_dir=irp_dir, args=args)
 
     return {
@@ -133,7 +135,8 @@ def irp_inherit(full: bool = False) -> dict:
     """Return the active IRP decisions (project context).
 
     Superseded and retired decisions are left out, so each decision shown is
-    the current one. Returns up to the 50 most recent active decisions, each
+    the current one. Unconfirmed guesses (older `irp bootstrap` output) are left
+    out too: everything returned was confirmed by a person. Returns up to the 50 most recent active decisions, each
     with its id, date, what, why and, when recorded, the options turned down
     ("rejected") and the decision it replaced ("supersedes"). Use this to
     understand what has already been decided before making new decisions.

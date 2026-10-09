@@ -676,7 +676,7 @@ irp export evidence --force      # overwrite existing file
 
 The output is a structured Markdown document divided into three sections:
 
-**Article 12 — Logging and Traceability.** Every decision in the ledger qualifies. The append-only ledger, the timestamp chain, the human-confirmed record — these are the structural properties Article 12 is looking for. The evidence package surfaces all of them, with every decision listed and its confirming metadata shown.
+**Article 12 — Logging and Traceability.** Every decision IRP presents qualifies. The append-only ledger, the timestamp chain and the human-confirmed record are the structural properties Article 12 is looking for. Lines that older versions of `irp bootstrap` guessed stay in the file, flagged, and the evidence package leaves them out and says how many. It surfaces every other decision, with its confirming metadata shown.
 
 **Article 14 — Human Oversight Events.** Decisions where a human confirmation is recorded (the `confirmed_by` field) are surfaced specifically as oversight events. These are the moments where a natural person confirmed, approved, constrained, or governed what the AI system was permitted to do. That is the definition of human oversight under Article 14. The evidence package makes those moments explicit.
 

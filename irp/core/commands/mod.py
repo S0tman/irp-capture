@@ -20,8 +20,27 @@ from store import (
     append_ledger_entry,
     next_irp_id,
     rebuild_current,
+    shared_unconfirmed_ids,
     write_current,
 )
+
+
+def _refuse_shared_id(ledger: list, target_id: str, allowed: bool = False) -> None:
+    """Up to v0.7.0 a bootstrap guess and a same-day capture could share one IRP
+    id. Retiring or superseding that id by id hits the confirmed decision (the
+    guess half is already ignored everywhere), so by default refuse and change
+    nothing. `--shared-id-ok` is the explicit way to go ahead."""
+    if allowed or target_id not in shared_unconfirmed_ids(ledger):
+        return
+    print(
+        f"IRP mod error: {target_id} is used by both a bootstrap guess and a confirmed "
+        "decision. Retiring or superseding it by id would change the confirmed decision "
+        "(the guess is already ignored by agents, exports, checks and evidence). "
+        "Nothing was changed. If you do mean to change the confirmed decision, run the "
+        "same command again with --shared-id-ok.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def run_mod(project_root: Path, irp_dir: Path, args) -> dict:
@@ -57,6 +76,7 @@ def _supersede(irp_dir: Path, args) -> dict:
     if old_id not in existing_ids:
         print(f"IRP mod error: {old_id} not found in ledger", file=sys.stderr)
         sys.exit(1)
+    _refuse_shared_id(ledger, old_id, bool(getattr(args, "shared_id_ok", False)))
 
     new_id = next_irp_id(ledger)
     timestamp = date.today().isoformat()
@@ -64,6 +84,11 @@ def _supersede(irp_dir: Path, args) -> dict:
     entry = {
         "type": "decision",
         "id": new_id,
+        # what/why are what every agent-facing reader uses (inherit, why, export,
+        # guard, compact). decision/reasoning stay for compatibility with the
+        # resolver's older field names.
+        "what": new_decision,
+        "why": reason,
         "decision": new_decision,
         "reasoning": reason,
         "supersedes": old_id,
@@ -104,6 +129,7 @@ def _retire(irp_dir: Path, args) -> dict:
     if target_id not in existing_ids:
         print(f"IRP mod error: {target_id} not found in ledger", file=sys.stderr)
         sys.exit(1)
+    _refuse_shared_id(ledger, target_id, bool(getattr(args, "shared_id_ok", False)))
 
     timestamp = date.today().isoformat()
 

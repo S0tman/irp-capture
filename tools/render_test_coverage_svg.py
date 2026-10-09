@@ -41,6 +41,7 @@ LABELS = {
     "test_guard": "guard (pre-commit hook)",
     "test_demo": "demo",
     "test_bootstrap": "bootstrap",
+    "test_unconfirmed_entries": "unconfirmed entries (bootstrap guesses)",
     "test_figma_bridge": "figma bridge",
     "test_attest": "attestation (RFC 3161)",
     "test_evidence_attest": "evidence attestation",

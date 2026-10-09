@@ -9,7 +9,7 @@ Analysis of `irp/core/commands/` — Control Flow, Patterns, Integration
 | `check` | Test proposal against active decisions | proposal text | conflict or clear |
 | `why` | Explain decision lineage | query by id or latest | entry + provenance |
 | `inherit` | Show current IRP context | no args | active 10 decisions |
-| `bootstrap` | Bulk ingest from git/docs/files | scan mode | audit report |
+| `bootstrap` | Records unconfirmed reconstructions from git and docs; `--accept` confirms one | scan mode | reconstructions + audit report |
 | `demo` | Generate synthetic data | scenario-based | thread + ledger entry |
 
 ## Command Patterns
@@ -102,7 +102,7 @@ The dispatcher then:
 
 ### Bootstrap Command
 
-**Purpose:** Bulk ingest from project artifacts.
+**Purpose:** Look through project artifacts for decisions. Finds are recorded as unconfirmed reconstructions, not as ledger entries.
 
 **Scan modes:**
 - `--from git` — parse commits, extract decision-like messages
@@ -111,11 +111,12 @@ The dispatcher then:
 - `--from all` — all three (default)
 
 **Options:**
-- `--dry-run` — preview candidates without writing
-- `--limit N` — cap entries written (default 50)
+- `--dry-run`: preview candidates (with provisional `REC-` ids); adds nothing to the ledger or `reconstructions.jsonl`
+- `--limit N`: cap reconstructions recorded (default 50)
 - `--write-report` — save audit to `.irp/bootstrap_reports/<timestamp>.md`
+- `--accept REC-...`: repeatable; the human confirmation. Appends a normal decision to the ledger (`source: bootstrap-accepted`, `reconstructed_from: REC-...`) and marks the REC line accepted
 
-**Output:** Report showing candidates found, written count, conflicts, gaps.
+**Output:** Report showing candidates found, reconstructions recorded, skipped duplicates. Candidates go to `.irp/reconstructions.jsonl` (status `unconfirmed`, `decided_at_estimate` kept apart from `recorded_at`). `ledger.jsonl` and `current.json` are not touched until a reconstruction is accepted.
 
 ### Demo Command
 

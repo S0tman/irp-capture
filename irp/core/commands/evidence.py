@@ -32,7 +32,35 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from store import read_ledger
+from store import confirmed_only, read_ledger
+
+
+def _left_out_note(n: int, attested: bool = False) -> str:
+    """One plain line saying how many unconfirmed bootstrap guesses were excluded, and why.
+
+    Every claim in this package that a decision was human-confirmed stays true
+    because those entries are excluded, not because they are quietly counted.
+    """
+    if n == 1:
+        note = (
+            "Left out: 1 ledger entry that nobody confirmed as a decision. "
+            "It was guessed from git history or documents by `irp bootstrap`, "
+            "so it is not part of this package."
+        )
+        pron = "it"
+    else:
+        note = (
+            f"Left out: {n} ledger entries that nobody confirmed as decisions. "
+            "They were guessed from git history or documents by `irp bootstrap`, "
+            "so they are not part of this package."
+        )
+        pron = "them"
+    if attested:
+        note += (
+            f" The external timestamp below covers the whole ledger file, which still contains {pron}. "
+            f"It does not make {pron} decisions."
+        )
+    return note
 
 
 # ── framework schema ──────────────────────────────────────────────────────────
@@ -461,6 +489,7 @@ def _build_evidence_md(
     project_root: Path,
     demo: bool = False,
     attestation: dict[str, Any] | None = None,
+    unconfirmed_excluded: int = 0,
 ) -> str:
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     fw_name = framework.get("name", framework.get("id", "custom"))
@@ -499,6 +528,9 @@ def _build_evidence_md(
 
 ---
 """)
+
+    if unconfirmed_excluded:
+        parts.append(f"**{_left_out_note(unconfirmed_excluded, attested=bool(attestation))}**\n\n")
 
     if attestation:
         parts.append(_ATTEST_BLOCK.format(
@@ -769,14 +801,19 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
         output_path = (project_root / output_path).resolve()
 
     # ── 3. Load decisions ─────────────────────────────────────────────────────
+    unconfirmed_excluded = 0
     if demo:
         decisions = _load_sample_decisions()
     else:
         ledger = read_ledger(irp_dir)
-        decisions = [
+        all_rows = [
             row for row in ledger
             if row.get("type") == "decision" or (row.get("decision") or row.get("what"))
         ]
+        # Evidence says every decision was human-confirmed, so legacy bootstrap
+        # guesses (never confirmed) are excluded, and the package says so.
+        decisions = confirmed_only(all_rows)
+        unconfirmed_excluded = len(all_rows) - len(decisions)
 
     if not decisions and not demo:
         nudge = (
@@ -784,7 +821,12 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
             "Capture one with `irp capture`, or run `irp export evidence --demo` "
             "to see a sample evidence package for a regulated AI deployment."
         )
-        return {"command": "export.evidence", "status": "empty", "text": nudge}
+        if unconfirmed_excluded:
+            nudge += "\n" + _left_out_note(unconfirmed_excluded)
+        return {
+            "command": "export.evidence", "status": "empty",
+            "unconfirmed_excluded": unconfirmed_excluded, "text": nudge,
+        }
 
     header = [
         "IRP V1.5 dispatcher",
@@ -853,7 +895,8 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
 
     # ── 6. Build document ─────────────────────────────────────────────────────
     body = _build_evidence_md(
-        decisions, framework, project_root, demo=demo, attestation=attestation
+        decisions, framework, project_root, demo=demo, attestation=attestation,
+        unconfirmed_excluded=unconfirmed_excluded,
     )
 
     # ── 7. Write ──────────────────────────────────────────────────────────────
@@ -881,8 +924,10 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
         f"Wrote {output_path}",
         f"Framework: {framework.get('name', fw_id)}",
         f"Decisions: {len(decisions)} total → {section_summary}",
-        "Lock:    file is read-only — `chmod +w` to override",
     ]
+    if unconfirmed_excluded:
+        summary_lines.append(_left_out_note(unconfirmed_excluded))
+    summary_lines.append("Lock:    file is read-only — `chmod +w` to override")
     if attestation:
         acc = _format_accuracy(attestation.get("accuracy_seconds"))
         summary_lines.extend([
@@ -917,6 +962,7 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
         },
         "demo": demo,
         "attested": bool(attestation),
+        "unconfirmed_excluded": unconfirmed_excluded,
         "text": text,
     }
     if attestation:

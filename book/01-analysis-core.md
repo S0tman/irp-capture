@@ -22,7 +22,7 @@ irp/core/
     ├── check.py    # Conflict detection via keyword overlap
     ├── why.py      # Query and explain decision lineage
     ├── inherit.py  # Show current context
-    ├── bootstrap.py # Bulk ingest from git/docs/files
+    ├── bootstrap.py # Records unconfirmed reconstructions from git and docs; --accept confirms one
     └── demo.py     # Generate synthetic threads for testing
 ```
 
@@ -140,8 +140,9 @@ Key functions:
 
 ### Bootstrap System
 - Scans git commits, doc files, project structure
-- Generates candidate entries
-- Writes in bulk (with --limit, --dry-run options)
+- Generates candidate reconstructions (guesses, never ledger entries)
+- Records them in `.irp/reconstructions.jsonl` as `unconfirmed` (with --limit, --dry-run options)
+- `--accept REC-...` is the human confirmation that moves one into the ledger
 - Produces audit report
 
 ## Summary: Core Layer Design

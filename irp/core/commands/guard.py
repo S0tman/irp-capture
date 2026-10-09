@@ -21,7 +21,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from irp.core.store import read_current
+from irp.core.store import read_active
 
 # ── hook template ─────────────────────────────────────────────────────────────
 
@@ -184,8 +184,10 @@ def _run_guard_run(project_root: Path, irp_dir: Path, args) -> dict:
             "text": "IRP guard: nothing to check (no staged changes).",
         }
 
-    current = read_current(irp_dir)
-    active = current.get("active", [])
+    # An old current.json can still hold unconfirmed bootstrap guesses, and a
+    # window full of them pushes real decisions out; read_active then recomputes
+    # the list from the ledger instead of just dropping the guesses.
+    active, _ = read_active(irp_dir)
 
     if not active:
         return {

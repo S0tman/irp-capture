@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from irp.core.store import read_current, read_ledger
+from irp.core.store import UNCONFIRMED_LABEL, decision_rows_for_id, is_unconfirmed, read_active, read_ledger
 
 _SOURCE_LABELS = {
     "slack": "Slack thread",
@@ -23,8 +23,15 @@ def _source_lines(entry: dict) -> list[str]:
     return lines
 
 def run_why(project_root: Path, irp_dir: Path, args) -> dict:
+    """Explain one decision, or the latest active one.
+
+    `irp why <id>` is a human view: it will show a legacy bootstrap guess, labelled
+    as unconfirmed. Callers that speak to an agent (the MCP server) pass
+    `args.confirmed_only = True`, and a guess is then reported as not found.
+    The "latest active decision" is always a confirmed one.
+    """
     ledger = read_ledger(irp_dir)
-    current = read_current(irp_dir)
+    only_confirmed = bool(getattr(args, "confirmed_only", False))
 
     header = [
         "IRP",
@@ -34,7 +41,13 @@ def run_why(project_root: Path, irp_dir: Path, args) -> dict:
     ]
 
     if args.id:
-        matches = [x for x in ledger if x.get("id") == args.id]
+        # Decision rows only: a retired guess also has a retirement event under
+        # its id, and that event is not a decision. A confirmed decision always
+        # wins over a guess that happens to share its id (older versions could
+        # hand out one id twice). A guess is shown only when nothing else has the
+        # id, labelled, and never to an agent.
+        confirmed, guesses = decision_rows_for_id(ledger, args.id)
+        matches = confirmed or ([] if only_confirmed else guesses)
         if not matches:
             return {
                 "command": "why",
@@ -53,7 +66,22 @@ def run_why(project_root: Path, irp_dir: Path, args) -> dict:
             "",
             "Source of truth: project .irp/current.json (shared bridge)",
         ]
+        if is_unconfirmed(entry):
+            lines[1:1] = [
+                f"Status: {UNCONFIRMED_LABEL}",
+                "Nobody confirmed this as a decision. An older version of `irp bootstrap` guessed it",
+                "from git history or documents. Agents, exports and checks ignore it.",
+            ]
 
+        if is_unconfirmed(entry):
+            # Not "ok": a caller reading the JSON must not take a guess for a decision.
+            return {
+                "command": "why",
+                "status": "unconfirmed",
+                "unconfirmed": True,
+                "entry": entry,
+                "text": "\n".join(header + lines),
+            }
         return {
             "command": "why",
             "status": "ok",
@@ -61,7 +89,9 @@ def run_why(project_root: Path, irp_dir: Path, args) -> dict:
             "text": "\n".join(header + lines),
         }
 
-    active = current.get("active", [])
+    # An old current.json can still hold unconfirmed bootstrap guesses; then the
+    # list is recomputed from the ledger (nothing is written).
+    active, _ = read_active(irp_dir)
     if not active:
         return {
             "command": "why",

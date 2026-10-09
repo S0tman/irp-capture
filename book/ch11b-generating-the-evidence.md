@@ -36,7 +36,7 @@ The mapping is deterministic. No AI inference. No LLM calls. Three heuristics:
 
 ### Article 12 — Logging and Traceability
 
-Every decision in the ledger qualifies. The argument is structural: each IRP entry is timestamped, sequenced, append-only by design, and human-confirmed. Official IRP commands add entries and do not edit prior ones, and each entry carries the moment it was captured, not the moment it was reviewed. This is the decision trail Article 12 is asking for. One honest caveat: append-only is an application-design property, not an independent cryptographic guarantee. A local, owner-held ledger is not tamper-proof on its own. To make a snapshot externally verifiable (proof that a given ledger state existed by a given time), anchor its digest to an external timestamp authority. See the [Trust model](https://github.com/S0tman/irp-capture/blob/main/TRUST.md).
+Every decision IRP presents qualifies. The argument is structural: each one is timestamped, sequenced, append-only by design, and human-confirmed. Lines that older versions of `irp bootstrap` guessed stay in the file, flagged, and the evidence package leaves them out. Official IRP commands add entries and do not edit prior ones, and each entry carries the moment it was captured, not the moment it was reviewed. This is the decision trail Article 12 is asking for. One honest caveat: append-only is an application-design property, not an independent cryptographic guarantee. A local, owner-held ledger is not tamper-proof on its own. To make a snapshot externally verifiable (proof that a given ledger state existed by a given time), anchor its digest to an external timestamp authority. See the [Trust model](https://github.com/S0tman/irp-capture/blob/main/TRUST.md).
 
 The evidence package lists every decision under Article 12, with its id, date, what was decided, why, who confirmed it, and the source (CLI, Slack thread, Figma session, API call). An auditor can navigate that list. They can pick any entry and verify it against the raw ledger. The chain of custody is intact.
 
@@ -141,7 +141,7 @@ A decision recorded but not defended is documentation. A decision recorded, evid
 
 1. **The gap between practice and paper is where audits fail.** Organisations that meet their obligations but cannot produce structured evidence of them are indistinguishable from those that do not meet them. Evidence generation is not optional.
 
-2. **Article 12, 13, and 14 map to the same record.** The decision ledger — timestamped, append-only, human-confirmed — satisfies the core structural requirement of all three articles. The evidence package makes that mapping explicit.
+2. **Article 12, 13, and 14 map to the same record.** The decisions in the ledger, timestamped, append-only and human-confirmed, satisfy the core structural requirement of all three articles. The evidence package makes that mapping explicit.
 
 3. **The `confirmed_by` field is the Article 14 anchor.** Every IRP entry that records a human confirmation is a documented oversight event. Fill it. It is the most important field in the ledger for regulatory purposes.
 

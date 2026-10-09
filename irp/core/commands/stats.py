@@ -10,7 +10,7 @@ from datetime import datetime, timezone, date
 from pathlib import Path
 from typing import Any
 
-from irp.core.store import read_ledger
+from irp.core.store import UNCONFIRMED_LABEL, confirmed_only, is_unconfirmed, read_ledger
 
 _SENSOR_LABELS = {
     "cli": "CLI (irp capture)",
@@ -73,6 +73,13 @@ def _ramp(buckets: list[int]) -> str:
         return "stalled"
     return "steady"
 
+def _not_counted_line(n: int) -> str:
+    noun = "entry" if n == 1 else "entries"
+    return (
+        f"  Not counted: {n} {UNCONFIRMED_LABEL} {noun} in the ledger. "
+        "Nobody confirmed them as decisions."
+    )
+
 def _format_stats(stats: dict[str, Any]) -> str:
     demo_note = "  [sample data — run irp capture to build your own]\n" if stats.get("demo") else ""
     lines = [
@@ -114,6 +121,10 @@ def _format_stats(stats: dict[str, Any]) -> str:
         for tag, count in stats["top_tags"]:
             lines.append(f"    #{tag:<27} {count}")
 
+    not_counted = stats.get("unconfirmed_not_counted", 0)
+    if not_counted:
+        lines += ["", _not_counted_line(not_counted)]
+
     lines += [
         "",
         "  ──────────────────────────────────────────",
@@ -129,19 +140,21 @@ def run_stats(project_root: Path, irp_dir: Path, args) -> dict:
         return {"command": "stats", "status": "ok", "demo": True, "text": text}
 
     ledger = read_ledger(irp_dir)
-    decisions = [r for r in ledger if r.get("type") == "decision" or (r.get("what") and r.get("why"))]
+    all_decisions = [r for r in ledger if r.get("type") == "decision" or (r.get("what") and r.get("why"))]
+    # Legacy bootstrap guesses are not captures, so they are not counted.
+    decisions = confirmed_only(all_decisions)
+    unconfirmed_count = len(all_decisions) - len(decisions)
 
     if not decisions:
-        return {
-            "command": "stats",
-            "status": "empty",
-            "text": (
-                "No decisions captured yet.\n\n"
-                "Start with: irp capture\n\n"
-                "Or explore a populated example:\n"
-                "  irp stats --demo"
-            ),
-        }
+        text = (
+            "No decisions captured yet.\n\n"
+            "Start with: irp capture\n\n"
+            "Or explore a populated example:\n"
+            "  irp stats --demo"
+        )
+        if unconfirmed_count:
+            text += "\n\n" + _not_counted_line(unconfirmed_count).strip()
+        return {"command": "stats", "status": "empty", "text": text}
 
     dates = [_parse_ts(d.get("timestamp", "")) for d in decisions]
     dates = [d for d in dates if d]
@@ -160,6 +173,7 @@ def run_stats(project_root: Path, irp_dir: Path, args) -> dict:
         "ramp": _ramp(buckets),
         "sources": dict(sources),
         "top_tags": top_tags,
+        "unconfirmed_not_counted": unconfirmed_count,
         "demo": False,
     }
 
