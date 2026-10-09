@@ -38,7 +38,7 @@ irp guard run
 GUARD_EXIT=$?
 if [ "$GUARD_EXIT" -eq 10 ] && [ "${{IRP_GUARD_BLOCK:-0}}" = "1" ]; then
   echo ""
-  echo "IRP guard: commit aborted (IRP_GUARD_BLOCK=1). Run \`irp why\` to review the conflict."
+  echo "IRP guard: commit aborted (IRP_GUARD_BLOCK=1). Run \\`irp why\\` to review the conflict."
   exit 1
 fi
 exit 0

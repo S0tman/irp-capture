@@ -52,6 +52,14 @@ class TestGuardInstall:
         assert hook_path.exists()
         assert _HOOK_MARKER in hook_path.read_text(encoding="utf-8")
 
+    def test_hook_escapes_backticks_for_the_shell(self, tmp_path):
+        # The shell needs \` inside double quotes to print a literal backtick.
+        _init_repo(tmp_path)
+        irp_dir = ensure_irp_dir(tmp_path)
+        run_guard(tmp_path, irp_dir, _Args(guard_action="install", force=False))
+        hook = (tmp_path / ".git" / "hooks" / "pre-commit").read_text(encoding="utf-8")
+        assert 'Run \\`irp why\\` to review the conflict.' in hook
+
     def test_hook_is_executable(self, tmp_path):
         _init_repo(tmp_path)
         irp_dir = ensure_irp_dir(tmp_path)
