@@ -1152,6 +1152,20 @@ class LogWriter:
             return
         _fail("too many torn fragments saved this second")
 
+    def read(self) -> bytes:
+        """The log's bytes as this writer holds them, under its lock: what a pre-append replay checks."""
+        if self.fd is None:
+            _fail("the log isn't open")
+        return self._read_all()
+
+    def sync(self) -> None:
+        """Make the log as read here durable, file and folder, before anything is decided from it (a rollback
+        whose own sync failed may still be in the cache only). Raises OSError if the disk won't take it."""
+        if self.fd is None:
+            _fail("the log isn't open")
+        _full_fsync(self.fd)
+        _fsync_dir(self.path.parent)
+
     def _read_all(self) -> bytes:
         chunks, offset = [], 0
         while True:

@@ -73,9 +73,19 @@ class Assertion:
         return bool(self.flags & BS)
 
 
+class NoCredential(Exception):
+    """The key asked isn't present or doesn't hold this credential. A caller with several approvers moves on
+    to the next one (§14.6a). Not a ValueError, so approve() passes it through unchanged."""
+
+
+class Cancelled(Exception):
+    """The person cancelled at the tap or the PIN prompt. A caller stops at once and asks no other key."""
+
+
 class Authenticator(Protocol):
     """What approve() needs from a key: a CTAP2-style getAssertion over a client data hash. The hardware
-    wrapper (python-fido2, user verification required) arrives with gate 0.5."""
+    wrapper (python-fido2, user verification required) arrives with gate 0.5. It raises NoCredential when the
+    key isn't there or doesn't hold `cred_id`, and Cancelled when the person cancels."""
 
     def get_assertion(self, rp_id: str, client_data_hash: bytes, cred_id: bytes) -> Tuple[bytes, bytes]:
         """Return (authenticator_data, DER ECDSA signature)."""

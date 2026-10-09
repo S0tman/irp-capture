@@ -14,9 +14,11 @@ starting `irp-roam/v1/`:
 The laptop's working keys (the device signing seed and box key, the capability
 key, the per-epoch chain and MAC keys, the TSA credentials) live in one keystore:
 `keystore.bin` = a 12-byte nonce and AES-256-GCM over the JCS object
-{kek_source, dk_seed, dk_box, ck_seed, epochs, tsa_creds}, with the AAD
-`irp-roam/v1/keystore`, in a 0700 folder as a 0600 file. Its master key (KEK)
-is 32 random bytes held in one of three places:
+{kek_source, dk_seed, dk_box, ck_seed, epochs, tsa_creds, pending, box_prev},
+with the AAD `irp-roam/v1/keystore`, in a 0700 folder as a 0600 file. `pending`
+holds the next keys while a rotation is under way and `box_prev` the outgoing box
+key, decrypt-only, after one (§14.6a); both are null otherwise. Its master key
+(KEK) is 32 random bytes held in one of three places:
 
 - Mode A, `keychain` (default): the login Keychain, service `irp-roam`, account
   the ledger id. It goes in through `security -i` on stdin and comes out with
@@ -33,14 +35,22 @@ stdlib HKDF, and the keystore's field mapping by an exact-content test. Saves
 use two slots (`next`, then `live`), so a crash at any step leaves a keystore
 that opens; the loader finishes an interrupted save. On load the keys folder
 must be 0700 and every key file 0600, owned by this user, and not a symlink.
+
+One lock file, `keys/roam.lock` (0600, flock), keeps runs apart (§14.6a). Anything
+that saves the keystore or appends to a log takes it exclusively; anything else
+that signs takes it shared. It's always taken before either log's own lock. The
+keystore is loaded only with it held, only an exclusive holder finishes an
+interrupted save, and a save refuses if keystore.bin isn't the one this run loaded.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import stat
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -55,7 +65,11 @@ KEYSTORE_FILE = "keystore.bin"
 KEYSTORE_NEXT = "keystore.bin.next"
 KEYCHAIN_SERVICE = "irp-roam"
 KEK_SOURCES = ("keychain", "passphrase", "file")
-KEYSTORE_KEYS = frozenset({"kek_source", "dk_seed", "dk_box", "ck_seed", "epochs", "tsa_creds"})
+KEYSTORE_KEYS = frozenset({"kek_source", "dk_seed", "dk_box", "ck_seed", "epochs", "tsa_creds", "pending",
+                           "box_prev"})
+PENDING_KEYS = frozenset({"dk_seed", "dk_box", "ck_seed", "started_at"})
+BOX_PREV_KEYS = frozenset({"dk_box", "until"})
+LOCK_FILE = "roam.lock"
 NONCE_LEN = 12
 TAG_LEN = 16
 
@@ -64,6 +78,7 @@ _READER = re.compile(r"rd-[0-9a-f]{32}")
 _DEVICE = re.compile(r"dk-[0-9a-f]{32}")
 _LEDGER_ID = re.compile(r"ILID-[0-9a-f]{32}")
 _EPOCH = re.compile(r"0|[1-9][0-9]{0,8}")
+_TIMESTAMP = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
 
 Runner = Callable[[Sequence[str], bytes], bytes]
 
@@ -74,6 +89,14 @@ class RoamKeyError(ValueError):
 
 class KeystoreError(RoamKeyError):
     """The keystore or its master key is missing, wrong, damaged or outside the format."""
+
+
+class InterruptedSave(KeystoreError):
+    """The keystore opens only by finishing an interrupted save, which needs roam.lock held exclusively."""
+
+
+class LockBusy(RoamKeyError):
+    """Another irp roam run holds roam.lock, and this one doesn't wait (an unattended run)."""
 
 
 class RoamKeyWarning(UserWarning):
@@ -152,16 +175,10 @@ def outbox_key(kc: bytes, kid: str) -> bytes:
     return hk(kc, "outbox/" + _kid(kid))
 
 
-# ── The keystore (§14.4) ──
+# ── The keystore (§14.4, §14.6a) ──
 
-@dataclass(frozen=True)
-class Keystore:
-    kek_source: str
-    dk_seed: bytes = field(repr=False)
-    dk_box: bytes = field(repr=False)
-    ck_seed: bytes = field(repr=False)
-    epochs: Mapping[int, tuple[bytes, bytes]] = field(repr=False)  # epoch -> (K_c, K_a)
-    tsa_creds: Mapping[str, str] | None = field(default=None, repr=False)
+class _DeviceKeys:
+    """The ids a set of device keys goes by (the live keys and the pending ones)."""
 
     @property
     def dk_id(self) -> str:
@@ -174,6 +191,37 @@ class Keystore:
     @property
     def dk_recipient(self) -> str:
         return Identity(self.dk_box).recipient().to_string()
+
+
+@dataclass(frozen=True)
+class Pending(_DeviceKeys):
+    """The next keys of a rotation under way: saved once every signature on the rotate line is gathered,
+    before the line is appended (§14.6a step 3)."""
+    dk_seed: bytes = field(repr=False)
+    dk_box: bytes = field(repr=False)
+    ck_seed: bytes = field(repr=False)
+    started_at: str
+
+
+@dataclass(frozen=True)
+class BoxPrev:
+    """The outgoing box key after a rotation: decrypt-only, never an audience entry, never a signer. `until`
+    is the old CK's printed not_after. One slot: a second rotation before `until` replaces it, dropping the
+    earlier outgoing box key early (an owner decision, pending; the rotate result says so)."""
+    dk_box: bytes = field(repr=False)
+    until: str
+
+
+@dataclass(frozen=True)
+class Keystore(_DeviceKeys):
+    kek_source: str
+    dk_seed: bytes = field(repr=False)
+    dk_box: bytes = field(repr=False)
+    ck_seed: bytes = field(repr=False)
+    epochs: Mapping[int, tuple[bytes, bytes]] = field(repr=False)  # epoch -> (K_c, K_a)
+    tsa_creds: Mapping[str, str] | None = field(default=None, repr=False)
+    pending: Pending | None = field(default=None, repr=False)
+    box_prev: BoxPrev | None = field(default=None, repr=False)
 
 
 def new_keystore(rk: bytes, rng: Callable[[int], bytes], *, kek_source: str, epoch: int = 0,
@@ -191,15 +239,40 @@ def new_keystore(rk: bytes, rng: Callable[[int], bytes], *, kek_source: str, epo
     return ks
 
 
+def _timestamp(val: Any, what: str) -> str:
+    """A §15.1 timestamp: UTC to the second, and a real time."""
+    if not (isinstance(val, str) and _TIMESTAMP.fullmatch(val)):
+        raise KeystoreError(f"{what} must be a UTC timestamp like 2026-10-08T09:00:00Z")
+    try:
+        datetime.strptime(val, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        raise KeystoreError(f"{what} isn't a real UTC time") from None
+    return val
+
+
 def _check_keystore(ks: Keystore) -> None:
     if ks.kek_source not in KEK_SOURCES:
         raise KeystoreError(f"kek_source must be one of {', '.join(KEK_SOURCES)}")
-    seeds = [ks.dk_seed, ks.dk_box, ks.ck_seed]
-    for name, key in zip(("dk_seed", "dk_box", "ck_seed"), seeds):
+    named = [("dk_seed", ks.dk_seed), ("dk_box", ks.dk_box), ("ck_seed", ks.ck_seed)]
+    if ks.pending is not None:
+        if not isinstance(ks.pending, Pending):
+            raise KeystoreError("pending must be null or the next keys")
+        named += [("pending dk_seed", ks.pending.dk_seed), ("pending dk_box", ks.pending.dk_box),
+                  ("pending ck_seed", ks.pending.ck_seed)]
+        _timestamp(ks.pending.started_at, "pending started_at")
+    if ks.box_prev is not None:
+        if not isinstance(ks.box_prev, BoxPrev):
+            raise KeystoreError("box_prev must be null or the outgoing box key")
+        named.append(("box_prev dk_box", ks.box_prev.dk_box))
+        _timestamp(ks.box_prev.until, "box_prev until")
+    for name, key in named:
         if not isinstance(key, bytes) or len(key) != 32:
             raise KeystoreError(f"{name} must be 32 bytes")
-    if len(set(seeds)) != 3:
+    if len(set(k for _, k in named[:3])) != 3:
         raise KeystoreError("dk_seed, dk_box and ck_seed must be distinct keys")
+    if len(set(k for _, k in named)) != len(named):
+        raise KeystoreError("every key in the keystore must be distinct: the live keys, the pending keys and "
+                            "the outgoing box key")
     if not isinstance(ks.epochs, Mapping) or not ks.epochs:
         raise KeystoreError("the keystore holds at least one epoch's keys")
     for e, pair in ks.epochs.items():
@@ -221,9 +294,13 @@ def _check_keystore(ks: Keystore) -> None:
 
 def _content(ks: Keystore) -> dict[str, Any]:
     b = sig.b64url_encode
+    p, bp = ks.pending, ks.box_prev
     return {"kek_source": ks.kek_source, "dk_seed": b(ks.dk_seed), "dk_box": b(ks.dk_box), "ck_seed": b(ks.ck_seed),
             "epochs": {str(e): {"kc": b(kc), "ka": b(ka)} for e, (kc, ka) in sorted(ks.epochs.items())},
-            "tsa_creds": dict(ks.tsa_creds) if ks.tsa_creds is not None else None}
+            "tsa_creds": dict(ks.tsa_creds) if ks.tsa_creds is not None else None,
+            "pending": None if p is None else {"dk_seed": b(p.dk_seed), "dk_box": b(p.dk_box),
+                                               "ck_seed": b(p.ck_seed), "started_at": p.started_at},
+            "box_prev": None if bp is None else {"dk_box": b(bp.dk_box), "until": bp.until}}
 
 
 def _from_content(c: Any) -> Keystore:
@@ -246,9 +323,22 @@ def _from_content(c: Any) -> Keystore:
         if not isinstance(pair, dict) or set(pair) != {"kc", "ka"}:
             raise KeystoreError(f"keystore epoch {e} must have exactly kc and ka")
         parsed[int(e)] = (key(pair["kc"], f"epoch {e} kc"), key(pair["ka"], f"epoch {e} ka"))
+    pending = box_prev = None
+    if c["pending"] is not None:
+        p = c["pending"]
+        if not isinstance(p, dict) or set(p) != PENDING_KEYS:
+            raise KeystoreError(f"keystore pending must be null or have exactly {', '.join(sorted(PENDING_KEYS))}")
+        pending = Pending(dk_seed=key(p["dk_seed"], "pending dk_seed"), dk_box=key(p["dk_box"], "pending dk_box"),
+                          ck_seed=key(p["ck_seed"], "pending ck_seed"),
+                          started_at=_timestamp(p["started_at"], "pending started_at"))
+    if c["box_prev"] is not None:
+        bp = c["box_prev"]
+        if not isinstance(bp, dict) or set(bp) != BOX_PREV_KEYS:
+            raise KeystoreError(f"keystore box_prev must be null or have exactly {', '.join(sorted(BOX_PREV_KEYS))}")
+        box_prev = BoxPrev(dk_box=key(bp["dk_box"], "box_prev dk_box"), until=_timestamp(bp["until"], "box_prev until"))
     ks = Keystore(kek_source=c["kek_source"], dk_seed=key(c["dk_seed"], "dk_seed"),
                   dk_box=key(c["dk_box"], "dk_box"), ck_seed=key(c["ck_seed"], "ck_seed"), epochs=parsed,
-                  tsa_creds=c["tsa_creds"])
+                  tsa_creds=c["tsa_creds"], pending=pending, box_prev=box_prev)
     _check_keystore(ks)
     return ks
 
@@ -333,6 +423,15 @@ def _write_private(path: Path, data: bytes) -> None:
 def _replace(src: Path, dst: Path) -> None:
     os.replace(src, dst)
     _fsync_dir(dst.parent)
+
+
+def _discard(path: Path) -> None:
+    """Best-effort removal of a leftover, while another error is on its way out."""
+    try:
+        path.unlink()
+        _fsync_dir(path.parent)
+    except OSError:
+        pass
 
 
 def _check_private(path: Path, *, folder: bool) -> None:
@@ -525,34 +624,64 @@ class FileKek(_FileSlots):
 KekSource = Any  # KeychainKek | PassphraseKek | FileKek
 
 
-def save_keystore(keys_dir: Path | str, ks: Keystore, source: KekSource, rng: Callable[[int], bytes]) -> None:
+_ANY = object()
+
+
+def keystore_digest(keys_dir: Path | str) -> str | None:
+    """sha256 of keystore.bin as it is now, or None when there's none. A run keeps the digest of what it
+    loaded, so a save can tell that another run changed the keystore in between (§14.6a)."""
+    path = Path(keys_dir) / KEYSTORE_FILE
+    if not (path.is_symlink() or path.exists()):
+        return None
+    return "sha256-" + hashlib.sha256(_read_private(path)).hexdigest()
+
+
+def save_keystore(keys_dir: Path | str, ks: Keystore, source: KekSource, rng: Callable[[int], bytes], *,
+                  expect_digest: Any = _ANY) -> str:
     """Seal `ks` under a fresh master key held by `source`, in an order that survives a crash at any step:
-    keystore.bin.next, then the master key's next slot, then rename into keystore.bin, then promote."""
+    keystore.bin.next, then the master key's next slot, then rename into keystore.bin, then promote.
+
+    With `expect_digest` (the keystore_digest this run loaded), the save refuses before writing anything if
+    keystore.bin has changed since. Returns the digest of the new keystore.bin."""
     if ks.kek_source != source.name:
         raise KeystoreError(f"the keystore's kek_source is {ks.kek_source!r} but it's being saved to {source.name}")
     keys = _private_dir(Path(keys_dir))
+    if expect_digest is not _ANY and keystore_digest(keys) != expect_digest:
+        raise KeystoreError("keystore.bin changed since this run loaded it (another irp roam run saved it); "
+                            "nothing was saved, so load it again and redo the change")
     kek = rng(32)
     if not isinstance(kek, bytes) or len(kek) != 32:
         raise RoamKeyError("rng must return a 32-byte master key")
     blob = seal_keystore(ks, kek, rng)
     _write_private(keys / KEYSTORE_NEXT, blob)
-    source.store(kek, "next")
-    if source.read_back:  # never swap in a keystore whose master key can't be read back
-        try:
-            stored = source.load("next")
-        except (KeystoreError, OSError):
-            stored = None
-        if stored != kek:
-            raise KeystoreError(f"the new master key didn't read back from {source.name}; the old keystore is kept")
+    try:
+        source.store(kek, "next")
+        if source.read_back:  # never swap in a keystore whose master key can't be read back
+            try:
+                stored = source.load("next")
+            except (KeystoreError, OSError):
+                stored = None
+            if stored != kek:
+                raise KeystoreError(f"the new master key didn't read back from {source.name}; the old keystore is "
+                                    "kept")
+    except BaseException:
+        # A store that failed (a cancelled passphrase prompt, say) leaves keystore.bin.next sealed under a master
+        # key held nowhere: take it away rather than leave an orphan beside the keystore.
+        _discard(keys / KEYSTORE_NEXT)
+        raise
     _replace(keys / KEYSTORE_NEXT, keys / KEYSTORE_FILE)
     source.promote(kek)
+    return "sha256-" + hashlib.sha256(blob).hexdigest()
 
 
-def load_keystore(keys_dir: Path | str, sources: Sequence[KekSource]) -> Keystore:
+def load_keystore(keys_dir: Path | str, sources: Sequence[KekSource], *, finish: bool = True) -> Keystore:
     """Open the keystore with whichever master key fits. keystore.bin is tried with every master key first;
     keystore.bin.next only when nothing opens keystore.bin (a first save that crashed before its rename),
     and it's then rolled forward. A master key found in a `next` slot is promoted. The keystore must name the
-    source that opened it, so a stray master key can't stand in for the real one."""
+    source that opened it, so a stray master key can't stand in for the real one.
+
+    Rolling forward and promoting finish an interrupted save, which only an exclusive holder of roam.lock may
+    do. With `finish=False` (a shared holder) they raise InterruptedSave instead and change nothing."""
     keys = Path(keys_dir)
     _check_private(keys, folder=True)
     blobs = []
@@ -582,6 +711,9 @@ def load_keystore(keys_dir: Path | str, sources: Sequence[KekSource]) -> Keystor
                 continue
             if ks.kek_source != source.name:
                 raise KeystoreError(f"the keystore says kek_source {ks.kek_source!r} but opened with {source.name}")
+            if not finish and (name == KEYSTORE_NEXT or slot == "next"):
+                raise InterruptedSave("the keystore opens only by finishing an interrupted save; that needs "
+                                      "roam.lock held exclusively")
             if name == KEYSTORE_NEXT:
                 _replace(keys / KEYSTORE_NEXT, keys / KEYSTORE_FILE)
             if slot == "next":
@@ -592,15 +724,129 @@ def load_keystore(keys_dir: Path | str, sources: Sequence[KekSource]) -> Keystor
 
 
 def set_kek(keys_dir: Path | str, sources: Sequence[KekSource], new: KekSource,
-            rng: Callable[[int], bytes]) -> Keystore:
+            rng: Callable[[int], bytes], *, lock: RoamLock | None = None, say: Callable[[str], None] | None = None
+            ) -> Keystore:
     """`irp roam keystore set-kek`: re-wrap the same keystore under `new` (the same mode re-wraps under a fresh
-    master key), then remove every other source's master keys."""
-    current = load_keystore(keys_dir, sources)
-    moved = Keystore(kek_source=new.name, dk_seed=current.dk_seed, dk_box=current.dk_box,
-                     ck_seed=current.ck_seed, epochs=current.epochs, tsa_creds=current.tsa_creds)
-    save_keystore(keys_dir, moved, new, rng)
+    master key), then remove every other source's master keys. Every field is carried over unchanged. Runs
+    under roam.lock held exclusively: the caller's, or one taken here (waiting, and saying so, if it's busy)."""
+    if lock is None:
+        with RoamLock(keys_dir, exclusive=True, interactive=True, say=say) as held:
+            return set_kek(keys_dir, sources, new, rng, lock=held)
+    current, loaded = load_locked(keys_dir, sources, lock)
+    moved = replace(current, kek_source=new.name)
+    save_locked(keys_dir, moved, new, rng, lock, loaded)
     for source in sources:
         if source.name != new.name:
             for slot in SLOTS:
                 source.remove(slot)
     return moved
+
+
+# ── roam.lock (§14.6a) ──
+
+class RoamLock:
+    """`keys/roam.lock` (0600, flock). Exclusive for anything that saves the keystore or appends to a log;
+    shared for anything else that signs with DK or CK. Always taken first, before the devices LogWriter and
+    then the readers LogWriter, so it's what keeps a transaction whole when a LogWriter drops its own lock
+    after a failed append. An unattended run (`interactive=False`) never waits: it gets LockBusy and skips
+    the run. An interactive one waits and says what it's waiting for."""
+
+    def __init__(self, keys_dir: Path | str, *, exclusive: bool, interactive: bool,
+                 say: Callable[[str], None] | None = None):
+        self.keys_dir = Path(keys_dir)
+        self.exclusive, self.interactive, self.say = bool(exclusive), bool(interactive), say
+        self.fd: int | None = None
+
+    @property
+    def held(self) -> bool:
+        return self.fd is not None
+
+    def __enter__(self) -> "RoamLock":
+        import fcntl
+
+        keys = _private_dir(self.keys_dir)
+        path = keys / LOCK_FILE
+        try:
+            fd = os.open(path, os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        except OSError as exc:
+            raise KeystoreError(f"can't open {path}: {exc.strerror} (it must be a real file, not a symlink)") from None
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid():
+                raise KeystoreError(f"{path} must be a regular file owned by this user")
+            os.fchmod(fd, 0o600)
+        except BaseException:
+            os.close(fd)
+            raise
+        self.fd = fd
+        try:
+            self._take(fcntl.LOCK_EX if self.exclusive else fcntl.LOCK_SH)
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+        return self
+
+    def _take(self, mode: int) -> None:
+        import fcntl
+
+        try:
+            fcntl.flock(self.fd, mode | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            pass
+        if not self.interactive:
+            raise LockBusy("busy: another irp roam run holds keys/roam.lock; this unattended run is skipped")
+        if self.say:
+            self.say("waiting for another irp roam run to finish (it holds keys/roam.lock)")
+        fcntl.flock(self.fd, mode)
+
+    def make_exclusive(self) -> None:
+        """Release, then take the lock exclusively (flock can't upgrade in one step, so another run may get in
+        between: whatever was read under the shared lock must be read again)."""
+        import fcntl
+
+        if self.fd is None:
+            raise KeystoreError("roam.lock isn't held")
+        if self.exclusive:
+            return
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        self.exclusive = True
+        self._take(fcntl.LOCK_EX)
+
+    def __exit__(self, *exc: Any) -> None:
+        import fcntl
+
+        if self.fd is not None:
+            try:
+                fcntl.flock(self.fd, fcntl.LOCK_UN)
+            finally:
+                os.close(self.fd)
+                self.fd = None
+
+
+def load_locked(keys_dir: Path | str, sources: Sequence[KekSource], lock: RoamLock) -> tuple[Keystore, str]:
+    """Load the keystore with roam.lock held, and return it with the digest of the keystore.bin it came from.
+    A shared holder that finds an interrupted save takes the lock exclusively and loads again."""
+    if not lock.held:
+        raise KeystoreError("the keystore is loaded only with roam.lock held")
+    if lock.exclusive:
+        ks = load_keystore(keys_dir, sources)
+    else:
+        try:
+            ks = load_keystore(keys_dir, sources, finish=False)
+        except InterruptedSave:
+            lock.make_exclusive()
+            ks = load_keystore(keys_dir, sources)
+    digest = keystore_digest(keys_dir)
+    if digest is None:  # pragma: no cover - load_keystore has just read it
+        raise KeystoreError("keystore.bin disappeared while it was being loaded")
+    return ks, digest
+
+
+def save_locked(keys_dir: Path | str, ks: Keystore, source: KekSource, rng: Callable[[int], bytes], lock: RoamLock,
+                loaded: str) -> str:
+    """Save with roam.lock held exclusively, refusing if keystore.bin isn't the one this run loaded (or last
+    saved). Returns the new digest, the one the next save in this run must expect."""
+    if not (lock.held and lock.exclusive):
+        raise KeystoreError("saving the keystore needs roam.lock held exclusively")
+    return save_keystore(keys_dir, ks, source, rng, expect_digest=loaded)

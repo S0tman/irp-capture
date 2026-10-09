@@ -38,11 +38,13 @@ from irp.roam import sig  # noqa: E402
 from irp.roam.age import Identity  # noqa: E402
 from irp.roam.keys import (  # noqa: E402
     KEYSTORE_AAD,
+    BoxPrev,
     FileKek,
     KeychainKek,
     Keystore,
     KeystoreError,
     PassphraseKek,
+    Pending,
     RoamKeyError,
     RoamKeyWarning,
     custodian_chain_key,
@@ -249,7 +251,8 @@ def _content(ks: Keystore) -> dict:
 
 def test_the_sealed_content_is_the_spec_object():
     c = _content(_ks())
-    assert set(c) == {"kek_source", "dk_seed", "dk_box", "ck_seed", "epochs", "tsa_creds"}
+    assert set(c) == {"kek_source", "dk_seed", "dk_box", "ck_seed", "epochs", "tsa_creds", "pending", "box_prev"}
+    assert c["pending"] is None and c["box_prev"] is None  # §14.6a: both null in a fresh keystore
     assert set(c["epochs"]) == {"0"} and set(c["epochs"]["0"]) == {"kc", "ka"}
     assert sig.b64url_decode(c["epochs"]["0"]["kc"], 32) == custodian_chain_key(RK, 0)
 
@@ -269,6 +272,10 @@ CONTENT_MUTATIONS = {
     "tsa_creds list": lambda c: c.update(tsa_creds=["x"]),
     "tsa_creds non-text value": lambda c: c.update(tsa_creds={"disig": 5}),
     "same seed twice": lambda c: c.update(ck_seed=c["dk_seed"]),
+    "missing pending": lambda c: c.pop("pending"),
+    "missing box_prev": lambda c: c.pop("box_prev"),
+    "pending a list": lambda c: c.update(pending=[]),
+    "box_prev text": lambda c: c.update(box_prev="none"),
 }
 
 
@@ -281,6 +288,73 @@ def test_the_sealed_content_is_a_closed_schema(name):
         open_keystore(_raw_seal(canonicalize(c), kek), kek)
 
 
+def _full_ks(label="full", source="file") -> Keystore:
+    """A keystore in the middle of a rotation: `pending` and `box_prev` both set (§14.6a)."""
+    import dataclasses
+
+    r = _rng(label + " next")
+    return dataclasses.replace(_ks(label, source, tsa={"disig": "u:p"}),
+                               pending=Pending(dk_seed=r(32), dk_box=r(32), ck_seed=r(32),
+                                               started_at="2026-10-08T09:00:00Z"),
+                               box_prev=BoxPrev(dk_box=r(32), until="2026-10-15T09:00:00Z"))
+
+
+ROTATION_MUTATIONS = {
+    "pending extra key": lambda c: c["pending"].update(kc="x"),
+    "pending missing started_at": lambda c: c["pending"].pop("started_at"),
+    "pending dk_seed short": lambda c: c["pending"].update(dk_seed=sig.b64url_encode(b"\x01" * 31)),
+    "pending dk_box padded": lambda c: c["pending"].update(dk_box=c["pending"]["dk_box"] + "="),
+    "pending ck_seed not text": lambda c: c["pending"].update(ck_seed=5),
+    "pending repeats a live key": lambda c: c["pending"].update(dk_seed=c["dk_seed"]),
+    "pending repeats its own key": lambda c: c["pending"].update(ck_seed=c["pending"]["dk_box"]),
+    "pending started_at not a timestamp": lambda c: c["pending"].update(started_at="2026-10-08 09:00:00"),
+    "pending started_at not a real date": lambda c: c["pending"].update(started_at="2026-02-30T09:00:00Z"),
+    "pending started_at with offset": lambda c: c["pending"].update(started_at="2026-10-08T09:00:00+00:00"),
+    "box_prev extra key": lambda c: c["box_prev"].update(dk_seed=c["dk_seed"]),
+    "box_prev missing until": lambda c: c["box_prev"].pop("until"),
+    "box_prev is the live box": lambda c: c["box_prev"].update(dk_box=c["dk_box"]),
+    "box_prev is a pending key": lambda c: c["box_prev"].update(dk_box=c["pending"]["dk_box"]),
+    "box_prev until not text": lambda c: c["box_prev"].update(until=1760000000),
+    "box_prev dk_box short": lambda c: c["box_prev"].update(dk_box=sig.b64url_encode(b"\x02" * 16)),
+}
+
+
+@pytest.mark.parametrize("name", sorted(ROTATION_MUTATIONS))
+def test_pending_and_box_prev_are_closed_and_checked_on_load(name):
+    c = _content(_full_ks())
+    open_keystore(_raw_seal(canonicalize(c), _rng("kek")(32)), _rng("kek")(32))  # the unmutated content opens
+    ROTATION_MUTATIONS[name](c)
+    kek = _rng("kek")(32)
+    with pytest.raises(KeystoreError):
+        open_keystore(_raw_seal(canonicalize(c), kek), kek)
+
+
+def test_pending_and_box_prev_map_each_field_exactly():
+    ks = _full_ks()
+    b = sig.b64url_encode
+    c = _content(ks)
+    assert c["pending"] == {"dk_seed": b(ks.pending.dk_seed), "dk_box": b(ks.pending.dk_box),
+                            "ck_seed": b(ks.pending.ck_seed), "started_at": "2026-10-08T09:00:00Z"}
+    assert c["box_prev"] == {"dk_box": b(ks.box_prev.dk_box), "until": "2026-10-15T09:00:00Z"}
+    kek = _rng("kek")(32)
+    assert open_keystore(seal_keystore(ks, kek, _rng("nonce")), kek) == ks
+    assert ks.pending.dk_id == sig.key_id("dk", sig.public_key(ks.pending.dk_seed))
+    assert ks.pending.ck_id == sig.key_id("ck", sig.public_key(ks.pending.ck_seed))
+    assert ks.pending.dk_recipient == Identity(ks.pending.dk_box).recipient().to_string()
+
+
+def test_a_keystore_whose_rotation_keys_repeat_a_live_key_is_never_sealed():
+    import dataclasses
+
+    ks = _full_ks()
+    for bad in (dataclasses.replace(ks, pending=dataclasses.replace(ks.pending, ck_seed=ks.ck_seed)),
+                dataclasses.replace(ks, box_prev=dataclasses.replace(ks.box_prev, dk_box=ks.pending.dk_seed)),
+                dataclasses.replace(ks, box_prev=dataclasses.replace(ks.box_prev, until="soon")),
+                dataclasses.replace(ks, pending=dataclasses.replace(ks.pending, started_at="2026-13-01T00:00:00Z"))):
+        with pytest.raises(KeystoreError):
+            seal_keystore(bad, _rng("kek")(32), _rng("nonce"))
+
+
 def test_non_jcs_content_is_rejected():
     c = _content(_ks())
     kek = _rng("kek")(32)
@@ -289,9 +363,13 @@ def test_non_jcs_content_is_rejected():
 
 
 def test_repr_never_shows_a_secret():
-    ks = _ks(tsa={"disig": "user:secret-token"})
-    text = repr(ks) + str(ks)
-    for secret in (ks.dk_seed, ks.dk_box, ks.ck_seed, *ks.epochs[0]):
+    import dataclasses
+
+    full = _full_ks()
+    ks = dataclasses.replace(_ks(tsa={"disig": "user:secret-token"}), pending=full.pending, box_prev=full.box_prev)
+    text = repr(ks) + str(ks) + repr(ks.pending) + repr(ks.box_prev)
+    for secret in (ks.dk_seed, ks.dk_box, ks.ck_seed, *ks.epochs[0], ks.pending.dk_seed, ks.pending.dk_box,
+                   ks.pending.ck_seed, ks.box_prev.dk_box):
         assert secret.hex() not in text and sig.b64url_encode(secret) not in text and repr(secret) not in text
     assert "secret-token" not in text
     for name in ("dk_seed=", "dk_box=", "ck_seed=", "epochs=", "tsa_creds="):
@@ -532,11 +610,36 @@ def test_set_kek_rewraps_the_same_keystore(tmp_path):
             after = set_kek(keys, _sources(keys, sec, age), new, _rng("switch " + new.name))
             loaded = load_keystore(keys, _sources(keys, sec, age))
         assert after.kek_source == new.name == loaded.kek_source
-        assert (loaded.dk_seed, loaded.dk_box, loaded.ck_seed, loaded.epochs) == \
-            (ks.dk_seed, ks.dk_box, ks.ck_seed, ks.epochs)
+        assert (loaded.dk_seed, loaded.dk_box, loaded.ck_seed, loaded.epochs, loaded.pending, loaded.box_prev) == \
+            (ks.dk_seed, ks.dk_box, ks.ck_seed, ks.epochs, None, None)
         present = [s.name for s in _sources(keys, sec, age) if s.present()]
         assert present == [new.name]  # the old master key is gone
     _assert_no_secret_in_argv(sec.calls + age.calls, [bytes.fromhex(v) for v in sec.items.values()])
+
+
+def test_set_kek_round_trips_every_field(tmp_path):
+    """§14.6a: set_kek and every other copy carry every field unchanged, pending and box_prev included."""
+    import dataclasses
+
+    keys, sec, age = tmp_path / "keys", FakeSecurity(), FakeAge()
+    ks = dataclasses.replace(_full_ks(source="keychain"),
+                             epochs={0: (custodian_chain_key(RK, 0), custodian_mac_key(RK, 0)),
+                                     1: (custodian_chain_key(RK, 1), custodian_mac_key(RK, 1))})
+    save_keystore(keys, ks, KeychainKek(LEDGER_ID, run=sec), _rng("save"))
+    for new in (PassphraseKek(keys, run=age), FileKek(keys), KeychainKek(LEDGER_ID, run=sec)):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RoamKeyWarning)
+            after = set_kek(keys, _sources(keys, sec, age), new, _rng("round trip " + new.name))
+            loaded = load_keystore(keys, _sources(keys, sec, age))
+        assert loaded == after == dataclasses.replace(ks, kek_source=new.name)
+        for f in dataclasses.fields(Keystore):
+            if f.name != "kek_source":
+                assert getattr(loaded, f.name) == getattr(ks, f.name), f.name
+
+
+def test_new_keystore_starts_with_no_rotation_in_progress():
+    ks = _ks()
+    assert ks.pending is None and ks.box_prev is None
 
 
 def test_a_switch_interrupted_after_storing_the_new_kek_still_opens(tmp_path):
@@ -598,7 +701,7 @@ def test_the_sealed_content_maps_each_field_exactly():
     b = sig.b64url_encode
     expected = {"kek_source": "keychain", "dk_seed": b(outs[0]), "dk_box": b(outs[1]), "ck_seed": b(outs[2]),
                 "epochs": {"0": {"kc": b(custodian_chain_key(RK, 0)), "ka": b(custodian_mac_key(RK, 0))}},
-                "tsa_creds": {"disig": "u:p"}}
+                "tsa_creds": {"disig": "u:p"}, "pending": None, "box_prev": None}
     assert _content(ks) == expected
 
 
