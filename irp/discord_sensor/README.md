@@ -41,7 +41,7 @@ cp .env.example .env
 **.env contents:**
 ```
 DISCORD_BOT_TOKEN=your_bot_token_here
-IRP_PROJECT_ROOT=/Users/jolopes/irp-capture
+IRP_PROJECT_ROOT=/path/to/your/project
 DISCORD_GUILD_ID=0
 ```
 

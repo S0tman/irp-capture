@@ -52,8 +52,8 @@ python3 irp/figma_plugin/bridge/server.py --project-root /path/to/your/project
 
 **Example — writing to the irp-capture-v1-5 Claude skill:**
 ```bash
-python3 /Users/jolopes/irp-capture/irp/figma_plugin/bridge/server.py \
-  --project-root /Users/jolopes/.claude/skills/irp-capture-v1-5
+python3 /path/to/irp-capture/irp/figma_plugin/bridge/server.py \
+  --project-root ~/.claude/skills/irp-capture-v1-5
 ```
 
 **Example — writing to a local git project:**
