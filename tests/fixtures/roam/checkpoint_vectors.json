@@ -1,0 +1,19 @@
+{
+  "about": "Golden vectors for the custodian MAC (spec v0.3 section 18.1) and the custodian slot name (section 18a), made with the Python standard library only. Neutral test values; the RK is not a real key.",
+  "epoch": 0,
+  "mac": {
+    "body": "{\"kind\":\"checkpoint-body\",\"note\":\"bytes only: the MAC covers their sha256\",\"v\":1}",
+    "header": "{\"body_digest\":\"sha256-4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b\",\"created_at\":\"2026-10-10T12:00:00Z\",\"devices\":{\"byte_length\":1234,\"digest\":\"sha256-3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c\"},\"epoch\":0,\"kind\":\"checkpoint\",\"ledger_id\":\"ILID-0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f\",\"prev\":null,\"root\":\"rt-1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e\",\"seq\":1,\"strand\":\"dk-2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d\",\"v\":1}",
+    "ka_hex": "71649d39febf53491ac71feac51d5c15cec8ccf800b0f93ca3e8cde3d40754f6",
+    "line": "5dec1b29b2dff886af4f0644d4c5c014d4f5c8fa3d69c95d15e30ce801596851\n"
+  },
+  "rk_hex": "57bb6d40bebc0b568f8cd818c30d4945a97372255f37ae506ef9a8cb82d642e7",
+  "slot": {
+    "kc_hex": "6914e863d8057ec9141ad60eb9974be38549fff84a2adf04f7b70a589bdddcc4",
+    "names": {
+      "1": "m/57b3f9c7c250e9357f95876f4fbb341cf6a8a20d69984c03581f154eef66aaf7",
+      "2": "m/ca2258ceadf295d1c1b7504baf2efa2afb65e7d4e49417b0548685dd0a9afc0b",
+      "42": "m/9065a14f4b4cd5af6366cba99717334411209b8bf629e5238922140c052aea25"
+    }
+  }
+}

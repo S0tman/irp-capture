@@ -39,6 +39,7 @@ from irp.roam.age import Identity  # noqa: E402
 from irp.roam.keys import (  # noqa: E402
     KEYSTORE_AAD,
     BoxPrev,
+    EpochKeys,
     FileKek,
     KeychainKek,
     Keystore,
@@ -47,8 +48,10 @@ from irp.roam.keys import (  # noqa: E402
     Pending,
     RoamKeyError,
     RoamKeyWarning,
+    check_epoch_keys,
     custodian_chain_key,
     custodian_mac_key,
+    epoch_keys,
     hk,
     load_keystore,
     new_keystore,
@@ -79,6 +82,7 @@ GOLDEN = {
     "KR": "d3f5835122231fa0eda7afeabdedf10edfc6a74b2b4b25b4eabfa0fe71d3753e",
     "KP": "95c7f01efe6c2d837800b7d9874860d5aeffa42bcbffc7b9c7cc811fb7c6a2e2",
     "KO": "c0031d219d1ff4200a571335f49abeedf0ad54986629144022cc7df813924523",
+    "RK_PUB": "6cba15702b7cf7ce6d9ef5093690fecad20fc67a235a3fea5a25f5a4f5756c75",  # X25519(RK, 9), §18a
 }
 READER = "rd-" + "b2" * 16
 KID = "dk-" + "c3" * 16
@@ -173,9 +177,15 @@ def _ks(label="ks", source="file", tsa=None) -> Keystore:
     return new_keystore(RK, _rng(label), kek_source=source, tsa_creds=tsa)
 
 
+def _epoch(e: int, rk: bytes = RK) -> EpochKeys:
+    return EpochKeys(kc=custodian_chain_key(rk, e), ka=custodian_mac_key(rk, e),
+                     rk_pub=Identity(rk).recipient().public)
+
+
 def test_new_keystore_derives_the_epoch_keys_and_makes_fresh_device_keys():
     ks = _ks()
-    assert ks.epochs == {0: (custodian_chain_key(RK, 0), custodian_mac_key(RK, 0))}
+    assert ks.epochs == {0: _epoch(0)}
+    assert ks.epochs[0].rk_pub.hex() == GOLDEN["RK_PUB"] and ks.epochs[0].rk_pub != RK
     assert len({ks.dk_seed, ks.dk_box, ks.ck_seed}) == 3
     assert all(len(k) == 32 for k in (ks.dk_seed, ks.dk_box, ks.ck_seed))
     assert ks.dk_id == sig.key_id("dk", sig.public_key(ks.dk_seed))
@@ -253,8 +263,9 @@ def test_the_sealed_content_is_the_spec_object():
     c = _content(_ks())
     assert set(c) == {"kek_source", "dk_seed", "dk_box", "ck_seed", "epochs", "tsa_creds", "pending", "box_prev"}
     assert c["pending"] is None and c["box_prev"] is None  # §14.6a: both null in a fresh keystore
-    assert set(c["epochs"]) == {"0"} and set(c["epochs"]["0"]) == {"kc", "ka"}
+    assert set(c["epochs"]) == {"0"} and set(c["epochs"]["0"]) == {"kc", "ka", "rk_pub"}
     assert sig.b64url_decode(c["epochs"]["0"]["kc"], 32) == custodian_chain_key(RK, 0)
+    assert sig.b64url_decode(c["epochs"]["0"]["rk_pub"], 32).hex() == GOLDEN["RK_PUB"]
 
 
 CONTENT_MUTATIONS = {
@@ -269,6 +280,12 @@ CONTENT_MUTATIONS = {
     "epoch negative": lambda c: c.update(epochs={"-1": c["epochs"]["0"]}),
     "epoch extra key": lambda c: c["epochs"]["0"].update(kr="x"),
     "epoch missing ka": lambda c: c["epochs"]["0"].pop("ka"),
+    "epoch missing rk_pub": lambda c: c["epochs"]["0"].pop("rk_pub"),
+    "epoch rk_pub short": lambda c: c["epochs"]["0"].update(rk_pub=sig.b64url_encode(b"\x05" * 31)),
+    "epoch rk_pub padded": lambda c: c["epochs"]["0"].update(rk_pub=c["epochs"]["0"]["rk_pub"] + "="),
+    "epoch rk_pub null": lambda c: c["epochs"]["0"].update(rk_pub=None),
+    "epoch rk_pub is a secret": lambda c: c["epochs"]["0"].update(rk_pub=c["dk_box"]),
+    "epoch rk_pub is the mac key": lambda c: c["epochs"]["0"].update(rk_pub=c["epochs"]["0"]["ka"]),
     "tsa_creds list": lambda c: c.update(tsa_creds=["x"]),
     "tsa_creds non-text value": lambda c: c.update(tsa_creds={"disig": 5}),
     "same seed twice": lambda c: c.update(ck_seed=c["dk_seed"]),
@@ -368,8 +385,9 @@ def test_repr_never_shows_a_secret():
     full = _full_ks()
     ks = dataclasses.replace(_ks(tsa={"disig": "user:secret-token"}), pending=full.pending, box_prev=full.box_prev)
     text = repr(ks) + str(ks) + repr(ks.pending) + repr(ks.box_prev)
-    for secret in (ks.dk_seed, ks.dk_box, ks.ck_seed, *ks.epochs[0], ks.pending.dk_seed, ks.pending.dk_box,
-                   ks.pending.ck_seed, ks.box_prev.dk_box):
+    text += repr(ks.epochs) + repr(ks.epochs[0])
+    for secret in (ks.dk_seed, ks.dk_box, ks.ck_seed, ks.epochs[0].kc, ks.epochs[0].ka, ks.pending.dk_seed,
+                   ks.pending.dk_box, ks.pending.ck_seed, ks.box_prev.dk_box):
         assert secret.hex() not in text and sig.b64url_encode(secret) not in text and repr(secret) not in text
     assert "secret-token" not in text
     for name in ("dk_seed=", "dk_box=", "ck_seed=", "epochs=", "tsa_creds="):
@@ -623,8 +641,7 @@ def test_set_kek_round_trips_every_field(tmp_path):
 
     keys, sec, age = tmp_path / "keys", FakeSecurity(), FakeAge()
     ks = dataclasses.replace(_full_ks(source="keychain"),
-                             epochs={0: (custodian_chain_key(RK, 0), custodian_mac_key(RK, 0)),
-                                     1: (custodian_chain_key(RK, 1), custodian_mac_key(RK, 1))})
+                             epochs={0: _epoch(0), 1: _epoch(1, rk=bytes(reversed(RK)))})  # a root_rotate
     save_keystore(keys, ks, KeychainKek(LEDGER_ID, run=sec), _rng("save"))
     for new in (PassphraseKek(keys, run=age), FileKek(keys), KeychainKek(LEDGER_ID, run=sec)):
         with warnings.catch_warnings():
@@ -700,7 +717,8 @@ def test_the_sealed_content_maps_each_field_exactly():
     ks = new_keystore(RK, lambda n: next(it), kek_source="keychain", tsa_creds={"disig": "u:p"})
     b = sig.b64url_encode
     expected = {"kek_source": "keychain", "dk_seed": b(outs[0]), "dk_box": b(outs[1]), "ck_seed": b(outs[2]),
-                "epochs": {"0": {"kc": b(custodian_chain_key(RK, 0)), "ka": b(custodian_mac_key(RK, 0))}},
+                "epochs": {"0": {"kc": b(custodian_chain_key(RK, 0)), "ka": b(custodian_mac_key(RK, 0)),
+                                 "rk_pub": b(bytes.fromhex(GOLDEN["RK_PUB"]))}},
                 "tsa_creds": {"disig": "u:p"}, "pending": None, "box_prev": None}
     assert _content(ks) == expected
 
@@ -1031,3 +1049,97 @@ def test_a_master_key_that_doesnt_read_back_keeps_the_old_keystore(tmp_path):
     with pytest.raises(KeystoreError, match="didn't read back"):
         save_keystore(keys, _ks(source="keychain", tsa={"v": "2"}), kc, os.urandom)
     assert load_keystore(keys, [KeychainKek(LEDGER_ID, run=sec_ok)]) == old
+
+
+# ── Step 2.6: each epoch carries RK's public key (§18a, §14.4) ──
+
+def _x25519_base(k: bytes) -> bytes:
+    """RFC 7748 X25519(k, 9) with integers only: an independent check of rk_pub, as tools/roam_ref.py will
+    need for RK's age recipient."""
+    p, a24 = 2**255 - 19, 121665
+    e = bytearray(k)
+    e[0] &= 248
+    e[31] &= 127
+    e[31] |= 64
+    n = int.from_bytes(bytes(e), "little")
+    x1, x2, z2, x3, z3, swap = 9, 1, 0, 9, 1, 0
+    for t in reversed(range(255)):
+        bit = (n >> t) & 1
+        swap ^= bit
+        if swap:
+            x2, x3, z2, z3 = x3, x2, z3, z2
+        swap = bit
+        a, b = (x2 + z2) % p, (x2 - z2) % p
+        aa, bb = a * a % p, b * b % p
+        e_ = (aa - bb) % p
+        c, d = (x3 + z3) % p, (x3 - z3) % p
+        da, cb = d * a % p, c * b % p
+        x3, z3 = (da + cb) ** 2 % p, x1 * (da - cb) ** 2 % p
+        x2, z2 = aa * bb % p, e_ * (aa + a24 * e_) % p
+    if swap:
+        x2, z2 = x3, z3
+    return (x2 * pow(z2, p - 2, p) % p).to_bytes(32, "little")
+
+
+def test_rk_pub_is_x25519_of_rk_and_never_rk_itself():
+    e = epoch_keys(RK, 0)
+    assert e.rk_pub == _x25519_base(RK) == Identity(RK).recipient().public
+    assert e.rk_pub.hex() == GOLDEN["RK_PUB"] and e.rk_pub != RK
+    assert (e.kc, e.ka) == (custodian_chain_key(RK, 0), custodian_mac_key(RK, 0))
+    assert e.rk_recipient == Identity(RK).recipient().to_string()
+    assert e.rk_recipient == "age1djap2upt0nmuumv775yndy87etfql3n6yddrl6j6yh66fat4d36sus7cmk"
+    assert epoch_keys(RK, 3).rk_pub == e.rk_pub  # a recovery with the same sheet keeps RK's recipient
+
+
+def test_epoch_keys_never_stores_rk_even_if_the_curve_returned_it(monkeypatch):
+    from irp.roam import keys as K
+
+    class Echo:
+        def __init__(self, secret):
+            self.secret = secret
+
+        def recipient(self):
+            from irp.roam.age import Recipient
+
+            return Recipient(self.secret)
+    monkeypatch.setattr(K, "Identity", Echo)
+    with pytest.raises(RoamKeyError, match="RK"):
+        epoch_keys(RK, 0)
+
+
+def test_the_sheet_check_compares_every_epoch_key_with_the_rk_it_reads():
+    ks = _ks()
+    check_epoch_keys(ks, RK, 0)
+    other = bytes(reversed(RK))
+    with pytest.raises(KeystoreError, match="rk_pub"):
+        check_epoch_keys(ks, other, 0)
+    import dataclasses
+
+    stored_rk = dataclasses.replace(ks, epochs={0: dataclasses.replace(ks.epochs[0], rk_pub=RK)})
+    with pytest.raises(KeystoreError, match="rk_pub"):
+        check_epoch_keys(stored_rk, RK, 0)  # RK itself where its public key belongs
+    with pytest.raises(KeystoreError, match="no keys for epoch 1"):
+        check_epoch_keys(ks, RK, 1)
+    wrong_mac = dataclasses.replace(ks, epochs={0: dataclasses.replace(ks.epochs[0], ka=custodian_mac_key(RK, 1))})
+    with pytest.raises(KeystoreError, match="ka"):
+        check_epoch_keys(wrong_mac, RK, 0)
+
+
+def test_a_keystore_without_rk_pub_is_never_sealed():
+    import dataclasses
+
+    ks = _ks()
+    for bad in ({0: (custodian_chain_key(RK, 0), custodian_mac_key(RK, 0))},  # the step 2.5a shape
+                {0: dataclasses.replace(ks.epochs[0], rk_pub=b"\x01" * 31)},
+                {0: dataclasses.replace(ks.epochs[0], rk_pub=ks.dk_seed)},
+                {0: dataclasses.replace(ks.epochs[0], rk_pub=ks.epochs[0].kc)}):
+        with pytest.raises(KeystoreError):
+            seal_keystore(dataclasses.replace(ks, epochs=bad), _rng("kek")(32), _rng("nonce"))
+
+
+def test_epoch_keys_repr_shows_only_the_public_key():
+    e = epoch_keys(RK, 0)
+    text = repr(e) + str(e)
+    for secret in (e.kc, e.ka, RK):
+        assert secret.hex() not in text and sig.b64url_encode(secret) not in text and repr(secret) not in text
+    assert "kc=" not in text and "ka=" not in text

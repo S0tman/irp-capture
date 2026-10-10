@@ -75,3 +75,26 @@ def ec() -> SimpleNamespace:
     return SimpleNamespace(InvalidSignature=InvalidSignature, hashes=hashes, ECDSA=ECDSA, SECP256R1=SECP256R1,
                            EllipticCurvePublicKey=EllipticCurvePublicKey,
                            decode_dss_signature=decode_dss_signature, encode_dss_signature=encode_dss_signature)
+
+
+def tsa() -> SimpleNamespace:
+    """`asn1crypto` and the `cryptography` pieces the TSA client and its token checks need (step 2.6)."""
+    try:
+        from asn1crypto import algos, cms, core, keys, tsp
+        from asn1crypto import x509 as asn1_x509
+        from cryptography import x509
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives import padding as sym_padding
+        from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    except ImportError as exc:  # pragma: no cover - exercised only without the extra
+        raise RoamDependencyError(
+            "Roaming IRP's TSA client needs the 'asn1crypto' and 'cryptography' packages. Install with: "
+            "pip install 'irp-capture[integrity]'"
+        ) from exc
+    return SimpleNamespace(algos=algos, cms=cms, core=core, keys=keys, tsp=tsp, asn1_x509=asn1_x509, x509=x509,
+                           InvalidSignature=InvalidSignature, hashes=hashes, serialization=serialization,
+                           sym_padding=sym_padding, ec=ec, padding=padding, rsa=rsa, Cipher=Cipher,
+                           algorithms=algorithms, modes=modes, PBKDF2HMAC=PBKDF2HMAC)

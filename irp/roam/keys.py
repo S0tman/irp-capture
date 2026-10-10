@@ -15,7 +15,11 @@ The laptop's working keys (the device signing seed and box key, the capability
 key, the per-epoch chain and MAC keys, the TSA credentials) live in one keystore:
 `keystore.bin` = a 12-byte nonce and AES-256-GCM over the JCS object
 {kek_source, dk_seed, dk_box, ck_seed, epochs, tsa_creds, pending, box_prev},
-with the AAD `irp-roam/v1/keystore`, in a 0700 folder as a 0600 file. `pending`
+with the AAD `irp-roam/v1/keystore`, in a 0700 folder as a 0600 file. Each
+`epochs[e]` is {kc, ka, rk_pub}: K_c[e], K_a[e] and RK's X25519 public key, from
+which RK's age recipient (a recipient of every custodian object) is derived. It's
+never RK itself, and it's set only while RK is warm (genesis, recovery and
+root_rotate), through `epoch_keys` (§18a). `pending`
 holds the next keys while a rotation is under way and `box_prev` the outgoing box
 key, decrypt-only, after one (§14.6a); both are null otherwise. Its master key
 (KEK) is 32 random bytes held in one of three places:
@@ -56,7 +60,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from . import sig
 from ._deps import aesgcm, crypto
-from .age import AgeError, Identity
+from .age import AgeError, Identity, Recipient
 
 SALT = b"irp-roam/v1"
 INFO_PREFIX = "irp-roam/v1/"
@@ -67,6 +71,7 @@ KEYCHAIN_SERVICE = "irp-roam"
 KEK_SOURCES = ("keychain", "passphrase", "file")
 KEYSTORE_KEYS = frozenset({"kek_source", "dk_seed", "dk_box", "ck_seed", "epochs", "tsa_creds", "pending",
                            "box_prev"})
+EPOCH_KEYS = frozenset({"kc", "ka", "rk_pub"})
 PENDING_KEYS = frozenset({"dk_seed", "dk_box", "ck_seed", "started_at"})
 BOX_PREV_KEYS = frozenset({"dk_box", "until"})
 LOCK_FILE = "roam.lock"
@@ -175,6 +180,31 @@ def outbox_key(kc: bytes, kid: str) -> bytes:
     return hk(kc, "outbox/" + _kid(kid))
 
 
+@dataclass(frozen=True)
+class EpochKeys:
+    """One epoch's entry in the keystore (§14.4 as amended by §18a): K_c[e] and K_a[e], which derive from RK,
+    and `rk_pub`, RK's 32-byte X25519 public key. RK's age recipient comes from `rk_pub`; RK itself is never
+    stored. Only the public key shows in repr."""
+    kc: bytes = field(repr=False)
+    ka: bytes = field(repr=False)
+    rk_pub: bytes
+
+    @property
+    def rk_recipient(self) -> str:
+        """RK's age recipient (`age1…`), a recipient of every custodian object."""
+        return Recipient(self.rk_pub).to_string()
+
+
+def epoch_keys(rk: bytes, epoch: int) -> EpochKeys:
+    """Epoch e's keystore entry, made while RK is warm (genesis, recovery and root_rotate). `rk_pub` is the
+    recipient of the age identity RK, and never RK's own bytes."""
+    rk = _key32(rk, "RK")
+    rk_pub = Identity(rk).recipient().public
+    if not isinstance(rk_pub, bytes) or len(rk_pub) != 32 or rk_pub == rk:
+        raise RoamKeyError("RK's public key must be 32 bytes and never RK itself")
+    return EpochKeys(kc=custodian_chain_key(rk, epoch), ka=custodian_mac_key(rk, epoch), rk_pub=rk_pub)
+
+
 # ── The keystore (§14.4, §14.6a) ──
 
 class _DeviceKeys:
@@ -218,7 +248,7 @@ class Keystore(_DeviceKeys):
     dk_seed: bytes = field(repr=False)
     dk_box: bytes = field(repr=False)
     ck_seed: bytes = field(repr=False)
-    epochs: Mapping[int, tuple[bytes, bytes]] = field(repr=False)  # epoch -> (K_c, K_a)
+    epochs: Mapping[int, EpochKeys] = field(repr=False)  # epoch -> {kc, ka, rk_pub}
     tsa_creds: Mapping[str, str] | None = field(default=None, repr=False)
     pending: Pending | None = field(default=None, repr=False)
     box_prev: BoxPrev | None = field(default=None, repr=False)
@@ -233,7 +263,7 @@ def new_keystore(rk: bytes, rng: Callable[[int], bytes], *, kek_source: str, epo
     if any(not isinstance(k, bytes) or len(k) != 32 for k in keys) or len(set(keys)) != 3:
         raise RoamKeyError("rng must return fresh 32-byte values")
     ks = Keystore(kek_source=kek_source, dk_seed=keys[0], dk_box=keys[1], ck_seed=keys[2],
-                  epochs={epoch: (custodian_chain_key(rk, epoch), custodian_mac_key(rk, epoch))},
+                  epochs={epoch: epoch_keys(rk, epoch)},
                   tsa_creds=dict(tsa_creds) if tsa_creds is not None else None)
     _check_keystore(ks)
     return ks
@@ -275,12 +305,18 @@ def _check_keystore(ks: Keystore) -> None:
                             "the outgoing box key")
     if not isinstance(ks.epochs, Mapping) or not ks.epochs:
         raise KeystoreError("the keystore holds at least one epoch's keys")
-    for e, pair in ks.epochs.items():
+    secrets = {k for _, k in named}
+    for e, entry in ks.epochs.items():
         if type(e) is not int or not 0 <= e <= 999_999_999:
             raise KeystoreError(f"bad epoch {e!r}")
-        if not (isinstance(pair, tuple) and len(pair) == 2 and all(isinstance(k, bytes) and len(k) == 32
-                                                                     for k in pair)):
-            raise KeystoreError(f"epoch {e} must hold (K_c, K_a), two 32-byte keys")
+        if not (isinstance(entry, EpochKeys) and all(isinstance(k, bytes) and len(k) == 32
+                                                     for k in (entry.kc, entry.ka, entry.rk_pub))):
+            raise KeystoreError(f"epoch {e} must hold {{kc, ka, rk_pub}}, three 32-byte keys")
+        secrets |= {entry.kc, entry.ka}
+    for e, entry in ks.epochs.items():
+        if entry.rk_pub in secrets:
+            raise KeystoreError(f"epoch {e}'s rk_pub repeats a secret key in the keystore; it must be RK's "
+                                "public key")
     if ks.tsa_creds is not None and not (isinstance(ks.tsa_creds, Mapping) and all(
             isinstance(k, str) and isinstance(v, str) for k, v in ks.tsa_creds.items())):
         raise KeystoreError("tsa_creds must be null or map names to strings")
@@ -296,7 +332,8 @@ def _content(ks: Keystore) -> dict[str, Any]:
     b = sig.b64url_encode
     p, bp = ks.pending, ks.box_prev
     return {"kek_source": ks.kek_source, "dk_seed": b(ks.dk_seed), "dk_box": b(ks.dk_box), "ck_seed": b(ks.ck_seed),
-            "epochs": {str(e): {"kc": b(kc), "ka": b(ka)} for e, (kc, ka) in sorted(ks.epochs.items())},
+            "epochs": {str(e): {"kc": b(x.kc), "ka": b(x.ka), "rk_pub": b(x.rk_pub)}
+                       for e, x in sorted(ks.epochs.items())},
             "tsa_creds": dict(ks.tsa_creds) if ks.tsa_creds is not None else None,
             "pending": None if p is None else {"dk_seed": b(p.dk_seed), "dk_box": b(p.dk_box),
                                                "ck_seed": b(p.ck_seed), "started_at": p.started_at},
@@ -316,13 +353,14 @@ def _from_content(c: Any) -> Keystore:
     epochs = c["epochs"]
     if not isinstance(epochs, dict):
         raise KeystoreError("keystore epochs must be an object")
-    parsed: dict[int, tuple[bytes, bytes]] = {}
-    for e, pair in epochs.items():
+    parsed: dict[int, EpochKeys] = {}
+    for e, entry in epochs.items():
         if not _EPOCH.fullmatch(e):
             raise KeystoreError(f"keystore epoch {e!r} must be a decimal number without leading zeros")
-        if not isinstance(pair, dict) or set(pair) != {"kc", "ka"}:
-            raise KeystoreError(f"keystore epoch {e} must have exactly kc and ka")
-        parsed[int(e)] = (key(pair["kc"], f"epoch {e} kc"), key(pair["ka"], f"epoch {e} ka"))
+        if not isinstance(entry, dict) or set(entry) != EPOCH_KEYS:
+            raise KeystoreError(f"keystore epoch {e} must have exactly {', '.join(sorted(EPOCH_KEYS))}")
+        parsed[int(e)] = EpochKeys(kc=key(entry["kc"], f"epoch {e} kc"), ka=key(entry["ka"], f"epoch {e} ka"),
+                                   rk_pub=key(entry["rk_pub"], f"epoch {e} rk_pub"))
     pending = box_prev = None
     if c["pending"] is not None:
         p = c["pending"]
@@ -341,6 +379,21 @@ def _from_content(c: Any) -> Keystore:
                   tsa_creds=c["tsa_creds"], pending=pending, box_prev=box_prev)
     _check_keystore(ks)
     return ks
+
+
+def check_epoch_keys(ks: Keystore, rk: bytes, epoch: int) -> None:
+    """The sheet check (§18a): epoch e's K_c, K_a and rk_pub must all come from the RK just read off the paper.
+    Says which one differs, never a value."""
+    rk = _key32(rk, "RK")
+    entry = ks.epochs.get(epoch) if isinstance(ks.epochs, Mapping) else None
+    if entry is None:
+        raise KeystoreError(f"the keystore has no keys for epoch {epoch}")
+    want = epoch_keys(rk, epoch)
+    if entry.rk_pub == rk or entry.rk_pub != want.rk_pub:
+        raise KeystoreError(f"epoch {epoch}'s rk_pub isn't the public key of the paper key read")
+    for name in ("kc", "ka"):
+        if getattr(entry, name) != getattr(want, name):
+            raise KeystoreError(f"epoch {epoch}'s {name} doesn't derive from the paper key read")
 
 
 def seal_keystore(ks: Keystore, kek: bytes, rng: Callable[[int], bytes]) -> bytes:

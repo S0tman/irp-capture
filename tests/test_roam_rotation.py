@@ -11,7 +11,8 @@ Every §14.6a gate for 2.5c is here: a kill or an interrupt at every step bounda
 write, then resume; a second process during the tap; interleaved saves; a failure after the line lands;
 a rollback that fails; a torn rotate line; a reader expiring mid-sitting; a retired DK; set_kek; the
 status boundaries; a recovery that keeps the kid; the old CK's not_after; two rotations' probes; the
-approvers tried in turn; and no clock check, no rotation. Plus the owner's decisions R1, R3 and R5.
+approvers tried in turn; and no clock check, no rotation. Plus the owner's decisions R1, R3 and R5, and the
+owner-approved fresh-keys-owed marker that irp roam rotate --now writes before anything else.
 """
 from __future__ import annotations
 
@@ -115,6 +116,29 @@ def rid(name: str) -> str:
     return "rd-" + hashlib.sha256(name.encode()).hexdigest()[:32]
 
 
+def _epoch(label: str, e: int) -> K.EpochKeys:
+    """A test epoch entry: K_c, K_a and RK's X25519 public key (§18a), all from labels."""
+    return K.EpochKeys(kc=h(f"{label}/kc/{e}"), ka=h(f"{label}/ka/{e}"),
+                       rk_pub=Identity(h(f"{label}/rk")).recipient().public)
+
+
+class FakeTM:
+    """Stands in for `tmutil addexclusion` plus `isexcluded`: records each folder (by inode, since a folder
+    exclusion moves with the folder) and can be told to fail."""
+
+    def __init__(self):
+        self.calls: list[tuple[Path, int]] = []
+        self.fail = False
+
+    def __call__(self, path) -> None:
+        self.calls.append((Path(path), os.lstat(path).st_ino))
+        if self.fail:
+            raise RuntimeError("tmutil isexcluded says the folder is still included")
+
+    def excluded(self, path) -> bool:
+        return os.lstat(path).st_ino in {ino for _, ino in self.calls}
+
+
 def _private(path: Path, data: bytes) -> None:
     K._private_dir(path.parent)
     path.write_bytes(data)
@@ -150,7 +174,7 @@ class Env:
         mode = "keychain" if security is not None else "passphrase" if age is not None else "file"
         self.ks = Keystore(kek_source=mode, dk_seed=self.laptop_key.seed,
                            dk_box=h("box/" + self.box_label),
-                           ck_seed=h(label + "/ck/0"), epochs={0: (h(label + "/kc/0"), h(label + "/ka/0"))})
+                           ck_seed=h(label + "/ck/0"), epochs={0: _epoch(label, 0)})
         save_keystore(self.ledger.keys_dir, self.ks, self.source(), os.urandom)
         self.clock = FakeClock(kit.clock.t + timedelta(days=days_after), step=step)
         self.keyring = Keyring(*[kit.keys[a] for a in self.aks])
@@ -163,9 +187,15 @@ class Env:
         self.refuse_delivery: set[str] = set()
         self.confirm = True
         self.on_progress = None
+        self.on_adopt = None       # (ks, lock) -> None; may raise
+        self.on_checkpoint = None  # (ks, rotate_idx, lock) -> None; may raise
+        self.on_publish = None     # (lock) -> None
+        self.tm = FakeTM()         # Time Machine exclusion: the real tmutil never runs in these tests
+        self.keyring.on_ask = lambda: self.calls.append(("tap",))
         self.hooks = R.Hooks(probe=self._probe, quarantine=self._quarantine, remint=self._remint,
-                             checkpoint=self._checkpoint, deliver=self._deliver, show=self._show,
-                             confirm_config=self._confirm, publish=self._publish, progress=self._progress)
+                             adopt=self._adopt, checkpoint=self._checkpoint, deliver=self._deliver,
+                             show=self._show, confirm_config=self._confirm, publish=self._publish,
+                             progress=self._progress)
 
     # ── files ──
     def source(self):
@@ -210,9 +240,17 @@ class Env:
     # ── the engine ──
     def rotate(self, **kw):
         args = dict(sources=[self.source()], rng=os.urandom, clock=self.clock, clock_check=self.clock_check,
-                    authenticator=self.keyring, hooks=self.hooks, sleep=self.clock.sleep, say=self.said.append)
+                    authenticator=self.keyring, hooks=self.hooks, sleep=self.clock.sleep, say=self.said.append,
+                    exclude_from_backup=self.tm)
         args.update(kw)
         return R.rotate(self.ledger, **args)
+
+    def resume(self, **kw):
+        args = dict(sources=[self.source()], rng=os.urandom, clock=self.clock, clock_check=self.clock_check,
+                    authenticator=self.keyring, hooks=self.hooks, sleep=self.clock.sleep, say=self.said.append,
+                    exclude_from_backup=self.tm)
+        args.update(kw)
+        return R.resume_rotation(self.ledger, **args)
 
     def clock_check(self, now: datetime) -> None:
         self.checks.append(now)
@@ -233,8 +271,17 @@ class Env:
     def _remint(self, ks):
         self.calls.append(("remint", ks.ck_id))
 
-    def _checkpoint(self, ks, rotate_idx):
+    def _adopt(self, ks, lock):
+        assert lock.held and lock.exclusive
+        self.calls.append(("adopt", ks.dk_id))
+        if self.on_adopt:
+            self.on_adopt(ks, lock)
+
+    def _checkpoint(self, ks, rotate_idx, lock):
+        assert lock.held and lock.exclusive
         self.calls.append(("checkpoint", rotate_idx))
+        if self.on_checkpoint:
+            self.on_checkpoint(ks, rotate_idx, lock)
 
     def _deliver(self, reader_id, identity, expires):
         self.calls.append(("deliver", reader_id))
@@ -250,8 +297,11 @@ class Env:
         self.calls.append(("confirm",))
         return self.confirm
 
-    def _publish(self):
+    def _publish(self, lock):
+        assert lock.held and lock.exclusive
         self.calls.append(("publish",))
+        if self.on_publish:
+            self.on_publish(lock)
 
     def _progress(self, step):
         self.calls.append(("progress", step))
@@ -340,7 +390,7 @@ def test_the_lock_refuses_a_symlink(tmp_path):
 
 def _keystore(label: str) -> Keystore:
     return Keystore(kek_source="file", dk_seed=h(label + "/dk"), dk_box=h(label + "/box"), ck_seed=h(label + "/ck"),
-                    epochs={0: (h(label + "/kc"), h(label + "/ka"))})
+                    epochs={0: _epoch(label, 0)})
 
 
 def test_a_save_refuses_when_the_keystore_changed_since_this_process_loaded_it(tmp_path):
@@ -454,12 +504,14 @@ def _record(**kw):
 
 
 def test_state_round_trips_as_a_private_jcs_file(tmp_path):
-    path = tmp_path / "ledgers" / LEDGER / "state.json"
+    path = tmp_path / "ledgers" / LEDGER / "local" / "state.json"
     assert S.load_state(path) == S.RoamState()  # no file yet: nothing recorded
     st = S.RoamState(rotation=_record(), probes=(S.Probe(iss="ck-" + "2" * 32, nbf="2026-10-16T09:02:00Z",
                                                          token="probe.token"),),
                      held=(rid("x"), rid("y")))
-    S.save_state(path, st)
+    tm = FakeTM()
+    S.save_state(path, st, exclude_from_backup=tm)
+    assert tm.excluded(path.parent)
     assert S.load_state(path) == st
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     data = path.read_bytes()
@@ -508,7 +560,8 @@ def test_state_is_a_closed_schema(tmp_path, name):
 def test_state_refuses_non_jcs_bytes(tmp_path):
     path = tmp_path / "state.json"
     S.save_state(path, S.RoamState())
-    path.write_bytes(b'{"held": [], "probes": [], "rotation": null}')
+    path.write_bytes(b'{"checkpoint": null, "epoch_start": null, "held": [], "probes": [], "rotation": null, '
+                     b'"seen": null}')
     with pytest.raises(S.StateError):
         S.load_state(path)
 
@@ -681,13 +734,15 @@ def test_hooks_run_at_their_fixed_points(tmp_path):
     env = Env(tmp_path)
     env.rotate()
     names = [c[0] if c[0] != "progress" else c[1] for c in env.calls]
-    order = ["locked", "signed", "pending saved", "line appended", "quarantine", "probe", "record written",
-             "keys live", "remint"]
+    order = ["adopt", "locked", "tap", "signed", "pending saved", "line appended", "quarantine", "probe",
+             "record written", "keys live", "remint"]
     assert names[:len(order)] == order
     rest = names[len(order):]
     assert rest.index("renewals done") > max(i for i, n in enumerate(rest) if n.startswith("renewed "))
-    assert rest.index("checkpoint") < rest.index("renewals done") < rest.index("show") < rest.index("deliver")
-    assert rest.index("confirm") < rest.index("closed") < rest.index("publish") == len(rest) - 1
+    assert rest.index("renewals done") < rest.index("show") < rest.index("deliver")
+    assert rest.index("confirm") < rest.index("closed") < rest.index("checkpoint") < rest.index("publish") == \
+        len(rest) - 1
+    assert names.count("adopt") == names.count("checkpoint") == names.count("publish") == 1
     remint = next(c for c in env.calls if c[0] == "remint")
     assert remint[1] == env.keystore().ck_id  # 2.7 re-mints under the new CK
 
@@ -1328,9 +1383,7 @@ def test_a_keystore_mid_rotation_never_signs(tmp_path, monkeypatch):
         R.resume_rotation(env.ledger, sources=[env.source()], rng=os.urandom, clock=env.clock,
                           clock_check=env.clock_check, authenticator=env.keyring, hooks=env.hooks,
                           sleep=env.clock.sleep, say=env.said.append, interactive=False)
-    assert R.resume_rotation(env.ledger, sources=[env.source()], rng=os.urandom, clock=env.clock,
-                             clock_check=env.clock_check, authenticator=env.keyring, hooks=env.hooks,
-                             sleep=env.clock.sleep, say=env.said.append) is None  # dropped: start again
+    assert env.resume() is None  # dropped: start again
     assert env.keystore().pending is None and env.keystore() == env.ks
 
 
@@ -2164,3 +2217,794 @@ def test_resume_only_on_a_keystore_from_between_rotations_is_alarm(tmp_path):
         R.resume_rotation(env.ledger, sources=[env.source()], rng=os.urandom, clock=env.clock,
                           clock_check=env.clock_check, authenticator=env.keyring, hooks=env.hooks,
                           sleep=env.clock.sleep, say=env.said.append)
+
+
+# ── Step 2.6: the adopt and checkpoint hooks, held locks and state.json's own keys (§18a) ──
+
+def _names(env: Env, since: int = 0) -> list:
+    return [c[0] if c[0] != "progress" else c[1] for c in env.calls[since:]]
+
+
+def _checkpoint_rec(env: Env, seq: int, strand: str) -> dict:
+    """A well-formed state.json checkpoint record (checkpoint.py makes the real ones)."""
+    header = canonicalize({"v": 1, "kind": "checkpoint", "ledger_id": LEDGER, "root": env.kit.root.kid,
+                           "epoch": 0, "strand": strand, "seq": seq, "prev": None,
+                           "created_at": "2026-10-09T09:00:00Z",
+                           "devices": {"byte_length": 10, "digest": "sha256-" + "d" * 64},
+                           "body_digest": "sha256-" + "b" * 64})
+    log = {"byte_length": 10, "byte_digest": "sha256-" + "e" * 64,
+           "segments": [{"object": "o/" + "f" * 64, "offset": 0, "length": 10, "sha256": "a" * 64}]}
+    return {"epoch": 0, "seq": seq, "strand": strand, "digest": "sha256-" + hashlib.sha256(header).hexdigest(),
+            "header": sig.b64url_encode(header), "sig": sig.b64url_encode(b'{"alg":"ed25519"}'),
+            "created_at": "2026-10-09T09:00:00Z", "gen_time": None, "label": "NONE", "last_present": None,
+            "snapshot_digest": "c" * 64,
+            "recipients": [{"id": "rk", "recipient": Identity(h("rk")).recipient().to_string()}],
+            "policy_digest": None, "tsa_policy_digest": None,
+            "logs": {n: dict(log) for n in ("ledger", "devices", "readers", "disclosures")}}
+
+
+def _seen_mark(env: Env, seq: int) -> dict:
+    rec = _checkpoint_rec(env, seq, env.ks.dk_id)
+    mark = {k: rec[k] for k in ("epoch", "seq", "strand", "digest", "header", "sig")}
+    mark["devices"] = sig.b64url_encode(env.devices_bytes())
+    return mark
+
+
+def _put_state(env: Env, **changes) -> S.RoamState:
+    with RoamLock(env.ledger.keys_dir, exclusive=True, interactive=False) as lock:
+        return S.update_state(env.ledger.state_path, lock, exclude_from_backup=env.tm, **changes)
+
+
+def _no_log_writer_open(env: Env) -> bool:
+    import fcntl
+
+    for path in (env.ledger.devices_path, env.ledger.readers_path):
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # a LogWriter holds its log's flock while open
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except BlockingIOError:
+            return False
+        finally:
+            os.close(fd)
+    return True
+
+
+def _in_thread(fn, timeout: float = 60.0):
+    """Run `fn` in a thread with a deadline: a flock self-deadlock shows up as a thread still alive."""
+    out: dict = {}
+
+    def run():
+        try:
+            out["result"] = fn()
+        except BaseException as exc:  # noqa: BLE001 - handed back to the test
+            out["error"] = exc
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(timeout)
+    assert not t.is_alive(), "deadlocked: the run didn't finish under the timeout"
+    if "error" in out:
+        raise out["error"]
+    return out.get("result")
+
+
+def test_the_checkpoint_hook_runs_after_the_record_closes_with_the_new_keys_and_no_writer_open(tmp_path):
+    env = Env(tmp_path)
+    seen_by_hook = []
+
+    def hook(ks, rotate_idx, lock):
+        st = S.load_state(env.ledger.state_path)
+        seen_by_hook.append((ks.dk_id, rotate_idx, st.rotation.closed, st.rotation.rotate_idx,
+                             _no_log_writer_open(env), lock.held, lock.exclusive))
+    env.on_checkpoint = hook
+    res = env.rotate()
+    assert seen_by_hook == [(res.new_kid, res.rotate_idx, True, res.rotate_idx, True, True, True)]
+    names = _names(env)
+    assert names.index("closed") < names.index("checkpoint") < names.index("publish")
+    settled(env)
+
+
+def test_a_checkpoint_hook_that_fails_leaves_the_rotation_closed_and_reports_it(tmp_path):
+    env = Env(tmp_path)
+
+    def hook(ks, rotate_idx, lock):
+        raise RuntimeError("ALARM: another active custodian; revoke laptop-2")
+    env.on_checkpoint = hook
+    res = env.rotate()
+    assert res.closed and res.held == () and sorted(d[0] for d in env.delivered) == sorted(env.readers_made)
+    assert any(c[0] == "show" for c in env.calls)
+    assert any("checkpoint" in n and "revoke laptop-2" in n for n in res.notes)
+    assert any("revoke laptop-2" in m for m in env.said)
+    assert _names(env)[-1] == "publish"  # the next publish makes the strand's first checkpoint
+    settled(env)
+
+
+def test_a_checkpoint_hook_interrupted_after_the_close_leaves_the_rotation_closed(tmp_path):
+    env = Env(tmp_path)
+
+    def hook(ks, rotate_idx, lock):
+        raise Kill()
+    env.on_checkpoint = hook
+    with pytest.raises(Kill):
+        env.rotate()
+    assert env.state().rotation.closed
+    env.on_checkpoint = None
+    settled(env)
+    with pytest.raises(R.RotationError, match="nothing to resume"):
+        env.resume()
+
+
+def test_no_checkpoint_hook_until_the_record_closes_then_exactly_once(tmp_path):
+    env = Env(tmp_path)
+    env.confirm = False
+    first = env.rotate()
+    assert not first.closed and "checkpoint" not in _names(env) and "publish" not in _names(env)
+    env.confirm = True
+    calls = len(env.calls)
+    res = env.resume()
+    assert res.closed and res.rotate_idx == first.rotate_idx
+    assert [c for c in env.calls[calls:] if c[0] == "checkpoint"] == [("checkpoint", first.rotate_idx)]
+    assert "adopt" not in _names(env, calls)  # adoption runs in a fresh rotation only
+    settled(env)
+
+
+def test_now_over_an_open_rotation_checkpoints_only_the_fresh_strand(tmp_path):
+    env = Env(tmp_path)
+    env.confirm = False
+    first = env.rotate()
+    env.confirm = True
+    calls = len(env.calls)
+    res = env.rotate(suspected=True)
+    assert res.previous is not None and res.previous.closed
+    names = _names(env, calls)
+    assert [c for c in env.calls[calls:] if c[0] == "checkpoint"] == [("checkpoint", res.rotate_idx)]
+    assert res.rotate_idx != first.rotate_idx
+    closes = [i for i, n in enumerate(names) if n == "closed"]
+    assert names.index("adopt") > closes[0]  # the fresh rotation adopts; the finish doesn't
+    assert closes[1] < names.index("checkpoint") < names.index("publish")
+    settled(env, rotations=2)
+
+
+def test_now_resume_only_neither_checkpoints_nor_publishes(tmp_path):
+    env = Env(tmp_path)
+    env.confirm = False
+    env.rotate()
+    env.confirm = True
+    calls = len(env.calls)
+    res = env.resume(suspected=True)
+    assert res.closed and res.suspected
+    assert "checkpoint" not in _names(env, calls) and "publish" not in _names(env, calls)
+
+
+def test_adopt_runs_after_the_replay_and_before_the_tap_with_the_live_keys(tmp_path):
+    env = Env(tmp_path)
+    got = []
+    env.on_adopt = lambda ks, lock: got.append((ks.dk_id, env.keyring.asked[:], env.rotate_lines()))
+    env.rotate()
+    assert got == [(env.ks.dk_id, [], [])]  # the outgoing live key, before any tap or line
+    names = _names(env)
+    assert names.index("adopt") < names.index("tap") < names.index("signed")
+
+
+def test_an_adopt_failure_is_reported_and_the_rotation_carries_on(tmp_path):
+    env = Env(tmp_path)
+
+    def adopt(ks, lock):
+        raise RuntimeError("ALARM: two staged files for seq 4")
+    env.on_adopt = adopt
+    res = env.rotate()
+    assert res.closed and any("adopt" in n and "two staged files for seq 4" in n for n in res.notes)
+    assert any("two staged files for seq 4" in m for m in env.said)
+    assert "checkpoint" in _names(env) and "publish" in _names(env)
+    settled(env)
+
+
+def test_adoption_is_not_rerun_by_a_resume(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    _killed_at(env, monkeypatch, "keys live")
+    calls = len(env.calls)
+    res = env.rotate()
+    assert res.resumed == "steps 6 and 7"
+    assert "adopt" not in _names(env, calls) and _names(env, calls).count("checkpoint") == 1
+    settled(env)
+
+
+def test_engine_state_writes_keep_checkpoint_seen_and_epoch_start(tmp_path):
+    env = Env(tmp_path)
+    mark = _seen_mark(env, 2)
+    _put_state(env, checkpoint=_checkpoint_rec(env, 3, env.ks.dk_id), seen=mark, epoch_start=0)
+    adopted = _checkpoint_rec(env, 4, env.ks.dk_id)
+
+    def adopt(ks, lock):  # adoption takes a staged seq 4 and writes only `checkpoint`
+        S.update_state(env.ledger.state_path, lock, checkpoint=adopted)
+    made = {}
+
+    def hook(ks, rotate_idx, lock):  # the hook makes seq 5 on the new strand
+        made["rec"] = _checkpoint_rec(env, 5, ks.dk_id)
+        S.update_state(env.ledger.state_path, lock, checkpoint=made["rec"])
+    published = []
+    env.on_adopt, env.on_checkpoint = adopt, hook
+    env.on_publish = lambda lock: published.append(S.load_state(env.ledger.state_path).checkpoint)
+    env.rotate()
+    st = env.state()
+    assert st.checkpoint == made["rec"] and st.checkpoint["strand"] == env.keystore().dk_id
+    assert st.seen == mark and st.epoch_start == 0
+    assert published == [made["rec"]]  # the in-run publish sees what the hook wrote
+    settled(env)
+
+
+def test_seen_and_the_record_survive_a_resume_where_state_json_survived(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    mark = _seen_mark(env, 2)
+    rec = _checkpoint_rec(env, 3, env.ks.dk_id)
+    _put_state(env, checkpoint=rec, seen=mark, epoch_start=0)
+    _killed_at(env, monkeypatch, f"renewed {sorted(env.readers_made)[0]}")
+    assert env.state().seen == mark and env.state().checkpoint == rec
+    env.rotate()
+    st = env.state()
+    assert st.seen == mark and st.checkpoint == rec and st.epoch_start == 0  # the default hook makes nothing
+    settled(env)
+
+
+def _step_0(env: Env):
+    """The hook's step 0, as checkpoint.py does it: no file, or a null record without the epoch marker,
+    is ALARM before anything is cleaned, adopted or signed."""
+    def hook(ks, rotate_idx, lock):
+        st = S.load_state(env.ledger.state_path, required=True)
+        if st.checkpoint is None and st.epoch_start != 0:
+            raise RuntimeError("ALARM: the checkpoint record is missing: rebuild it from the relay with the "
+                               "drill's Path B")
+    return hook
+
+
+def test_state_json_deleted_mid_rotation_closes_and_reports_the_hooks_alarm(tmp_path):
+    env = Env(tmp_path)
+    _put_state(env, checkpoint=_checkpoint_rec(env, 3, env.ks.dk_id), seen=_seen_mark(env, 2), epoch_start=0)
+    env.on_checkpoint = _step_0(env)
+
+    def lose(step):
+        if step == "keys live":
+            env.ledger.state_path.unlink()
+    env.on_progress = lose
+    res = env.rotate()
+    env.on_progress = None
+    assert res.closed and any("checkpoint record is missing" in n for n in res.notes)
+    st = env.state()
+    assert st.rotation.closed and st.rotation.rotate_idx == res.rotate_idx
+    assert (st.checkpoint, st.seen, st.epoch_start) == (None, None, None)  # stays null until Path B or recovery
+    settled(env)
+
+
+def test_a_local_folder_deleted_mid_rotation_gets_its_exclusion_again(tmp_path):
+    import shutil
+
+    env = Env(tmp_path)
+    _put_state(env, epoch_start=0)
+    assert len(env.tm.calls) == 1
+
+    def lose(step):
+        if step == "keys live":
+            shutil.rmtree(env.ledger.local_dir)
+    env.on_progress = lose
+    env.rotate()
+    env.on_progress = None
+    assert len(env.tm.calls) == 2 and env.tm.excluded(env.ledger.local_dir)
+    settled(env)
+
+
+def test_the_first_state_write_creates_local_with_the_exclusion(tmp_path):
+    env = Env(tmp_path)
+    assert not env.ledger.local_dir.exists()
+    env.rotate()
+    assert env.ledger.state_path.parent == env.ledger.local_dir == env.ledger.ledger_dir / "local"
+    assert len(env.tm.calls) == 1 and env.tm.excluded(env.ledger.local_dir)
+    settled(env)
+
+
+def test_no_exclusion_and_no_local_folder_refuses_before_anything(tmp_path):
+    env = Env(tmp_path)
+    before = env.snapshot()
+    with pytest.raises(R.RotationError, match="Time Machine"):
+        env.rotate(exclude_from_backup=None)
+    assert env.snapshot() == before and env.keyring.asked == [] and not env.ledger.local_dir.exists()
+    env.rotate()
+    settled(env)
+
+
+def test_a_failed_exclusion_at_the_first_state_write_keeps_pending_and_resumes(tmp_path):
+    env = Env(tmp_path)
+    env.tm.fail = True
+    with pytest.raises(R.RotationError, match="landed"):
+        env.rotate()
+    assert env.keystore().pending is not None and not env.ledger.local_dir.exists()
+    env.tm.fail = False
+    res = env.rotate()
+    assert res.resumed == "step 5" and env.tm.excluded(env.ledger.local_dir)
+    settled(env)
+
+
+def test_rotate_inside_a_held_exclusive_lock_finishes_and_never_releases_it(tmp_path):
+    env = Env(tmp_path)
+    with RoamLock(env.ledger.keys_dir, exclusive=True, interactive=True) as lock:  # the drill holds it
+        res = _in_thread(lambda: env.rotate(lock=lock), timeout=60)
+        assert res.closed and lock.held and lock.exclusive
+        with pytest.raises(LockBusy):  # still ours
+            with RoamLock(env.ledger.keys_dir, exclusive=False, interactive=False):
+                pass
+        env.keyring.cancel = True
+        with pytest.raises(R.RotationError, match="cancel"):
+            _in_thread(lambda: env.rotate(lock=lock), timeout=60)
+        assert lock.held  # a failure doesn't release it either
+        env.keyring.cancel = False
+    settled(env)
+
+
+def test_resume_inside_a_held_exclusive_lock(tmp_path):
+    env = Env(tmp_path)
+    env.confirm = False
+    env.rotate()
+    env.confirm = True
+    with RoamLock(env.ledger.keys_dir, exclusive=True, interactive=True) as lock:
+        res = _in_thread(lambda: env.resume(lock=lock), timeout=60)
+        assert res.closed and lock.held
+    settled(env)
+
+
+def test_rotate_refuses_a_lock_it_cant_use(tmp_path):
+    env = Env(tmp_path)
+    before = env.snapshot()
+    with RoamLock(env.ledger.keys_dir, exclusive=False, interactive=False) as shared:
+        with pytest.raises(R.RotationError, match="exclusively"):
+            env.rotate(lock=shared)
+        assert shared.held
+    with pytest.raises(R.RotationError, match="exclusively"):
+        env.rotate(lock=RoamLock(env.ledger.keys_dir, exclusive=True, interactive=False))  # not held
+    with RoamLock(tmp_path / "other-keys", exclusive=True, interactive=False) as other:
+        with pytest.raises(R.RotationError, match="another keys folder"):
+            env.rotate(lock=other)
+    assert {k: v for k, v in env.snapshot().items() if "roam.lock" not in k} == before
+    assert env.keyring.asked == []
+
+
+def test_the_in_run_publish_signs_under_the_rotations_own_lock(tmp_path):
+    env = Env(tmp_path)
+    signed = []
+
+    def publish(lock):
+        with R.signing_session(env.ledger, [env.source()], now=env.clock.t, interactive=True, exclusive=True,
+                               lock=lock) as s:
+            assert s.lock is lock and s.lock.exclusive
+            signed.append((s.ks.dk_id, sig.sign("checkpoint", b"{}", s.ks.dk_seed, s.ks.dk_id)["key_id"]))
+        assert lock.held  # the session didn't release the rotation's lock
+    env.on_publish = publish
+    res = _in_thread(env.rotate, timeout=60)
+    assert signed == [(res.new_kid, res.new_kid)]
+    settled(env)
+
+
+def test_a_hook_that_reads_logs_and_writes_state_under_the_lock_doesnt_deadlock(tmp_path):
+    env = Env(tmp_path)
+
+    def hook(ks, rotate_idx, lock):
+        data = env.ledger.devices_path.read_bytes() + env.ledger.readers_path.read_bytes()
+        assert data
+        S.update_state(env.ledger.state_path, lock, checkpoint=_checkpoint_rec(env, 1, ks.dk_id))
+    env.on_checkpoint = hook
+    _in_thread(env.rotate, timeout=60)
+    assert env.state().checkpoint["seq"] == 1
+    settled(env)
+
+
+def test_signing_session_has_an_exclusive_mode(tmp_path):
+    env = Env(tmp_path)
+    with R.signing_session(env.ledger, [env.source()], now=env.clock.t, interactive=False, exclusive=True) as s:
+        assert s.lock.held and s.lock.exclusive and s.ks == env.ks
+        with pytest.raises(LockBusy):
+            with R.signing_session(env.ledger, [env.source()], now=env.clock.t, interactive=False):
+                pass
+    with RoamLock(env.ledger.keys_dir, exclusive=False, interactive=False):  # released on exit
+        pass
+
+
+def test_signing_session_refuses_a_borrowed_lock_it_cant_use(tmp_path):
+    env = Env(tmp_path)
+    with RoamLock(env.ledger.keys_dir, exclusive=False, interactive=False) as shared:
+        with pytest.raises(R.RotationError, match="exclusively"):
+            with R.signing_session(env.ledger, [env.source()], now=env.clock.t, interactive=False, lock=shared):
+                pass
+        assert shared.held
+
+
+def test_the_ledger_names_the_local_and_staging_folders_and_tsa_json(tmp_path):
+    env = Env(tmp_path)
+    led = env.ledger
+    assert led.state_path == led.ledger_dir / "local" / "state.json"
+    assert led.local_dir == led.ledger_dir / "local" and led.staging_dir == led.ledger_dir / "staging"
+    assert led.home == led.keys_dir.parent and led.tsa_path == tmp_path / "local" / "tsa.json"
+
+
+# ── Fresh keys owed: the --now marker (owner-approved amendment to §14.6a and §18a) ──
+
+OWED_NOW = "fresh keys are still owed: run irp roam rotate --now"
+
+
+def _no_approver(env: Env) -> None:
+    """The hardware key isn't there: every approver is tried and none answers."""
+    env.keyring.by_cred = {}
+
+
+def _approver_back(env: Env) -> None:
+    env.keyring.by_cred = {env.kit.keys[a].cred_id: env.kit.keys[a] for a in env.aks}
+
+
+def _writes(monkeypatch) -> list:
+    """Every update_state call, in order: the keys each one replaced."""
+    calls = []
+    real = S.update_state
+
+    def spy(path, lock, **kw):
+        calls.append({k: v for k, v in kw.items() if k in S.STATE_KEYS})
+        return real(path, lock, **kw)
+    monkeypatch.setattr(S, "update_state", spy)
+    return calls
+
+
+def _refuses_naming_now(env: Env) -> None:
+    ks, dev, st = env.keystore(), env.devices(), env.state()
+    assert OWED_NOW in R.unfinished(ks, dev, st)
+    with pytest.raises(R.Unfinished, match="rotate --now"):
+        R.check_signer(ks, dev, st)
+    with pytest.raises(R.PublishRefused, match="rotate --now") as refused:
+        R.check_publish(ks, dev, st, env.clock.t)
+    assert not refused.value.alarm
+    with pytest.raises(R.Unfinished, match="rotate --now"):
+        with R.signing_session(env.ledger, [env.source()], now=env.clock.t, interactive=False):
+            pass
+
+
+def test_now_writes_the_marker_before_anything_else(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    calls = _writes(monkeypatch)
+    lines = len(L.split_log(env.devices_bytes()))
+    seen_by_adopt = []
+    env.on_adopt = lambda ks, lock: seen_by_adopt.append(S.load_state(env.ledger.state_path).fresh_keys_owed)
+    res = env.rotate(suspected=True)
+    assert calls[0] == {"rotation": None, "probes": (), "held": (),
+                        "fresh_keys_owed": {"since": ts(env.clock.t), "from_idx": lines}}
+    assert seen_by_adopt == [calls[0]["fresh_keys_owed"]]  # on file before the adopt hook and the tap
+    assert res.closed and res.rotate_idx == lines and env.state().fresh_keys_owed is None
+    settled(env)
+
+
+def test_now_over_an_open_rotation_writes_the_marker_before_the_resume(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    env.confirm = False
+    first = env.rotate()
+    env.confirm = True
+    open_record = env.state().rotation
+    calls = _writes(monkeypatch)
+    res = env.rotate(suspected=True)
+    assert calls[0]["fresh_keys_owed"]["from_idx"] == first.rotate_idx + 1
+    assert calls[0]["rotation"] == open_record and not open_record.suspected  # before the upgrade is written
+    upgrade = calls[1]
+    assert upgrade["rotation"].suspected and upgrade["fresh_keys_owed"] is not None  # the upgrade keeps it
+    assert res.previous.rotate_idx == first.rotate_idx and env.state().fresh_keys_owed is None
+    settled(env, rotations=2)
+
+
+def test_now_whose_fresh_tap_fails_owes_fresh_keys_and_everything_that_signs_refuses(tmp_path):
+    env = Env(tmp_path)
+    lines = len(L.split_log(env.devices_bytes()))
+    _no_approver(env)
+    before = {k: v for k, v in env.snapshot().items() if "state.json" not in k and "roam.lock" not in k}
+    with pytest.raises(R.RotationError, match="no approver answered.*rotate --now"):
+        env.rotate(suspected=True)
+    assert {k: v for k, v in env.snapshot().items() if "state.json" not in k and "roam.lock" not in k} == before
+    assert env.state().fresh_keys_owed == {"since": ts(env.clock.t), "from_idx": lines}
+    _refuses_naming_now(env)
+    assert R.unfinished(env.keystore(), env.devices(), env.state()) == \
+        OWED_NOW + " (the current keys are still the ones you suspect)"
+
+
+def test_a_plain_rotate_never_stands_in_for_now_and_never_clears_the_marker(tmp_path):
+    env = Env(tmp_path)
+    _no_approver(env)
+    with pytest.raises(R.RotationError):
+        env.rotate(suspected=True)
+    owed = env.state().fresh_keys_owed
+    _approver_back(env)
+    asked = len(env.keyring.asked)
+    with pytest.raises(R.RotationError, match=OWED_NOW):
+        env.rotate()  # plain: it would keep the suspected CK for 7 days, so it never starts while owed
+    assert len(env.keyring.asked) == asked and env.rotate_lines() == [] and env.state().fresh_keys_owed == owed
+    res = env.rotate(suspected=True)
+    assert res.closed and res.suspected and env.state().fresh_keys_owed is None
+    settled(env)
+
+
+def test_the_finish_phase_never_clears_the_marker(tmp_path):
+    env = Env(tmp_path)
+    env.confirm = False
+    first = env.rotate()
+    env.confirm = True
+    _no_approver(env)
+    with pytest.raises(R.RotationError, match="stands.*rotate --now"):
+        env.rotate(suspected=True)
+    st = env.state()
+    assert st.rotation.rotate_idx == first.rotate_idx and st.rotation.closed and st.rotation.suspected
+    assert st.fresh_keys_owed == {"since": st.fresh_keys_owed["since"], "from_idx": first.rotate_idx + 1}
+    _refuses_naming_now(env)
+    _approver_back(env)
+    with pytest.raises(R.RotationError, match=OWED_NOW):
+        env.rotate()  # nothing is open, so a plain run would rotate: refused
+    res = env.rotate(suspected=True)
+    assert res.previous is None and res.closed and env.state().fresh_keys_owed is None
+    settled(env, rotations=2)
+
+
+def test_a_plain_rotate_finishing_an_older_rotation_says_fresh_keys_are_still_owed(tmp_path):
+    env = Env(tmp_path)
+    a, b = env.readers_made
+    env.refuse_delivery, env.confirm = {b}, False
+    first = env.rotate()
+    env.refuse_delivery, env.confirm = set(), True
+    env.checks, env.clock_fails_at = [], 1  # the --now finish phase fails at its first clock check
+    with pytest.raises(R.RotationError):
+        env.rotate(suspected=True)
+    env.clock_fails_at = None
+    owed = env.state().fresh_keys_owed
+    assert owed is not None and owed["from_idx"] == first.rotate_idx + 1
+    assert OWED_NOW in R.unfinished(env.keystore(), env.devices(), env.state())
+    res = env.rotate()  # plain: finishes the older rotation, which never clears the marker
+    assert res.closed and res.rotate_idx == first.rotate_idx and any(OWED_NOW in n for n in res.notes)
+    assert env.state().fresh_keys_owed == owed
+    _refuses_naming_now(env)
+    res = env.rotate(suspected=True)
+    assert res.previous is None and env.state().fresh_keys_owed is None
+    settled(env, rotations=2)
+
+
+def test_the_fresh_rotations_close_clears_the_marker_in_the_same_write_before_the_hook(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    calls = _writes(monkeypatch)
+    at_hook = []
+    env.on_checkpoint = lambda ks, idx, lock: at_hook.append(S.load_state(env.ledger.state_path).fresh_keys_owed)
+    res = env.rotate(suspected=True)
+    closing = [c for c in calls if c.get("rotation") is not None and c["rotation"].closed]
+    assert len(closing) == 1 and closing[0]["fresh_keys_owed"] is None
+    assert all(c["fresh_keys_owed"] is not None for c in calls[:calls.index(closing[0])])
+    assert at_hook == [None]  # the hook makes the fresh strand's first checkpoint with the marker cleared
+    assert res.closed and env.state().fresh_keys_owed is None
+    settled(env)
+
+
+def test_a_plain_rotate_that_finishes_the_fresh_rotation_clears_the_marker(tmp_path):
+    env = Env(tmp_path)
+    env.checks, env.clock_fails_at = [], 3  # --now: step 1 and step 4 pass, its first renewal fails
+    with pytest.raises(R.RotationError) as exc:
+        env.rotate(suspected=True)
+    assert "--now" not in str(exc.value)  # the fresh line landed: only finishing is owed
+    st = env.state()
+    assert st.fresh_keys_owed is not None and st.rotation.suspected and not st.rotation.closed
+    why = R.unfinished(env.keystore(), env.devices(), st)
+    assert "finish with irp roam rotate (it finishes with no overlap" in why and "--now" not in why
+    env.clock_fails_at = None
+    res = env.rotate()
+    assert res.resumed == "steps 6 and 7" and res.closed and env.state().fresh_keys_owed is None
+    settled(env)
+
+
+def test_now_again_over_an_unclosed_fresh_rotation_finishes_it_and_rotates_once_more(tmp_path):
+    env = Env(tmp_path)
+    env.confirm = False
+    first = env.rotate(suspected=True)
+    assert not first.closed and env.state().fresh_keys_owed["from_idx"] == first.rotate_idx
+    env.confirm = True
+    res = env.rotate(suspected=True)  # --now always ends with keys made after it was asked
+    assert res.previous.rotate_idx == first.rotate_idx and res.rotate_idx > first.rotate_idx
+    assert env.state().fresh_keys_owed is None
+    settled(env, rotations=2)
+
+
+def test_resume_only_with_now_leaves_fresh_keys_owed(tmp_path):
+    env = Env(tmp_path)
+    env.confirm = False
+    env.rotate()
+    env.confirm = True
+    res = env.resume(suspected=True)
+    assert res.closed and res.suspected and env.state().fresh_keys_owed is not None
+    _refuses_naming_now(env)
+    res = env.rotate(suspected=True)
+    assert res.closed and env.state().fresh_keys_owed is None
+    settled(env, rotations=2)
+
+
+def test_a_marker_that_cant_be_written_is_said_and_the_rotation_carries_on(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    real = S.save_state
+    fails = {"n": 1}
+
+    def save(path, state):
+        if fails["n"]:
+            fails["n"] -= 1
+            raise OSError(28, "No space left on device")
+        return real(path, state)
+    monkeypatch.setattr(S, "save_state", save)
+    res = env.rotate(suspected=True)
+    assert res.closed and env.state().fresh_keys_owed is None
+    assert any("fresh keys owed" in m and "No space left" in m for m in env.said)
+    settled(env)
+
+
+# ── Review round 2, second pass: the marker carries --now's intent to every later run ──
+
+def _ck(seed: bytes) -> str:
+    return sig.key_id("ck", sig.public_key(seed))
+
+
+def test_a_plain_run_finishing_a_landed_rotation_from_before_now_finishes_it_as_suspected(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    _killed_at(env, monkeypatch, "record written")  # the plain record is on file and its keys are pending
+    ck0 = _ck(env.ks.ck_seed)
+    assert not env.state().rotation.suspected and env.keystore().pending is not None
+
+    def unreadable(ck_id):
+        raise RuntimeError("the quarantine list couldn't be read")
+    env.hooks = dataclasses.replace(env.hooks, quarantine=unreadable)
+    with pytest.raises(R.RotationError) as exc:
+        env.rotate(suspected=True)  # stops before it writes the upgraded record
+    text = str(exc.value)
+    assert "finish with irp roam rotate (it finishes with no overlap" in text
+    st = env.state()
+    assert not st.rotation.suspected and st.fresh_keys_owed["from_idx"] == st.rotation.rotate_idx + 1
+    env.hooks = dataclasses.replace(env.hooks, quarantine=env._quarantine)
+    res = env.rotate()  # plain, as the advice says
+    assert res.resumed == "step 5" and res.suspected
+    assert res.config.removals() == (ck0,) and ck0 not in res.config.issuers()
+    assert any("fresh keys are owed after --now, so it finishes as suspected" in n for n in res.notes)
+    st = env.state()
+    assert st.rotation.closed and st.rotation.suspected and st.fresh_keys_owed is not None  # r < from_idx
+    mine = [p for p in st.probes if p.iss == ck0]
+    assert len(mine) == 1 and mine[0].nbf == ts(_at(res.at) + timedelta(seconds=120))  # minted for the removal
+    _refuses_naming_now(env)
+    res = env.rotate(suspected=True)
+    assert res.previous is None and env.state().fresh_keys_owed is None
+    settled(env, rotations=2)
+
+
+def test_a_plain_run_after_a_now_killed_before_its_upgrade_finishes_the_open_rotation_as_suspected(tmp_path,
+                                                                                                    monkeypatch):
+    env = Env(tmp_path)
+    env.confirm = False
+    first = env.rotate()  # open and plain, its new keys live
+    env.confirm = True
+    ck0 = first.config.old_ck["id"]
+    real = S.update_state
+    n = {"calls": 0}
+
+    def second_write_dies(path, lock, **kw):
+        n["calls"] += 1
+        if n["calls"] == 2:
+            raise Kill()
+        return real(path, lock, **kw)
+    with monkeypatch.context() as m:
+        m.setattr(S, "update_state", second_write_dies)
+        with pytest.raises(Kill):
+            env.rotate(suspected=True)  # the marker lands, the upgraded record doesn't
+    st = env.state()
+    assert st.fresh_keys_owed["from_idx"] == first.rotate_idx + 1 and not st.rotation.suspected
+    assert OWED_NOW in R.unfinished(env.keystore(), env.devices(), st)
+    res = env.rotate()
+    assert res.resumed == "steps 6 and 7" and res.rotate_idx == first.rotate_idx and res.suspected
+    assert res.config.removals() == (ck0,) and ck0 not in res.config.issuers()
+    shown = [c for c in env.calls if c[0] == "show"][-1][1]
+    assert f"  remove {ck0} now" in shown.lines()
+    assert any("fresh keys are owed after --now, so it finishes as suspected" in n for n in res.notes)
+    assert env.state().fresh_keys_owed is not None
+    res = env.rotate(suspected=True)
+    assert env.state().fresh_keys_owed is None
+    settled(env, rotations=2)
+
+
+def test_a_now_run_forgets_its_marker_once_the_fresh_close_cleared_it(tmp_path):
+    env = Env(tmp_path / "notes")
+    res = env.rotate(suspected=True)
+    assert res.closed and not any(OWED_NOW in n for n in res.notes)
+    settled(env)
+    env = Env(tmp_path / "publish")
+
+    def refused(lock):
+        raise R.PublishRefused("the relay refused")
+    env.on_publish = refused
+    with pytest.raises(R.RotationError, match="relay refused"):
+        env.rotate(suspected=True)  # fails after the fresh close: what failed came after it
+    st = env.state()
+    assert st.rotation.closed and st.fresh_keys_owed is None
+    R.check_signer(env.keystore(), env.devices(), st)
+    R.check_publish(env.keystore(), env.devices(), st, env.clock.t)
+
+
+def test_pending_from_before_now_whose_line_landed_names_now(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    _killed_at(env, monkeypatch, "line appended")  # plain: pending set, the line landed, no record
+    landed = len(L.split_log(env.devices_bytes())) - 1
+
+    def refuse(ck_id):
+        raise R.RotationError("the quarantine list couldn't be read")
+    env.hooks = dataclasses.replace(env.hooks, quarantine=refuse)
+    with pytest.raises(R.RotationError):
+        env.rotate(suspected=True)
+    ks, dev, st = env.keystore(), env.devices(), env.state()
+    assert ks.pending is not None and st.fresh_keys_owed["from_idx"] == landed + 1
+    assert OWED_NOW in R.unfinished(ks, dev, st)
+    with pytest.raises(R.PublishRefused, match="rotate --now"):
+        R.check_publish(ks, dev, st, env.clock.t)
+
+
+def test_pending_whose_line_is_absent_while_fresh_keys_are_owed_names_now(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    armed = {"syncs": 0}
+    real_sync = L._full_fsync
+
+    def sync(fd):
+        if armed["syncs"]:
+            armed["syncs"] -= 1
+            raise OSError(5, "Input/output error")
+        return real_sync(fd)
+
+    def arm(step):
+        if step == "pending saved":
+            armed["syncs"] = 2  # the append's sync, then the rollback's
+    with monkeypatch.context() as m:
+        m.setattr(L, "_full_fsync", sync)
+        env.on_progress = arm
+        with pytest.raises(R.RotationError, match="kept: run irp roam rotate --now"):
+            env.rotate(suspected=True)
+        env.on_progress = None
+    ks, dev, st = env.keystore(), env.devices(), env.state()
+    assert ks.pending is not None and env.rotate_lines() == [] and st.fresh_keys_owed is not None
+    assert OWED_NOW in R.unfinished(ks, dev, st)
+    with pytest.raises(R.PublishRefused, match="rotate --now"):
+        R.check_publish(ks, dev, st, env.clock.t)
+    res = env.rotate(suspected=True)
+    assert res.resumed is None and res.suspected
+    settled(env)
+
+
+def test_a_stale_marker_on_file_is_replaced_by_the_runs_own_where_it_stops(tmp_path, monkeypatch):
+    env = Env(tmp_path)
+    env.confirm = False
+    first = env.rotate(suspected=True)  # the fresh rotation stays open: its line is at from_idx
+    f0 = env.state().fresh_keys_owed["from_idx"]
+    assert f0 == first.rotate_idx
+    env.confirm = True
+    real = S.save_state
+    fails = {"n": 1}
+
+    def save(path, state, **kw):
+        if fails["n"]:
+            fails["n"] -= 1
+            raise OSError(28, "No space left on device")
+        return real(path, state, **kw)
+
+    def unconfirmed(config):
+        raise R.RotationError("the config edit couldn't be confirmed")
+    monkeypatch.setattr(S, "save_state", save)
+    env.hooks = dataclasses.replace(env.hooks, confirm_config=unconfirmed)
+    with pytest.raises(R.RotationError):
+        env.rotate(suspected=True)  # its marker write fails first, then it stops finishing the open one
+    st = env.state()
+    assert st.fresh_keys_owed["from_idx"] == f0 + 1
+    assert OWED_NOW in R.unfinished(env.keystore(), env.devices(), st)
+
+
+def test_resume_with_now_and_nothing_unfinished_says_fresh_keys_are_now_owed(tmp_path):
+    env = Env(tmp_path)
+    env.rotate()
+    with pytest.raises(R.RotationError, match="nothing to resume.*rotate --now"):
+        env.resume(suspected=True)
+    assert env.state().fresh_keys_owed is not None
+    _refuses_naming_now(env)
+    with pytest.raises(R.RotationError) as plain:
+        env.resume()
+    assert "nothing to resume" in str(plain.value)
