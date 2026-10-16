@@ -2,8 +2,8 @@ import json
 import os
 from pathlib import Path
 
+# Created when state is first saved, never on import.
 STATE_DIR = Path(os.getenv("IRP_SLACK_STATE_DIR", "./slack_capture_state"))
-STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 def _state_file(channel_id: str, thread_ts: str) -> Path:
     safe_name = f"{channel_id}__{thread_ts.replace('.', '_')}.json"
@@ -17,6 +17,7 @@ def get_thread_state(channel_id: str, thread_ts: str) -> dict:
 
 def set_thread_state(channel_id: str, thread_ts: str, state: dict) -> None:
     path = _state_file(channel_id, thread_ts)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 def mark_thread_state(channel_id: str, thread_ts: str, status: str, irp_id: str | None = None) -> None:

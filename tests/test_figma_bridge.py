@@ -29,16 +29,19 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 import irp  # noqa: E402,F401
 
+from conftest import make_project  # noqa: E402
+
 
 @pytest.fixture
 def bridge_server(tmp_path, monkeypatch):
-    """Import the bridge module, point it at tmp_path, and run a real
-    HTTPServer on an ephemeral port for the duration of one test."""
+    """Import the bridge module, point it at a project in tmp_path, and run
+    a real HTTPServer on an ephemeral port for the duration of one test."""
     # Importing at module scope runs argparse.parse_known_args() against
     # pytest's own argv, harmless since --project-root isn't among pytest's
     # flags and parse_known_args ignores the rest.
     import irp.figma_plugin.bridge.server as bridge
 
+    make_project(tmp_path)
     monkeypatch.setattr(bridge, "PROJECT_ROOT", str(tmp_path))
     monkeypatch.setattr(bridge, "FIGMA_PAT", "")  # never call the real Figma API
 

@@ -158,8 +158,8 @@ def do_POST(self):
     "context": context
   }
 
-  # Append to ledger
-  irp_dir = ensure_irp_dir(Path(PROJECT_ROOT))
+  # Append to ledger. The project must exist: the bridge never creates .irp/
+  irp_dir = find_project(project=PROJECT_ROOT).irp_dir
   ledger = read_ledger(irp_dir)
   entry["id"] = next_irp_id(ledger)
   append_ledger_entry(irp_dir, entry)

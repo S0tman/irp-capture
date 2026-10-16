@@ -18,7 +18,8 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 import irp  # noqa: E402,F401
 
-from store import ensure_irp_dir, append_ledger_entry  # noqa: E402
+from store import append_ledger_entry  # noqa: E402
+from conftest import make_project  # noqa: E402
 from commands.export import (  # noqa: E402
     run_export,
     _derive_rule,
@@ -161,7 +162,7 @@ class TestBuildDecisionsMd:
 
 class TestRunExportDecisions:
     def test_writes_decisions_md_by_default(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         result = run_export(tmp_path, irp_dir, _Args(export_action="decisions"))
         assert result["status"] == "ok"
@@ -171,41 +172,41 @@ class TestRunExportDecisions:
         assert "Use PostgreSQL" in out.read_text(encoding="utf-8")
 
     def test_refuses_overwrite_without_force(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         run_export(tmp_path, irp_dir, _Args(export_action="decisions"))
         result = run_export(tmp_path, irp_dir, _Args(export_action="decisions"))
         assert result["status"] == "exists"
 
     def test_force_overwrites(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         run_export(tmp_path, irp_dir, _Args(export_action="decisions"))
         result = run_export(tmp_path, irp_dir, _Args(export_action="decisions", force=True))
         assert result["status"] == "ok"
 
     def test_output_file_is_readonly_by_default(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         result = run_export(tmp_path, irp_dir, _Args(export_action="decisions"))
         out = Path(result["output_path"])
         assert not (out.stat().st_mode & 0o222)  # not writable by anyone
 
     def test_writable_flag_leaves_file_writable(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         result = run_export(tmp_path, irp_dir, _Args(export_action="decisions", writable=True))
         out = Path(result["output_path"])
         assert out.stat().st_mode & 0o200  # owner-writable
 
     def test_demo_mode_uses_sample_data_not_ledger(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)  # empty ledger
+        irp_dir = make_project(tmp_path)  # empty ledger
         result = run_export(tmp_path, irp_dir, _Args(export_action="decisions", demo=True))
         assert result["status"] == "ok"
         assert result["decision_count"] > 0  # sample data has entries despite empty ledger
 
     def test_custom_output_path(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         custom = tmp_path / "custom" / "OUT.md"
         result = run_export(tmp_path, irp_dir, _Args(export_action="decisions", output=str(custom)))
@@ -215,7 +216,7 @@ class TestRunExportDecisions:
 
 class TestRunExportContext:
     def test_agents_md_target(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         result = run_export(tmp_path, irp_dir, _Args(export_action="context", target="agents.md"))
         assert result["status"] == "ok"
@@ -224,17 +225,17 @@ class TestRunExportContext:
         assert "control_level" in result
 
     def test_decisions_md_target_via_context(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         append_ledger_entry(irp_dir, DECISION_SIMPLE)
         result = run_export(tmp_path, irp_dir, _Args(export_action="context", target="decisions.md"))
         assert Path(result["output_path"]) == tmp_path / "DECISIONS.md"
 
     def test_unsupported_target_is_an_error(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_export(tmp_path, irp_dir, _Args(export_action="context", target="bogus.md"))
         assert result["status"] == "error"
 
     def test_unknown_export_action_is_an_error(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_export(tmp_path, irp_dir, _Args(export_action="bogus"))
         assert result["status"] == "error"

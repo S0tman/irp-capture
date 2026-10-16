@@ -789,16 +789,16 @@ def run_export_evidence(project_root: Path, irp_dir: Path, args) -> dict:
         }
 
     # ── 2. Resolve output path ────────────────────────────────────────────────
+    # A relative --output counts from where you're standing; the default name
+    # lands in the project folder (its match in a linked worktree).
     fw_id = framework.get("id", "custom")
+    base = Path(getattr(args, "irp_output_base", None) or project_root)
     if output_arg:
-        output_path = Path(output_arg)
+        output_path = Path(output_arg).resolve()
     elif demo:
-        output_path = project_root / f"EVIDENCE-{fw_id}-demo.md"
+        output_path = base / f"EVIDENCE-{fw_id}-demo.md"
     else:
-        output_path = project_root / f"EVIDENCE-{fw_id}.md"
-
-    if not output_path.is_absolute():
-        output_path = (project_root / output_path).resolve()
+        output_path = base / f"EVIDENCE-{fw_id}.md"
 
     # ── 3. Load decisions ─────────────────────────────────────────────────────
     unconfirmed_excluded = 0

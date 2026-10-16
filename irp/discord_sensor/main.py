@@ -5,7 +5,7 @@ from discord.ext import commands
 import logging
 from pathlib import Path
 
-from .config import DISCORD_BOT_TOKEN, BOT_INTENTS
+from .config import DISCORD_BOT_TOKEN, BOT_INTENTS, IRP_LEDGER_PATH, IRP_PROJECT_PROBLEM
 from .ledger_writer import LedgerWriter
 from .commands import setup as setup_cog
 
@@ -54,6 +54,9 @@ def run_bot(token: str = None, irp_root: Path = None):
 
     if not token:
         raise ValueError("DISCORD_BOT_TOKEN not set")
+
+    if IRP_LEDGER_PATH is None:
+        raise SystemExit(IRP_PROJECT_PROBLEM)
 
     # Initialize ledger writer
     ledger_writer = LedgerWriter()

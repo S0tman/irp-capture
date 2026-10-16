@@ -185,12 +185,13 @@ The ledger is a plain text file. It never changes an existing entry.
 .irp/
   ledger.jsonl     ← append-only canonical record
   current.json     ← last 10 decisions, derived from ledger
+  config.json      ← settings, see irp config
 ```
 
-(If you run `irp bootstrap`, a third file appears, `reconstructions.jsonl`. It
-holds guesses, not decisions. More on that below. Bootstrap also adds a small
-lock file, `.lock`, and an `.irp/.gitignore` that keeps it out of git, so a
-project that commits `.irp/` never commits the lock.)
+`irp init` makes these, plus an `.irp/.gitignore` that keeps IRP's lock file,
+`.lock`, out of git, so a project that commits `.irp/` never commits the lock.
+(If you run `irp bootstrap`, one more file appears, `reconstructions.jsonl`. It
+holds guesses, not decisions. More on that below.)
 
 Every entry looks like this:
 
@@ -390,6 +391,9 @@ pip install irp-capture
 ```
 
 ```bash
+# Start a project: once, in the project's own folder
+irp init
+
 # Capture a decision: it asks what, why and how confident you are,
 # then asks you to confirm before anything is written
 irp capture
@@ -410,8 +414,51 @@ irp why
 # → No need to reopen this debate
 ```
 
-The ledger is created at `.irp/ledger.jsonl` in your working directory.
-That file is yours. It does not leave your machine unless you choose.
+`irp init` creates the ledger at `.irp/ledger.jsonl` in the project folder.
+Every other command finds it from any folder inside the project, the way git
+finds `.git`. That file is yours. It does not leave your machine unless you choose.
+
+### Where IRP looks for your project
+
+IRP looks in the folder you're in, then each folder above it, and stops at the
+top of the git repo. It never uses a ledger in your home folder. Looking never
+creates anything: only `irp init` makes `.irp/`.
+
+- **Nearest wins.** A project inside another one is found first. When there's
+  another project further up the same repo, IRP says so in one line.
+- **Linked worktrees.** A worktree with no ledger of its own uses the main
+  checkout's, so nothing recorded there goes when the worktree is removed.
+  Files an export writes by default still land in the worktree. If an older
+  version left a ledger inside the worktree, IRP uses it. When git doesn't
+  track that ledger, IRP names the main checkout's project in one line and
+  `irp doctor` flags it. `irp init` inside a worktree refuses unless you pass
+  `--nested`.
+- **Naming it.** `--project PATH` works before or after the command
+  (`irp --project PATH why` or `irp why --project PATH`). `IRP_PROJECT_ROOT`
+  does the same for servers and one-off scripts. Don't set it in your shell
+  profile, or every folder will use that one ledger. A named path is strict:
+  with no project there, the command stops.
+- **No project.** Read commands say where they looked and exit 1. With `--json`
+  they print `{"status": "no_project", ...}`, so a script can't mistake it for
+  all clear. Write commands write nothing and print the `irp init` line to run.
+  `irp integrity verify --ledger FILE` and `irp attest verify --receipt FILE`
+  need no project, so you can check a snapshot someone sent you anywhere.
+  Given their file, they don't use a named project either, so a `--project`
+  or `IRP_PROJECT_ROOT` with no project there doesn't stop them.
+- When the project isn't the folder you're in, text output adds a `Project:`
+  line on stderr.
+- `irp doctor` lists stray `.irp/` folders older versions left behind and says
+  where it looked. It removes nothing.
+
+**Upgrading from 0.9.** Commands no longer create `.irp/`, so a script that
+relied on `irp capture` starting a ledger needs `irp init` first. A project
+started before 0.10 with no decisions yet and no `config.json` now reads as an
+empty stray: run `irp init` there to keep it. `ensure_irp_dir` has left
+`irp.core.store`: use `init_project` to start a project and `find_project` to
+find one. To update an older commit hook, run `irp guard install --force`.
+`--project PATH` now names the project for every command, so `irp export graph`
+filters by tag with `--tag TAG` (it was `--project TAG`), and its JSON `filters`
+key is now `tag`.
 
 ---
 
@@ -433,7 +480,7 @@ Nothing changes about how you work.
 | **PR bot** | Add to any GitHub repo, warns on PRs that conflict with active decisions. See setup below. |
 | **REST API** | Build custom integrations via HTTP. `pip install irp-capture[api]`, see `irp/api/README.md`. |
 | **MCP server** | Expose IRP as MCP tools for any MCP-compatible client. `pip install 'irp-capture[mcp]'` then run `irp-mcp`. Works with Claude Code, Cursor, Windsurf, and custom agent frameworks. See [CURSOR-GUIDE.md](CURSOR-GUIDE.md) for Cursor-specific setup. |
-| **VS Code** | Extension, `IRP: Capture Decision` (⌘⇧I), status bar, `irp why` output panel. Install: drag `irp-capture-0.5.0.vsix` into Extensions. |
+| **VS Code** | Extension, `IRP: Capture Decision` (⌘⇧I), status bar, `irp why` output panel. Install: drag `irp-capture-0.5.0.vsix` into Extensions. Run `irp init` in the project first, or set `irp.projectRoot`. |
 
 No tool talks to another. Everything talks to the ledger.
 
@@ -516,9 +563,9 @@ irp export decisions
 # Export interactive 3D decision graph (GRAPH.html)
 irp export graph
 
-# Scope graph to a date range or project tag
+# Scope graph to a date range or a tag
 irp export graph --from 2026-01-01 --to 2026-06-30
-irp export graph --project irp-capture
+irp export graph --tag irp-capture
 
 # Try a populated example without touching your ledger (18 decisions, 22 edges)
 irp export graph --demo
@@ -599,6 +646,18 @@ irp guard run
 irp guard status
 ```
 
+- Install from anywhere inside the project, including a project in a subfolder
+  of a bigger repo. The hook records where the project is and the `irp` that
+  installed it, then falls back to the `irp` on your PATH.
+- In a linked worktree it checks the worktree's staged changes against the
+  project's decisions. When the project isn't the repo's top folder, the
+  hook's output names it.
+- With no project, or no `irp` to run, it prints one line and lets the commit
+  through. Running install again over the same hook is fine.
+- When `core.hooksPath` points outside `.git` (a `.githooks/` folder, husky or
+  a global setting), install refuses. `irp guard install --shared` writes a
+  hook there that records no paths and uses the `irp` on your PATH.
+
 The hook is warn-only by default, it prints a conflict notice but never aborts a commit. To make it blocking:
 
 ```bash
@@ -651,6 +710,8 @@ irp gate "delete the authentication module"
 
 Exit codes: `0` = allow, `10` = warn, `20` = block. Distinct from `irp check`, gate is built for machine consumers, not humans.
 
+With no project, gate prints `"verdict": "no_project"` and exits `1`, so "can't tell" never reads as allow.
+
 ```bash
 irp gate "deploy new service"              # → exit 0, clear
 irp gate "change api response format"      # → exit 10, warn
@@ -679,6 +740,7 @@ irp watch --input actions.jsonl
 ```
 
 Exit code reflects the worst verdict across all lines: `0` = all clear, `10` = any warn, `20` = any block.
+With no project, watch prints one line, `{"status": "no_project", ...}`, and exits `1`.
 
 ```bash
 # Accepts plain text or {"action": "..."} JSON objects, mixed formats fine
@@ -833,6 +895,7 @@ Start capturing from day one, even if the entries are simple.
 
 | Task | Command |
 |---|---|
+| Start a project | `irp init` |
 | Capture inside a Claude session | `capture` (Claude Code skill) |
 | Capture a decision (asks, then confirms) | `irp capture` |
 | Show the active decisions an agent inherits | `irp inherit` |

@@ -51,6 +51,10 @@ def run_watch(project_root: Path, irp_dir: Path, args) -> dict:
 
     ledger = read_ledger(irp_dir)
     worst = "clear"  # track worst verdict
+    # Another project further up (or in the main checkout) goes on every line,
+    # so a consumer reading only the verdicts still sees it.
+    project = getattr(args, "irp_project", None)
+    outer = [str(p) for p in getattr(project, "outer_projects", None) or []]
 
     results = []
 
@@ -94,6 +98,8 @@ def run_watch(project_root: Path, irp_dir: Path, args) -> dict:
         }
         if defer_question:
             line_result["defer_question"] = defer_question
+        if outer:
+            line_result["outer_projects"] = outer
 
         # Emit immediately (line-buffered)
         print(json.dumps(line_result, ensure_ascii=False), flush=True)

@@ -469,15 +469,16 @@ def _run_craft_export(project_root: Path, irp_dir: Path, args) -> dict[str, Any]
             "text": "No craft entries yet. Add one with `irp craft add`.",
         }
 
-    # Resolve output path.
+    # Resolve output path. A relative --output counts from where you're
+    # standing; the default name lands in the project folder (its match in a
+    # linked worktree).
+    base = Path(getattr(args, "irp_output_base", None) or project_root)
     if output_arg:
-        output_path = Path(output_arg)
+        output_path = Path(output_arg).resolve()
     elif category_filter:
-        output_path = project_root / f"CRAFT-{category_filter}.md"
+        output_path = base / f"CRAFT-{category_filter}.md"
     else:
-        output_path = project_root / "CRAFT.md"
-    if not output_path.is_absolute():
-        output_path = (project_root / output_path).resolve()
+        output_path = base / "CRAFT.md"
 
     body = _build_craft_md(entries, category_filter=category_filter)
 

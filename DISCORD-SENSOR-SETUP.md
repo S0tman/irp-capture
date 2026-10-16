@@ -178,9 +178,9 @@ For persistent use, consider:
   ```
 - Alternative: Use system Python 3 instead of MacPorts (recommended if available)
 
-**Ledger file not found:**
+**Ledger file not found, or "No IRP project" on start:**
 - Ensure `IRP_PROJECT_ROOT` in `.env` points to the correct directory
-- The bot creates `.irp/` folder automatically
+- The bot never creates `.irp/`. Start the project first with `irp init`
 - Check file permissions
 
 ---

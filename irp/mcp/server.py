@@ -24,13 +24,12 @@ Configure in Claude Code / Claude Desktop / Cursor:
   }
 """
 
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
 from mcp.server.fastmcp import FastMCP
 
-from irp.core.store import ensure_irp_dir
+from irp.core.store import ProjectNotFound, find_project
 from irp.core.commands.capture import run_capture
 from irp.core.commands.why import run_why
 from irp.core.commands.inherit import run_inherit
@@ -43,13 +42,23 @@ mcp = FastMCP(
 )
 
 def _resolve_paths() -> tuple[Path, Path]:
-    """Resolve project root and .irp/ directory.
+    """Find the project root and its .irp/ folder, on every call.
 
-    Checks IRP_PROJECT_ROOT env var first, then falls back to cwd.
+    IRP_PROJECT_ROOT names the project; otherwise it's found by walking up
+    from the server's folder. Raises ProjectNotFound when there's none, and
+    never creates anything.
     """
-    project_root = Path(os.environ.get("IRP_PROJECT_ROOT", ".")).resolve()
-    irp_dir = ensure_irp_dir(project_root)
-    return project_root, irp_dir
+    project = find_project()
+    return project.root, project.irp_dir
+
+
+def _paths_for(command: str, *, write: bool = False) -> tuple[Path, Path]:
+    """_resolve_paths, turning "no project" into a plain tool error."""
+    try:
+        return _resolve_paths()
+    except ProjectNotFound as exc:
+        message = exc.write_message(command) if write else exc.read_message(command)
+        raise RuntimeError(message) from None
 
 @mcp.tool()
 def irp_capture(
@@ -76,7 +85,7 @@ def irp_capture(
     import sys
     from io import StringIO
 
-    project_root, irp_dir = _resolve_paths()
+    project_root, irp_dir = _paths_for("capture", write=True)
 
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
 
@@ -115,7 +124,7 @@ def irp_why(id: str = "") -> dict:
     Args:
         id: Optional IRP entry ID to look up. Leave empty for the latest.
     """
-    project_root, irp_dir = _resolve_paths()
+    project_root, irp_dir = _paths_for("why")
 
     # confirmed_only: an agent is never shown a legacy bootstrap guess as if it
     # were a decision (the CLI's `irp why` shows it, labelled, to a person).
@@ -144,7 +153,7 @@ def irp_inherit(full: bool = False) -> dict:
     Args:
         full: Return the complete ledger entries instead of the slim view.
     """
-    project_root, irp_dir = _resolve_paths()
+    project_root, irp_dir = _paths_for("inherit")
 
     args = SimpleNamespace(json=True)
     result = run_inherit(project_root=project_root, irp_dir=irp_dir, args=args)
@@ -169,7 +178,7 @@ def irp_check(proposal: str) -> dict:
     Args:
         proposal: The proposal text to check against active decisions.
     """
-    project_root, irp_dir = _resolve_paths()
+    project_root, irp_dir = _paths_for("check")
 
     args = SimpleNamespace(proposal=proposal, json=True)
     result = run_check(project_root=project_root, irp_dir=irp_dir, args=args)

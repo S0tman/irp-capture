@@ -154,9 +154,9 @@ python -m flake8 irp/discord_sensor/
 - Restart bot after server invite
 - Ensure intents are enabled in Discord Developer Portal
 
-**"Failed to write to ledger" error:**
-- Check `IRP_PROJECT_ROOT` is set correctly
-- Ensure `.irp/` directory exists
+**"No IRP project" on start, or "Failed to write to ledger":**
+- Check `IRP_PROJECT_ROOT` points at the project. Without it, start the bot from inside the project
+- Start a project first with `irp init` if there isn't one. The bot never creates `.irp/`
 - Verify write permissions on ledger file
 
 **Ledger entries not appearing:**

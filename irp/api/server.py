@@ -13,7 +13,11 @@ Run:
   python3 -m irp.api.server --project-root /path/to/project
   uvicorn irp.api.server:app --port 3100
 
-All reads/writes go to .irp/ under --project-root.
+All reads/writes go to the project's .irp/. --project-root names the project;
+without it the project is found from the current folder (IRP_PROJECT_ROOT, then
+walking up). With no project, `python3 -m irp.api.server` refuses to start.
+Started with uvicorn directly, it answers 503 on every route, /health
+included, until there is a project.
 """
 
 from __future__ import annotations
@@ -38,8 +42,9 @@ except ImportError:
     sys.exit(1)
 
 from irp.core.store import (
+    ProjectNotFound,
     decision_rows_for_id,
-    ensure_irp_dir,
+    find_project,
     read_active,
     read_ledger,
     append_ledger_entry,
@@ -52,12 +57,14 @@ from irp.core.commands.check import run_check
 # ── Parse --project-root (for direct invocation) ─────────────────────────────
 
 parser = argparse.ArgumentParser(add_help=False)
-parser.add_argument("--project-root", default=os.getcwd())
+parser.add_argument("--project-root", default=None)
 parser.add_argument("--port", type=int, default=3100)
 parser.add_argument("--host", default="127.0.0.1")
 _args, _ = parser.parse_known_args()
 
-PROJECT_ROOT = Path(os.path.abspath(_args.project_root))
+# Named with --project-root: that folder only. Otherwise found from here.
+_NAMED = _args.project_root is not None
+PROJECT_ROOT = Path(os.path.abspath(_args.project_root if _NAMED else os.getcwd()))
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
@@ -74,8 +81,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def _find():
+    """The project, found on each call. Raises ProjectNotFound; creates nothing."""
+    return find_project(project=PROJECT_ROOT) if _NAMED else find_project(start=PROJECT_ROOT)
+
+
+def get_project(command: str = "why", write: bool = False):
+    try:
+        return _find()
+    except ProjectNotFound as exc:
+        detail = exc.write_message(command) if write else exc.read_message(command)
+        raise HTTPException(status_code=503, detail=detail) from None
+
+
 def get_irp_dir() -> Path:
-    return ensure_irp_dir(PROJECT_ROOT)
+    return get_project().irp_dir
 
 # ── Models ────────────────────────────────────────────────────────────────────
 
@@ -94,10 +114,11 @@ class CheckRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    irp_dir = get_irp_dir()
+    project = get_project()
+    irp_dir = project.irp_dir
     return {
         "status": "ok",
-        "project_root": str(PROJECT_ROOT),
+        "project_root": str(project.root),
         "irp_dir": str(irp_dir),
         "substrate": {
             "ledger": (irp_dir / "ledger.jsonl").exists(),
@@ -145,7 +166,7 @@ def capture(req: CaptureRequest):
     if not req.what.strip():
         raise HTTPException(status_code=400, detail="'what' field is required")
 
-    irp_dir = get_irp_dir()
+    irp_dir = get_project("capture", write=True).irp_dir
     ledger = read_ledger(irp_dir)
 
     entry: dict[str, Any] = {
@@ -173,17 +194,23 @@ def check(req: CheckRequest):
     if not req.proposal.strip():
         raise HTTPException(status_code=400, detail="'proposal' field is required")
 
-    irp_dir = get_irp_dir()
+    project = get_project("check")
 
     class _Args:
         proposal = req.proposal.strip()
 
-    result = run_check(PROJECT_ROOT, irp_dir, _Args())
+    result = run_check(project.root, project.irp_dir, _Args())
     return result
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print(f"[irp-api] Project root: {PROJECT_ROOT}")
+    try:
+        _project = _find()
+    except ProjectNotFound as exc:
+        print(f"[irp-api] No IRP project at {exc.searched_from}, so the API didn't start. "
+              f"Start one with: {exc.hint}", file=sys.stderr)
+        sys.exit(1)
+    print(f"[irp-api] Project root: {_project.root}")
     print(f"[irp-api] Starting on http://{_args.host}:{_args.port}")
     uvicorn.run(app, host=_args.host, port=_args.port)

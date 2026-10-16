@@ -100,8 +100,8 @@ entry = {
 
 **Project root handling:**
 - Accepts `--project-root` CLI argument
-- Default: cwd
-- Ensures .irp/ exists at that root
+- Default: the project found from the current folder
+- Refuses to start when there's no project. It never creates `.irp/`
 - Critical for multi-project setups
 
 **CORS headers:**

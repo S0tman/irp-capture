@@ -44,7 +44,7 @@ Without this, the plugin works normally — you just type decisions manually.
 
 ### 3. Start the bridge
 
-**Critical:** you must pass `--project-root` pointing at the project whose `.irp/` you want to write to. If you omit it, the bridge defaults to wherever it was launched from — which is almost certainly not what you want.
+**Critical:** pass `--project-root` pointing at the project whose `.irp/` you want to write to. Without it the bridge uses the project found from the folder it was launched in. With no project there it refuses to start: run `irp init` in the project first. The bridge never creates `.irp/`.
 
 ```bash
 python3 irp/figma_plugin/bridge/server.py --project-root /path/to/your/project
@@ -101,7 +101,8 @@ cat /path/to/your/project/.irp/ledger.jsonl | tail -5
 |---|---|---|
 | "Bridge not reachable" in plugin | Bridge not running | Start `bridge/server.py` |
 | Capture succeeds but `irp check` can't see it | Wrong `--project-root` | Restart bridge with correct `--project-root` |
-| Bridge starts but writes to wrong `.irp/` | `--project-root` omitted, defaulted to cwd | Always pass `--project-root` explicitly |
+| Bridge starts but writes to wrong `.irp/` | `--project-root` omitted, so the project was found from the launch folder | Always pass `--project-root` explicitly |
+| Bridge exits with "No IRP project" | No project at `--project-root` or above the launch folder | Run `irp init` in the project, then start the bridge |
 | No resolved comments shown | `FIGMA_PAT` not set | Set `export FIGMA_PAT="figd_..."` before starting bridge |
 | No resolved comments shown | No comments resolved in file | Resolve a comment in Figma, reopen plugin |
 | Manifest error on import | Figma version mismatch | Check `manifest.json` networkAccess format |
