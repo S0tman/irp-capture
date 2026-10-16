@@ -454,9 +454,10 @@ def _run_export_decisions(project_root: Path, irp_dir: Path, args) -> dict:
     writable = bool(getattr(args, "writable", False))
     demo = bool(getattr(args, "demo", False))
 
-    output_path = Path(output_arg) if output_arg else (project_root / "DECISIONS.md")
-    if not output_path.is_absolute():
-        output_path = (project_root / output_path).resolve()
+    # A relative --output counts from where you're standing; the default name
+    # lands in the project folder (its match in a linked worktree).
+    base = Path(getattr(args, "irp_output_base", None) or project_root)
+    output_path = Path(output_arg).resolve() if output_arg else (base / "DECISIONS.md")
 
     unconfirmed_excluded = 0
     if demo:
@@ -559,9 +560,10 @@ def _run_export_context(project_root: Path, irp_dir: Path, args) -> dict:
 
     # Resolve output path.
     default_filename = _TARGET_DEFAULTS[target]
-    output_path = Path(output_arg) if output_arg else (project_root / default_filename)
-    if not output_path.is_absolute():
-        output_path = (project_root / output_path).resolve()
+    # A relative --output counts from where you're standing; the default name
+    # lands in the project folder (its match in a linked worktree).
+    base = Path(getattr(args, "irp_output_base", None) or project_root)
+    output_path = Path(output_arg).resolve() if output_arg else (base / default_filename)
 
     # Read ledger and filter to decisions. Agent files get the active ones
     # only; DECISIONS.md is the full human history.

@@ -2,7 +2,7 @@
 
     irp export graph --output GRAPH.html
     irp export graph --from 2026-05-01 --to 2026-05-31
-    irp export graph --project irp-capture
+    irp export graph --tag irp-capture
 
 Design rules:
   - No new schema. Reads .irp/ledger.jsonl only.
@@ -11,11 +11,12 @@ Design rules:
   - Single self-contained HTML — 3d-force-graph (Three.js/WebGL) inlined.
   - Drag to orbit the globe. Scroll to zoom. Click to inspect.
   - Animated particles travel along provenance edges.
-  - Date/project filters dim out-of-range nodes without removing them.
+  - Date and tag filters dim out-of-range nodes without removing them.
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,15 +35,25 @@ _FORCE_GRAPH_URL = "https://unpkg.com/3d-force-graph@1/dist/3d-force-graph.min.j
 _FORCE_GRAPH_CDN_TAG = f'<script src="{_FORCE_GRAPH_URL}"></script>'
 
 
+_FORCE_GRAPH_FILE = "3d-force-graph-v1.min.js"
+
+
 def _force_graph_cache() -> Path:
     """Where the rendering library is kept once fetched.
 
-    Cached under the user's home rather than vendored into this repository:
-    it is 1.3 MB of minified third-party JavaScript that changes only when the
-    pin changes, and carrying it in-tree would dominate the diff of a protocol
-    project whose own source is a fraction of that size.
+    Cached under the user's cache folder (XDG_CACHE_HOME, else ~/.cache)
+    rather than vendored into this repository: it is 1.3 MB of minified
+    third-party JavaScript that changes only when the pin changes, and carrying
+    it in-tree would dominate the diff of a protocol project whose own source
+    is a fraction of that size.
     """
-    return Path.home() / ".irp" / "vendor" / "3d-force-graph-v1.min.js"
+    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(base) / "irp" / "vendor" / _FORCE_GRAPH_FILE
+
+
+def _old_force_graph_cache() -> Path:
+    """Where versions before 0.10 kept it. Read if it's there, never written."""
+    return Path.home() / ".irp" / "vendor" / _FORCE_GRAPH_FILE
 
 
 def _force_graph_script() -> tuple[str, str]:
@@ -59,19 +70,26 @@ def _force_graph_script() -> tuple[str, str]:
     beats no graph.
     """
     cache = _force_graph_cache()
+    legacy = _old_force_graph_cache()
 
-    if not cache.exists():
+    if cache.exists():
+        source_path = cache
+    elif legacy.is_file():
+        source_path = legacy
+    else:
         try:
             import urllib.request
 
-            cache.parent.mkdir(parents=True, exist_ok=True)
             with urllib.request.urlopen(_FORCE_GRAPH_URL, timeout=30) as response:
-                cache.write_bytes(response.read())
+                data = response.read()
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_bytes(data)
         except Exception as exc:  # noqa: BLE001 - any failure means fall back
             return _FORCE_GRAPH_CDN_TAG, f"library not cached, kept CDN link ({exc})"
+        source_path = cache
 
     try:
-        source = cache.read_text(encoding="utf-8")
+        source = source_path.read_text(encoding="utf-8")
     except Exception as exc:  # noqa: BLE001
         return _FORCE_GRAPH_CDN_TAG, f"cache unreadable, kept CDN link ({exc})"
 
@@ -1698,16 +1716,16 @@ def _parse_date(date_str: str | None) -> str | None:
         return None
 
 
-def _node_in_range(entry: dict[str, Any], from_date: str | None, to_date: str | None, project: str | None) -> bool:
+def _node_in_range(entry: dict[str, Any], from_date: str | None, to_date: str | None, tag: str | None) -> bool:
     """Return True if this entry falls within all active filters."""
     ts = (entry.get("timestamp") or "")[:10]  # YYYY-MM-DD slice
     if from_date and ts and ts < from_date:
         return False
     if to_date and ts and ts > to_date:
         return False
-    if project:
+    if tag:
         tags = [t.lower() for t in (entry.get("tags") or [])]
-        if project.lower() not in tags:
+        if tag.lower() not in tags:
             return False
     return True
 
@@ -1765,8 +1783,8 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     demo = bool(getattr(args, "demo", False))
     from_date = _parse_date(getattr(args, "from_date", None))
     to_date = _parse_date(getattr(args, "to_date", None))
-    project = getattr(args, "project", None) or None
-    has_filter = bool(from_date or to_date or project)
+    tag = getattr(args, "tag", None) or None
+    has_filter = bool(from_date or to_date or tag)
 
     unconfirmed_excluded = 0
     if demo:
@@ -1798,7 +1816,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
     # Out-of-range nodes are kept for context but rendered small and dark.
     if has_filter:
         decisions = [
-            {**d, "dimmed": not _node_in_range(d, from_date, to_date, project)}
+            {**d, "dimmed": not _node_in_range(d, from_date, to_date, tag)}
             for d in decisions
         ]
     in_range_count = sum(1 for d in decisions if not d.get("dimmed"))
@@ -1829,7 +1847,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
             "text": (
                 f"Seed decision not found in this graph: {seed}\n\n"
                 "It must be one of the decisions being exported "
-                "(check your --from/--to/--project filters)."
+                "(check your --from/--to/--tag filters)."
             ),
         }
 
@@ -1844,12 +1862,14 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         analysis = dynamics.compute_lens(
             decisions, view, seed=seed, snapshot=snapshot, edges=typed_edges
         )
-        derived_paths.append(dynamics.write_edge_layer(irp_dir, edge_layer))
-        derived_paths.append(dynamics.write_analysis(irp_dir, analysis))
+        if irp_dir is not None:
+            derived_paths.append(dynamics.write_edge_layer(irp_dir, edge_layer))
+            derived_paths.append(dynamics.write_analysis(irp_dir, analysis))
 
-    output_path = Path(output_arg) if output_arg else (project_root / default_name)
-    if not output_path.is_absolute():
-        output_path = (project_root / output_path).resolve()
+    # A relative --output counts from where you're standing; the default name
+    # lands in the project folder (its match in a linked worktree).
+    base = Path(getattr(args, "irp_output_base", None) or project_root)
+    output_path = Path(output_arg).resolve() if output_arg else (base / default_name)
 
     if output_path.exists() and not force:
         return {
@@ -1869,8 +1889,8 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         filter_parts.append(f"from {from_date}")
     if to_date:
         filter_parts.append(f"to {to_date}")
-    if project:
-        filter_parts.append(f"project:{project}")
+    if tag:
+        filter_parts.append(f"tag:{tag}")
     if filter_parts:
         filter_badge = (
             f" &nbsp;&middot;&nbsp; <span style='color:#60a5fa'>"
@@ -1967,7 +1987,7 @@ def run_export_graph(project_root: Path, irp_dir: Path, args) -> dict:
         "decision_count": len(decisions),
         "in_range_count": in_range_count if has_filter else len(decisions),
         "edge_count": edge_count,
-        "filters": {"from_date": from_date, "to_date": to_date, "project": project},
+        "filters": {"from_date": from_date, "to_date": to_date, "tag": tag},
         "view": view,
         "seed": seed,
         "relations": rel_counts,

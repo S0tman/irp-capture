@@ -5,6 +5,7 @@ verifier is neutral evidence tooling and stays permissively licensed.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
@@ -74,6 +75,13 @@ def _do_verify(irp_dir: Path, args) -> dict:
         }
 
     ledger_path = Path(args.ledger) if getattr(args, "ledger", None) else irp_dir / "ledger.jsonl"
+    if not os.path.isfile(ledger_path):
+        return {
+            "command": "integrity",
+            "status": "error",
+            "verdict": "block",
+            "text": f"Ledger file not found: {ledger_path}",
+        }
 
     try:
         res = verify_snapshot(snapshot_path, ledger_path)

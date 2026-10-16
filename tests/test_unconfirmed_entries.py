@@ -33,7 +33,8 @@ sys.path.insert(0, str(REPO / "tools"))
 import irp  # noqa: E402,F401
 
 import store  # noqa: E402
-from store import ensure_irp_dir, next_irp_id, read_ledger, rebuild_current, write_current  # noqa: E402
+from store import next_irp_id, read_ledger, rebuild_current, write_current  # noqa: E402
+from conftest import make_project  # noqa: E402
 from commands.check import run_check  # noqa: E402
 from commands.doctor import run_doctor  # noqa: E402
 from commands.evidence import run_export_evidence, _build_evidence_md, _EUAIACT_FRAMEWORK  # noqa: E402
@@ -85,7 +86,7 @@ def _write_ledger(irp_dir, entries):
 
 def _legacy_project(tmp_path, entries=None):
     """A project whose ledger and current.json were written by the old bootstrap."""
-    irp_dir = ensure_irp_dir(tmp_path)
+    irp_dir = make_project(tmp_path)
     entries = [CONFIRMED, GUESS] if entries is None else entries
     _write_ledger(irp_dir, entries)
     write_current(irp_dir, {"version": 1, "active": [e for e in entries if e.get("type") == "decision"]})
@@ -145,7 +146,7 @@ class TestAgentFacingReaders:
         assert "No active IRP context found" in result["text"]
 
     def test_inherit_current_json_fallback_also_drops_guesses(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)  # empty ledger, so inherit falls back to current.json
+        irp_dir = make_project(tmp_path)  # empty ledger, so inherit falls back to current.json
         write_current(irp_dir, {"version": 1, "active": [CONFIRMED, GUESS]})
         result = run_inherit(tmp_path, irp_dir, _Args())
         assert [e["id"] for e in result["active"]] == [CONFIRMED["id"]]
@@ -399,7 +400,7 @@ class TestHumanViews:
         assert run_doctor(tmp_path, irp_dir, _Args())["unconfirmed_count"] == 0
 
     def test_doctor_counts_reconstructions_waiting_for_review(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         rows = [
             {"id": "REC-2026-10-08-001", "what": "a", "status": "unconfirmed"},
             {"id": "REC-2026-10-08-002", "what": "b", "status": "accepted"},
@@ -843,7 +844,7 @@ class TestWhyJson:
 # A stale current.json: left by an old bootstrap, so its window is full of guesses.
 def _stale_project(tmp_path, ledger=None):
     ledger = [CONFIRMED, GUESS] if ledger is None else ledger
-    irp_dir = ensure_irp_dir(tmp_path)
+    irp_dir = make_project(tmp_path)
     _write_ledger(irp_dir, ledger)
     guesses = [dict(GUESS, id=f"IRP-2026-05-01-{i:03d}", what=f"Guessed thing number {i}") for i in range(1, 11)]
     write_current(irp_dir, {"version": 1, "active": guesses})        # all guesses, real one pushed out
@@ -909,7 +910,7 @@ class TestStaleCurrentJson:
 
     def test_inherit_without_a_ledger_still_uses_current_json(self, tmp_path):
         """A project that has only current.json keeps working (nothing to recompute from)."""
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         write_current(irp_dir, {"version": 1, "active": [CONFIRMED, GUESS]})
         assert [e["id"] for e in run_inherit(tmp_path, irp_dir, _Args())["active"]] == [CONFIRMED["id"]]
 
@@ -1052,18 +1053,18 @@ class TestDoctorCurrentJsonCount:
         return next(c for c in result["checks"] if c["label"] == "current.json")["detail"]
 
     def test_counts_the_active_list_of_the_dict_format(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         write_current(irp_dir, {"version": 1, "active": [CONFIRMED, dict(CONFIRMED, id="IRP-2026-04-09-001")]})
         assert self._count_detail(run_doctor(tmp_path, irp_dir, _Args())) == "2 active decisions"
 
     def test_zero_and_one(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         assert self._count_detail(run_doctor(tmp_path, irp_dir, _Args())) == "0 active decisions"
         write_current(irp_dir, {"version": 1, "active": [CONFIRMED]})
         assert self._count_detail(run_doctor(tmp_path, irp_dir, _Args())) == "1 active decision"
 
     def test_the_list_format_still_counts_its_length(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         (irp_dir / "current.json").write_text(json.dumps([CONFIRMED, CONFIRMED, CONFIRMED]), encoding="utf-8")
         assert self._count_detail(run_doctor(tmp_path, irp_dir, _Args())) == "3 active decisions"
 

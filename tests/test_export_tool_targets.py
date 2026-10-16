@@ -15,7 +15,8 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 import irp  # noqa: E402,F401
-from store import append_ledger_entry, ensure_irp_dir  # noqa: E402
+from store import append_ledger_entry  # noqa: E402
+from conftest import make_project  # noqa: E402
 from commands.export import AGENT_TARGETS, run_export  # noqa: E402
 from irp.core.irp import build_parser  # noqa: E402
 
@@ -42,7 +43,7 @@ RETIRE = {"type": "retirement", "id": OLD["id"], "why": "No longer applies"}
 
 def _export(tmp_path, target, entries=(REST, GRPC, PG, OLD, RETIRE)):
     tmp_path.mkdir(parents=True, exist_ok=True)
-    irp_dir = ensure_irp_dir(tmp_path)
+    irp_dir = make_project(tmp_path)
     for e in entries:
         append_ledger_entry(irp_dir, e)
     result = run_export(tmp_path, irp_dir, _Args(target=target))
@@ -128,7 +129,7 @@ def test_cli_accepts_the_new_targets():
 
 
 def test_unsupported_target_lists_every_supported_one(tmp_path):
-    irp_dir = ensure_irp_dir(tmp_path)
+    irp_dir = make_project(tmp_path)
     result = run_export(tmp_path, irp_dir, _Args(target="bogus"))
     assert result["status"] == "error"
     for target in ("agents.md", "claude.md", "cursor", "copilot", "decisions.md"):

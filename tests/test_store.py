@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 
 from store import (
-    ensure_irp_dir,
     read_current,
     write_current,
     append_ledger_entry,
@@ -25,38 +24,39 @@ from store import (
     append_craft_entry,
     next_craft_id,
 )
+from conftest import make_project
 
 
-# ── ensure_irp_dir ────────────────────────────────────────────────────────────
+# ── make_project ────────────────────────────────────────────────────────────
 
-class TestEnsureIrpDir:
+class TestMakeProject:
     def test_creates_irp_directory(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         assert irp_dir == tmp_path / ".irp"
         assert irp_dir.is_dir()
 
     def test_creates_empty_ledger_file(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         assert (irp_dir / "ledger.jsonl").exists()
         assert (irp_dir / "ledger.jsonl").read_text(encoding="utf-8") == ""
 
     def test_creates_current_json_with_defaults(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         data = json.loads((irp_dir / "current.json").read_text(encoding="utf-8"))
         assert data == {"version": 1, "active": []}
 
     def test_idempotent_does_not_overwrite_existing_ledger(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         (irp_dir / "ledger.jsonl").write_text('{"id": "IRP-1"}\n', encoding="utf-8")
         # Calling again must not wipe existing content.
-        ensure_irp_dir(tmp_path)
+        make_project(tmp_path)
         assert (irp_dir / "ledger.jsonl").read_text(encoding="utf-8") == '{"id": "IRP-1"}\n'
 
     def test_idempotent_does_not_overwrite_existing_current(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         custom = {"version": 1, "active": [{"id": "IRP-1"}]}
         write_current(irp_dir, custom)
-        ensure_irp_dir(tmp_path)
+        make_project(tmp_path)
         assert read_current(irp_dir) == custom
 
 
@@ -290,3 +290,22 @@ class TestCraft:
         today = date.today().isoformat()
         entries = [{"id": "CRAFT-2020-01-01-001", "timestamp": "2020-01-01"}]
         assert next_craft_id(entries) == f"CRAFT-{today}-001"
+
+
+def test_a_named_folder_it_cant_read_is_no_project(tmp_path, monkeypatch):
+    """A folder that can't be read is treated as holding no project, so the
+    command gives its usual message instead of a raw permission error."""
+    import store as store_mod
+
+    locked = tmp_path.resolve() / "locked"
+    (locked / "inner").mkdir(parents=True)
+    real_is_dir = Path.is_dir
+
+    def is_dir(self, *a, **k):
+        if str(self).startswith(str(locked) + "/"):
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_is_dir(self, *a, **k)
+
+    monkeypatch.setattr(Path, "is_dir", is_dir)
+    with pytest.raises(store_mod.ProjectNotFound):
+        store_mod.find_project(project=locked / "inner")

@@ -33,7 +33,7 @@ sys.path.insert(0, str(REPO))
 
 import whyin  # noqa: E402  (shared answer parsing and paired bootstrap)
 from irp.core.commands.inherit import run_inherit  # noqa: E402
-from irp.core.store import append_ledger_entry, ensure_irp_dir  # noqa: E402
+from irp.core.store import append_ledger_entry, init_project  # noqa: E402
 
 ARMS = ("none", "agents-rules", "agents-full", "irp")
 TYPES = ("superseded", "reopen", "plain")
@@ -129,7 +129,7 @@ def _ledger_entry(d: dict) -> dict:
 
 def _irp_context(project: dict) -> str:
     with tempfile.TemporaryDirectory() as tmp:
-        irp_dir = ensure_irp_dir(Path(tmp))
+        irp_dir = init_project(Path(tmp))
         for d in project["decisions"]:
             append_ledger_entry(irp_dir, _ledger_entry(d))
         result = run_inherit(project_root=Path(f"/repo/{project['key']}"), irp_dir=irp_dir,

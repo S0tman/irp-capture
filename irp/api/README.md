@@ -27,6 +27,11 @@ The server logs the project root on startup — always verify it before use:
 [irp-api] Starting on http://127.0.0.1:3100
 ```
 
+With no IRP project there, it doesn't start. Run `irp init` in the project
+first. Started with `uvicorn irp.api.server:app` instead, it finds the project
+from the folder uvicorn runs in (or `IRP_PROJECT_ROOT`) and answers 503 on
+every route, `/health` included, until there is one.
+
 ---
 
 ## Endpoints
@@ -122,4 +127,4 @@ FastAPI auto-generates interactive docs at:
 - **localhost only by default** — `--host 0.0.0.0` to expose on network (not recommended without auth)
 - **No auth in v0** — API key auth is planned for v1
 - **Same store as CLI** — reads/writes the same `.irp/` as `irp capture`, `irp why`, the Figma bridge, and the git hook
-- **`--project-root` is required** — defaults to cwd, but always pass it explicitly to avoid writing to the wrong ledger
+- **`--project-root` names the project.** Without it the project is found from the current folder, the way the CLI finds it. With no project the API refuses to start: run `irp init` in the project first. It never creates `.irp/`

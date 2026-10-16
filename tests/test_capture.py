@@ -21,7 +21,8 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 import irp  # noqa: E402,F401
 
-from store import ensure_irp_dir, read_ledger  # noqa: E402
+from store import read_ledger  # noqa: E402
+from conftest import make_project  # noqa: E402
 from commands.capture import (  # noqa: E402
     run_capture,
     read_candidate_from_stdin,
@@ -91,7 +92,7 @@ class TestConfirmToken:
 class TestRunCaptureStdin:
     def test_writes_ledger_entry(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "Use X", "why": "Because Y"})))
         args = _Args(stdin=True)
         result = run_capture(tmp_path, irp_dir, args)
@@ -102,7 +103,7 @@ class TestRunCaptureStdin:
 
     def test_assigns_sequential_id(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "a", "why": "b"})))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=True))
         assert result["entry"]["id"].startswith("IRP-")
@@ -110,28 +111,28 @@ class TestRunCaptureStdin:
 
     def test_defaults_type_to_decision(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "a", "why": "b"})))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=True))
         assert result["entry"]["type"] == "decision"
 
     def test_defaults_confidence_to_medium(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "a", "why": "b"})))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=True))
         assert result["entry"]["confidence"] == "medium"
 
     def test_defaults_source_to_stdin(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "a", "why": "b"})))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=True))
         assert result["entry"]["source"] == "stdin"
 
     def test_explicit_fields_are_not_overwritten(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         payload = {"what": "a", "why": "b", "confidence": "high", "source": "custom", "tags": ["x"]}
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=True))
@@ -141,7 +142,7 @@ class TestRunCaptureStdin:
 
     def test_rebuilds_current_json(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "a", "why": "b"})))
         run_capture(tmp_path, irp_dir, _Args(stdin=True))
         current = json.loads((irp_dir / "current.json").read_text(encoding="utf-8"))
@@ -149,7 +150,7 @@ class TestRunCaptureStdin:
 
     def test_second_capture_gets_next_sequence_number(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "a", "why": "b"})))
         run_capture(tmp_path, irp_dir, _Args(stdin=True))
         monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps({"what": "c", "why": "d"})))
@@ -157,7 +158,7 @@ class TestRunCaptureStdin:
         assert result2["entry"]["id"].endswith("-002")
 
     def test_integration_results_surfaced(self, tmp_path, monkeypatch):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         import commands.capture as capture_mod
         monkeypatch.setattr(
             capture_mod._dispatch, "run",
@@ -169,7 +170,7 @@ class TestRunCaptureStdin:
         assert "obsidian" in result["text"]
 
     def test_integration_error_surfaced_in_text(self, tmp_path, monkeypatch):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         import commands.capture as capture_mod
         monkeypatch.setattr(
             capture_mod._dispatch, "run",
@@ -185,7 +186,7 @@ class TestRunCaptureStdin:
 class TestRunCaptureInteractive:
     def test_skip_when_not_confirmed(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         answers = iter(["What was decided?", "Because", "high", "s"])
         monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=False))
@@ -194,7 +195,7 @@ class TestRunCaptureInteractive:
 
     def test_captures_when_confirmed(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         answers = iter(["Ship the thing", "Users asked for it", "high", "c"])
         monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=False))
@@ -203,7 +204,7 @@ class TestRunCaptureInteractive:
 
     def test_interactive_source_is_interactive(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         answers = iter(["a", "b", "medium", "c"])
         monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=False))
@@ -211,7 +212,7 @@ class TestRunCaptureInteractive:
 
     def test_invalid_confidence_falls_back_to_medium(self, tmp_path, monkeypatch):
         _no_integrations(monkeypatch)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         answers = iter(["a", "b", "not-a-level", "c"])
         monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
         result = run_capture(tmp_path, irp_dir, _Args(stdin=False))

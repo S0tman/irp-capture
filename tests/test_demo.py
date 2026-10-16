@@ -10,7 +10,8 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 import irp  # noqa: E402,F401
 
-from store import ensure_irp_dir, read_ledger  # noqa: E402
+from store import read_ledger  # noqa: E402
+from conftest import make_project  # noqa: E402
 from commands.demo import run_demo, run_demo_generate, render_thread, TEMPLATES  # noqa: E402
 
 
@@ -25,18 +26,18 @@ class _Args:
 
 class TestRunDemoGenerate:
     def test_writes_ledger_entry(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_demo(tmp_path, irp_dir, _Args())
         assert result["status"] == "generated"
         assert len(read_ledger(irp_dir)) == 1
 
     def test_entry_tagged_demo(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         run_demo(tmp_path, irp_dir, _Args())
         assert "demo" in read_ledger(irp_dir)[0]["tags"]
 
     def test_entry_matches_scenario_and_confidence(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         run_demo(tmp_path, irp_dir, _Args(scenario="architecture", confidence="low"))
         entry = read_ledger(irp_dir)[0]
         assert entry["scenario"] == "architecture"
@@ -44,45 +45,45 @@ class TestRunDemoGenerate:
         assert entry["what"] == TEMPLATES["architecture"]["low"]["what"]
 
     def test_unknown_scenario_is_an_error(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_demo(tmp_path, irp_dir, _Args(scenario="not-a-scenario"))
         assert result["status"] == "error"
         assert read_ledger(irp_dir) == []
 
     def test_unknown_confidence_is_an_error(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_demo(tmp_path, irp_dir, _Args(confidence="extreme"))
         assert result["status"] == "error"
 
     def test_write_thread_saves_markdown_file(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_demo(tmp_path, irp_dir, _Args(write_thread=True))
         thread_file = Path(result["thread_file"])
         assert thread_file.exists()
         assert thread_file.parent == irp_dir / "demo_threads"
 
     def test_no_write_thread_by_default(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_demo(tmp_path, irp_dir, _Args())
         assert result["thread_file"] is None
         assert not (irp_dir / "demo_threads").exists()
 
     def test_rebuilds_current_json(self, tmp_path):
         import json
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         run_demo(tmp_path, irp_dir, _Args())
         current = json.loads((irp_dir / "current.json").read_text(encoding="utf-8"))
         assert len(current["active"]) == 1
 
     def test_all_scenario_confidence_pairs_generate_ledger_entries(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         for scenario in TEMPLATES:
             for confidence in ("low", "medium", "high"):
                 result = run_demo(tmp_path, irp_dir, _Args(scenario=scenario, confidence=confidence))
                 assert result["status"] == "generated", f"{scenario}/{confidence} failed"
 
     def test_unknown_demo_action_errors(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_demo(tmp_path, irp_dir, _Args(demo_action="bogus"))
         assert result["status"] == "error"
 
@@ -96,7 +97,7 @@ class TestSlackMode:
         the local ledger (per its own doc: 'do NOT write to the local ledger
         in this mode').
         """
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_demo(tmp_path, irp_dir, _Args(post_to_slack="C0AMXC2E069"))
         assert result["status"] == "error"
         assert read_ledger(irp_dir) == []
@@ -104,7 +105,7 @@ class TestSlackMode:
     def test_slack_post_success_does_not_touch_local_ledger(self, tmp_path, monkeypatch):
         """When posting succeeds, the local ledger must stay untouched, the
         Slack Confirm button is the write path in this mode, not this call."""
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
 
         # Provide a fake slack_post module so the import inside run_demo_generate
         # succeeds without needing `requests` installed.

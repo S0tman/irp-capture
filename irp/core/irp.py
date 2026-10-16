@@ -26,7 +26,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 import irp  # noqa: E402,F401  # cache the real package before the command imports below
 
-from store import ensure_irp_dir
+from store import ProjectNotFound, find_named_project, find_project
 from commands.attest import run_attest
 from commands.capture import run_capture
 from commands.check import run_check
@@ -34,7 +34,7 @@ from commands.config import run_config
 from commands.craft import run_craft
 from commands.defer import run_defer
 from commands.demo import run_demo
-from commands.doctor import run_doctor
+from commands.doctor import ledger_tracked_by_git, run_doctor
 from commands.bootstrap import run_bootstrap
 from commands.export import run_export
 from commands.find import run_find
@@ -44,6 +44,7 @@ from commands.gate import run_gate, _exit_code as _gate_exit_code
 from commands.watch import run_watch
 from commands.mod import run_mod
 from commands.guard import run_guard
+from commands.init import run_init
 from commands.inherit import run_inherit
 from commands.integrity import run_integrity
 from commands.why import run_why
@@ -52,6 +53,13 @@ from commands.why import run_why
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="irp", description="IRP project-local dispatcher")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    # ── init ─────────────────────────────────────────────────────────────────
+    p = sub.add_parser("init", help="Start an IRP project in a folder (the only command that creates .irp/)")
+    p.add_argument("path", nargs="?", default=None, metavar="PATH",
+                   help="Folder to start the project in (default: the current folder)")
+    p.add_argument("--nested", action="store_true",
+                   help="Start a separate ledger inside another project or a linked worktree")
 
     # ── inherit ──────────────────────────────────────────────────────────────
     p = sub.add_parser("inherit", help="Show current IRP context")
@@ -195,7 +203,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_craft_export.add_argument(
         "--output", type=str, default=None,
-        help="Output file path (default: CRAFT.md in project root)",
+        help="Output file path, relative to the current folder (default: CRAFT.md in the project folder)",
     )
     p_craft_export.add_argument("--force", action="store_true", help="Overwrite existing file")
     p_craft_export.add_argument(
@@ -284,11 +292,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Install IRP guard as a git pre-commit hook",
     )
     p_guard_install.add_argument("--force", action="store_true", help="Overwrite existing hook")
+    p_guard_install.add_argument(
+        "--shared", action="store_true",
+        help="Write a hook that records no paths, for a hooks folder outside .git (core.hooksPath)",
+    )
     p_guard_install.add_argument("--json", action="store_true")
 
     p_guard_run = guard_sub.add_parser(
         "run",
         help="Check staged diff against active decisions (called by hook or manually)",
+    )
+    p_guard_run.add_argument(
+        "--hook-project", dest="hook_project", metavar="REL", default=None,
+        help="The project folder relative to the repo's top folder (the hook passes this)",
     )
     p_guard_run.add_argument("--json", action="store_true")
 
@@ -405,7 +421,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=str,
         default=None,
-        help="Output file path (default: AGENTS.md in project root)",
+        help="Output file path, relative to the current folder (default: AGENTS.md in the project folder)",
     )
     p_export_ctx.add_argument(
         "--force",
@@ -427,7 +443,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=str,
         default=None,
-        help="Output file path (default: DECISIONS.md in project root)",
+        help="Output file path, relative to the current folder (default: DECISIONS.md in the project folder)",
     )
     p_export_decisions.add_argument(
         "--force",
@@ -454,7 +470,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=str,
         default=None,
-        help="Output file path (default: GRAPH.html in project root)",
+        help="Output file path, relative to the current folder (default: GRAPH.html in the project folder)",
     )
     p_export_graph.add_argument(
         "--force",
@@ -491,8 +507,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show decisions up to this date (inclusive). Nodes outside range are dimmed.",
     )
     p_export_graph.add_argument(
-        "--project",
-        dest="project",
+        "--tag",
+        dest="tag",
         type=str,
         default=None,
         metavar="TAG",
@@ -552,7 +568,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=str,
         default=None,
-        help="Output file path (default: EVIDENCE-<framework>.md in project root)",
+        help="Output file path, relative to the current folder (default: EVIDENCE-<framework>.md in the project folder)",
     )
     p_export_evidence.add_argument(
         "--force",
@@ -650,7 +666,30 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_att_verify.add_argument("--json", action="store_true")
 
+    _add_project_option(parser)
     return parser
+
+
+def _subparsers(parser: argparse.ArgumentParser) -> dict:
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return action.choices
+    return {}
+
+
+def _add_project_option(parser: argparse.ArgumentParser) -> None:
+    """Give this parser and every subcommand below it --project PATH.
+
+    It works before or after the command (`irp --project P why`, `irp why
+    --project P`). The default is SUPPRESS, so a subcommand's parser never
+    overwrites a value given before the command.
+    """
+    parser.add_argument(
+        "--project", dest="project_path", metavar="PATH", default=argparse.SUPPRESS,
+        help="Use the IRP project in PATH instead of finding it from the current folder",
+    )
+    for child in _subparsers(parser).values():
+        _add_project_option(child)
 
 
 def print_result(result: dict, as_json: bool) -> None:
@@ -662,39 +701,248 @@ def print_result(result: dict, as_json: bool) -> None:
         print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
+# ── what each command may do ──────────────────────────────────────────────────
+#
+# read    reads the project, never writes. No project: says so, exit 1
+#         (`integrity verify --ledger` and `attest verify --receipt` need none)
+# hook    `guard run`, called by the commit hook. No project: one line, exit 0
+# output  writes only the file asked for. No project: says so, exit 1
+# write   appends to an existing project. No project: nothing written, exit 1
+# start   `init`, the only command that creates .irp/
+# report  runs with or without a project, exit 0
+# none    needs no project
+#
+# Every command and sub-action must be listed here; tests/test_no_write.py
+# fails on one that isn't and runs every read and output command in an empty
+# folder to check it creates nothing.
+COMMAND_CLASSES: dict[str, str] = {
+    "inherit": "read", "why": "read", "find": "read", "check": "read", "resolve": "read",
+    "gate": "read", "watch": "read", "mod list": "read", "config get": "read",
+    "craft list": "read", "integrity verify": "read", "attest verify": "read",
+    "guard run": "hook",
+    "export context": "output", "export decisions": "output", "export graph": "output",
+    "export evidence": "output", "craft export": "output",
+    "capture": "write", "mod supersede": "write", "mod retire": "write", "defer": "write",
+    "craft add": "write", "demo generate": "write", "bootstrap": "write", "config set": "write",
+    "integrity snapshot": "write", "attest create": "write", "guard install": "write",
+    "init": "start",
+    "doctor": "report", "guard status": "report",
+    "docs pull": "none", "docs push": "none", "docs list": "none",
+}
+
+_DISPATCH = {
+    "inherit":   run_inherit,
+    "capture":   run_capture,
+    "why":       run_why,
+    "find":      run_find,
+    "check":     run_check,
+    "gate":      run_gate,
+    "watch":     run_watch,
+    "mod":       run_mod,
+    "config":    run_config,
+    "craft":     run_craft,
+    "defer":     run_defer,
+    "demo":      run_demo,
+    "bootstrap": run_bootstrap,
+    "doctor":    run_doctor,
+    "docs":      run_docs,
+    "resolve":   run_resolve,
+    "export":    run_export,
+    "guard":     run_guard,
+    "integrity": run_integrity,
+    "attest":    run_attest,
+}
+
+GUARD_NO_PROJECT_TEXT = "IRP guard: no IRP project in this repo, so this commit wasn't checked."
+
+# Commands whose own text names the project they used. Their Project line is
+# printed only when that text doesn't.
+_SAYS_ITS_PROJECT = {"export context", "export decisions", "export graph", "export evidence",
+                     "craft export", "bootstrap"}
+
+
+def _command_key(args: argparse.Namespace) -> str:
+    action = getattr(args, f"{args.command}_action", None)
+    return f"{args.command} {action}" if action else args.command
+
+
+# The flag that names the file each verify command checks. Given that file,
+# the command reads only what's named on its command line, so it can check a
+# snapshot someone sent you with no IRP project set up.
+_VERIFY_FILE_FLAGS = {"integrity verify": "ledger", "attest verify": "receipt"}
+
+
+def _verifies_named_files(key: str, args: argparse.Namespace) -> bool:
+    flag = _VERIFY_FILE_FLAGS.get(key)
+    return flag is not None and bool(getattr(args, flag, None))
+
+
+def _no_project(key: str, cls: str, missing: ProjectNotFound, as_json: bool) -> int:
+    """Say there's no project and return the exit code. Creates nothing."""
+    if cls == "hook":
+        print_result({"command": "guard.run", "status": "no_project", "text": GUARD_NO_PROJECT_TEXT}, as_json)
+        return 0
+    if key == "gate":
+        payload = {"verdict": "no_project", "exit_code": 1}
+        payload.update({k: v for k, v in missing.json_payload().items() if k != "status"})
+        print(json.dumps(payload, ensure_ascii=False))
+        return 1
+    if key == "watch":
+        # watch always answers in JSON, one line per action, so it says there's
+        # no project the way every --json command does, on one line.
+        print(json.dumps(missing.json_payload(), ensure_ascii=False))
+        return 1
+    if as_json:
+        print(json.dumps(missing.json_payload(), indent=2, ensure_ascii=False))
+        return 1
+    if key == "guard install" and not missing.named_by:
+        text = (f"No IRP project here, so there's nothing for the hook to check. "
+                f"Start one with {missing.hint}, then install the hook.")
+    elif cls == "write":
+        text = missing.write_message(key)
+    else:
+        text = missing.read_message(key)
+    if key == "export graph" and missing.named_by == "--project" and not missing.searched_from.exists():
+        # `export graph --project TAG` was the tag filter before 0.10.
+        text += "\nTo filter by tag, use --tag NAME."
+    print(text, file=sys.stderr)
+    return 1
+
+
+def _project_line(project) -> str | None:
+    """`Project: /a`, only when the project isn't the folder you're in or
+    IRP_PROJECT_ROOT chose it."""
+    if project.source == "IRP_PROJECT_ROOT":
+        return f"Project: {project.root} (from IRP_PROJECT_ROOT)"
+    try:
+        here = Path.cwd().resolve()
+    except OSError:
+        here = None
+    return f"Project: {project.root}" if project.root != here else None
+
+
+def _outer_notes(project) -> list[str]:
+    notes = []
+    further_up = [p for p in project.outer_projects if p not in project.main_checkout_projects]
+    if further_up:
+        notes.append(f"Note: there's another IRP project further up, at {further_up[0]}. "
+                     f"This command uses the nearer one, {project.root}.")
+    # Only worth a note when this worktree's own ledger goes with the worktree.
+    # A ledger git tracks is kept, so then there's nothing to say.
+    if project.main_checkout_projects and ledger_tracked_by_git(project.root) is not True:
+        notes.append(f"Note: there's another IRP project in the main checkout, at "
+                     f"{project.main_checkout_projects[0]}. This command uses the one in this worktree, "
+                     f"{project.root}.")
+    return notes
+
+
+def _announce(key: str, cls: str, project, as_json: bool) -> None:
+    """The Project line and notes, on stderr. Nothing appears when the
+    project is the folder you're in."""
+    # gate and watch always print JSON, so they get the notes but no Project
+    # line. guard run and demo say what they used.
+    machine = key in ("gate", "watch")
+    quiet = as_json or machine or key == "guard run" or key.startswith("demo")
+    if not quiet and key not in _SAYS_ITS_PROJECT:
+        line = _project_line(project)
+        if line:
+            print(line, file=sys.stderr)
+    if not quiet or machine:
+        for note in _outer_notes(project):
+            print(note, file=sys.stderr)
+    if cls == "write":
+        for folder in project.skipped_strays:
+            print(f"Note: skipped an empty .irp folder at {folder} (an older IRP version left it). "
+                  f"Writing to the project at {project.root}.", file=sys.stderr)
+        if (key != "guard install" and project.worktree_of is not None
+                and ledger_tracked_by_git(project.root) is not True):
+            note = (f"Note: this ledger is inside a linked worktree of {project.worktree_of} and goes "
+                    "when the worktree is removed.")
+            if project.main_checkout_projects:
+                note += (f" To record in the main checkout instead: "
+                         f"irp --project {project.main_checkout_projects[0]} {key}")
+            print(note, file=sys.stderr)
+
+
+def _output_base(project) -> Path:
+    """Where output files go by default: the project folder or, for a project
+    found in the main checkout from a linked worktree, the matching folder in
+    the worktree, so nothing lands in another branch's checkout."""
+    if project.worktree_root is None:
+        return project.root
+    if project.worktree_root.is_dir():
+        return project.worktree_root
+    return Path.cwd()
+
+
+def _here() -> Path:
+    """The folder you're in, or / when it has been removed."""
+    try:
+        return Path.cwd()
+    except OSError:
+        return Path("/")
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    key = _command_key(args)
+    cls = COMMAND_CLASSES.get(key, "read")
+    as_json = bool(getattr(args, "json", False))
 
     try:
-        project_root = Path.cwd()
-        irp_dir = ensure_irp_dir(project_root)
+        if cls == "start":
+            result = run_init(args)
+            print(result["text"], file=sys.stdout if result["exit_code"] == 0 else sys.stderr)
+            return result["exit_code"]
 
-        dispatch = {
-            "inherit":   run_inherit,
-            "capture":   run_capture,
-            "why":       run_why,
-            "find":      run_find,
-            "check":     run_check,
-            "gate":      run_gate,
-            "watch":     run_watch,
-            "mod":       run_mod,
-            "config":    run_config,
-            "craft":     run_craft,
-            "defer":     run_defer,
-            "demo":      run_demo,
-            "bootstrap": run_bootstrap,
-            "doctor":    run_doctor,
-            "docs":      run_docs,
-            "resolve":   run_resolve,
-            "export":    run_export,
-            "guard":     run_guard,
-            "integrity": run_integrity,
-            "attest":    run_attest,
-        }
-        result = dispatch[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
+        project = None
+        missing = None
+        if cls == "none":
+            project_root, irp_dir = Path.cwd(), None
+        else:
+            hook_project = getattr(args, "hook_project", None)
+            try:
+                if key == "guard run" and hook_project is not None:
+                    # The hook names its project: that path (or the same path
+                    # in the main checkout) and nothing else.
+                    project = find_named_project(Path.cwd() / hook_project, "--hook-project")
+                else:
+                    project = find_project(project=getattr(args, "project_path", None))
+            except ProjectNotFound as exc:
+                missing = exc
+            except OSError:
+                # A folder on the way can't be read, or the one you're in is
+                # gone. A verify of files you named doesn't need a project.
+                if not _verifies_named_files(key, args):
+                    raise
+            if project is not None:
+                project_root, irp_dir = project.root, project.irp_dir
+                _announce(key, cls, project, as_json)
+            elif (cls == "report" or (key == "export graph" and getattr(args, "demo", False))
+                  or _verifies_named_files(key, args)):
+                # Reports run anyway and say there's no project; the demo
+                # graph and a verify of files you named need none. None of
+                # them creates .irp/.
+                project_root, irp_dir = _here(), None
+            else:
+                return _no_project(key, cls, missing, as_json)
 
-        # gate uses its own 0/10/20 exit code semantics — read from payload
+        # Commands that care how the project was found or where they were run
+        # from (doctor, guard, watch, output commands) read these.
+        args.irp_project = project
+        args.irp_project_missing = missing
+        args.irp_cwd = _here() if _verifies_named_files(key, args) else Path.cwd()
+        args.irp_argv0 = sys.argv[0] if sys.argv else ""
+        args.irp_output_base = _output_base(project) if project is not None else project_root
+
+        result = _DISPATCH[args.command](project_root=project_root, irp_dir=irp_dir, args=args)
+
+        if project is not None and project.outer_projects and isinstance(result, dict) and (
+                as_json or args.command == "gate"):
+            result["outer_projects"] = [str(p) for p in project.outer_projects]
+
+        # gate uses its own 0/10/20 exit code semantics, read from the payload
         if args.command == "gate":
             print(json.dumps(result, ensure_ascii=False))
             return result.get("exit_code", 0)
@@ -706,7 +954,21 @@ def main() -> int:
                 print(f"IRP watch error: {result['error']}", file=sys.stderr)
             return exit_code
 
-        print_result(result, getattr(args, "json", False))
+        if key in _SAYS_ITS_PROJECT and not as_json and project is not None and isinstance(result, dict):
+            line = _project_line(project)
+            text = str(result.get("text") or "")
+            if line and (project.source == "IRP_PROJECT_ROOT" or f"Project: {project.root}\n" not in text + "\n"):
+                print(line, file=sys.stderr)
+        # `guard install`: 0 when the hook is in place (written or already
+        # there), 1 for every refusal and error.
+        if key == "guard install":
+            installed = result.get("status") in ("ok", "exists")
+            if as_json or installed:
+                print_result(result, as_json)
+            else:
+                print(result.get("text", ""), file=sys.stderr)
+            return 0 if installed else 1
+        print_result(result, as_json)
         # `bootstrap --accept` that accepted nothing because of problems (unknown
         # or already-accepted id, ...) exits 1, like `irp mod` does for a bad id.
         if (

@@ -3,12 +3,9 @@
 utils.py has no external dependencies and no import-time side effects, so it
 gets full behavior tests. Everything else in this package (config.py,
 ledger_writer.py, commands.py, modals.py, main.py) either needs `discord.py`
-or `python-dotenv`, neither is part of the dev extras, and config.py also
-creates a real `.irp/` directory as an import-time side effect derived from
-cwd. Rather than risk polluting the repo or forcing a brittle test, those
-modules get an import-skip smoke test: it proves the module is at least
-syntactically valid and skips cleanly when the optional dependency is
-missing, without ever executing their side effects in this environment.
+or `python-dotenv`, neither of which is part of the dev extras. Those modules
+get an import-skip smoke test: it proves the module is at least syntactically
+valid and skips cleanly when the optional dependency is missing.
 """
 from __future__ import annotations
 
@@ -22,6 +19,7 @@ sys.path.insert(0, str(REPO))
 import irp  # noqa: E402,F401
 
 from irp.discord_sensor import utils  # noqa: E402
+from conftest import make_project  # noqa: E402
 
 
 # ── utils.py, pure logic, fully tested ───────────────────────────────────────
@@ -94,10 +92,10 @@ class TestEscapeDiscordMarkdown:
 
 class TestOptionalDependencySmoke:
     def test_config_module_needs_dotenv(self):
-        """config.py does `from dotenv import load_dotenv` at module scope and
-        also creates .irp/ under IRP_PROJECT_ROOT (or the repo root) as an
-        import side effect. Skip cleanly when python-dotenv (not a dev
-        extra) is absent, rather than importing it live."""
+        """config.py does `from dotenv import load_dotenv` at module scope.
+        Skip cleanly when python-dotenv (not a dev extra) is absent, rather
+        than importing it live. tests/test_servers_discovery.py checks that
+        importing it creates nothing."""
         pytest.importorskip("dotenv", reason="python-dotenv not installed (not a dev extra)")
         import irp.discord_sensor.config as config  # noqa: F401
 
@@ -128,6 +126,7 @@ class TestLedgerWriterLogicWithFakeConfig:
         import types
         import importlib
 
+        make_project(tmp_path)
         fake_config = types.ModuleType("irp.discord_sensor.config")
         fake_config.IRP_LEDGER_PATH = tmp_path / ".irp" / "ledger.jsonl"
         monkeypatch.setitem(sys.modules, "irp.discord_sensor.config", fake_config)
@@ -175,3 +174,22 @@ class TestLedgerWriterLogicWithFakeConfig:
 
         sys.modules.pop("irp.discord_sensor.ledger_writer", None)
         sys.modules.pop("irp.discord_sensor.config", None)
+
+
+    def test_never_makes_a_dot_irp_folder(self, tmp_path, monkeypatch):
+        import types
+        import importlib
+
+        fake_config = types.ModuleType("irp.discord_sensor.config")
+        fake_config.IRP_LEDGER_PATH = None
+        monkeypatch.setitem(sys.modules, "irp.discord_sensor.config", fake_config)
+        sys.modules.pop("irp.discord_sensor.ledger_writer", None)
+        ledger_writer = importlib.import_module("irp.discord_sensor.ledger_writer")
+        try:
+            writer = ledger_writer.LedgerWriter(tmp_path / "elsewhere" / ".irp" / "ledger.jsonl")
+            with pytest.raises(OSError):
+                writer.write_decision(what="x", why="y", confirmed_by="alice")
+        finally:
+            sys.modules.pop("irp.discord_sensor.ledger_writer", None)
+            sys.modules.pop("irp.discord_sensor.config", None)
+        assert not (tmp_path / "elsewhere").exists()

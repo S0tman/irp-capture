@@ -35,12 +35,15 @@ Think of IRP as a camera, not a notebook. Capture only what should survive sessi
 
 ## Substrate
 
-The canonical IRP state lives in the project root:
+The canonical IRP state lives in the project folder. `irp init` starts it, once.
+Every command finds it from any folder inside the project, the way git finds `.git`.
+Only `irp init` creates `.irp/`. With no project, commands say so and exit 1.
 
 ```
 .irp/
 ├── ledger.jsonl     ← append-only source of truth
-└── current.json     ← derived active state (last 10 decisions)
+├── current.json     ← derived active state (last 10 decisions)
+└── config.json      ← settings (irp config)
 ```
 
 These are plain text files. They travel with the repo. No service required.
@@ -103,7 +106,7 @@ irp check --json "Add a SQLite database"
 pip install irp-capture
 ```
 
-The `irp` CLI is immediately available after install. No configuration needed.
+The `irp` CLI is immediately available after install. Run `irp init` once in the project folder to start its ledger.
 
 ---
 

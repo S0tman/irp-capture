@@ -114,6 +114,9 @@ def _do_verify(irp_dir: Path, args) -> dict:
             else "RESULT: NOT ESTABLISHED — the timestamp does not validly bind this snapshot."
         ),
     ]
+    # The timestamp's time goes out as text, so --json can print it.
+    gen_time = t["gen_time"]
+    res["token"] = dict(t, gen_time=gen_time.isoformat() if hasattr(gen_time, "isoformat") else gen_time)
     out = {"command": "attest", "status": "ok" if res["externally_witnessed"] else "fail",
            "result": res, "text": "\n".join(lines)}
     if not res["externally_witnessed"]:

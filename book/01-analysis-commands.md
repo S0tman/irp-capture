@@ -154,7 +154,7 @@ The dispatcher then:
 - Empty ledger → status="empty", exit 0
 
 **All commands:**
-- Missing .irp/ledger.jsonl → created by ensure_irp_dir
+- No project → read commands exit 1 (the no-project JSON with `--json`), write commands write nothing and exit 1. Only `irp init` creates `.irp/`
 - Corrupted JSONL line → skipped in read_ledger (robust parse)
 
 ## Data Transformation Patterns

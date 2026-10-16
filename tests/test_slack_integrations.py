@@ -1,9 +1,10 @@
 """Tests for irp/core/integrations/slack_capture.py and slack_post.py.
 
-slack_capture.py's STATE_DIR is a module-level constant created at import
-time from IRP_SLACK_STATE_DIR (default "./slack_capture_state"), tests
-monkeypatch the already-imported module's STATE_DIR rather than relying on
-env vars, since re-importing wouldn't pick up a changed env var anyway.
+slack_capture.py's STATE_DIR is a module-level constant set at import time
+from IRP_SLACK_STATE_DIR (default "./slack_capture_state") and created when
+state is first saved. Tests monkeypatch the already-imported module's
+STATE_DIR rather than relying on env vars, since re-importing wouldn't pick
+up a changed env var anyway.
 
 slack_post.py needs the `requests` package, which is not part of the dev
 extras. Its tests are import-skipped when requests is absent, and all HTTP
@@ -56,6 +57,14 @@ class TestThreadState:
         slack_capture.set_thread_state("C123", "111.222.333", {"x": 1})
         expected = state_dir / "C123__111_222_333.json"
         assert expected.exists()
+
+    def test_state_folder_is_created_on_first_save(self, tmp_path, monkeypatch):
+        later = tmp_path / "not_yet"
+        monkeypatch.setattr(slack_capture, "STATE_DIR", later)
+        assert slack_capture.get_thread_state("C123", "111.222") == {}
+        assert not later.exists()
+        slack_capture.set_thread_state("C123", "111.222", {"status": "pending"})
+        assert slack_capture.get_thread_state("C123", "111.222") == {"status": "pending"}
 
     def test_different_threads_do_not_collide(self, state_dir):
         slack_capture.set_thread_state("C123", "111.111", {"status": "a"})

@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,6 +15,7 @@ except ImportError:
 
 from irp.core.resolver import build_retirement_set, build_supersession_map
 from irp.core.store import (
+    classify_irp_folder,
     is_unconfirmed,
     read_current,
     read_ledger,
@@ -96,6 +98,216 @@ def _ledger_notes(
 def _check(label: str, ok: bool, detail: str = "") -> dict:
     return {"label": label, "ok": ok, "detail": detail}
 
+
+# ── stray .irp folders (report only) ──────────────────────────────────────────
+#
+# doctor looks in a few bounded places and never walks a tree: each folder from
+# where it runs up to the project (or the git top folder), the git top folder,
+# each immediate subfolder of the project and git's index of tracked files.
+# It removes nothing.
+
+STRAY_HEADER = "Stray .irp folders (older IRP versions made these when run outside a project)"
+STRAY_FOOTER = "An empty one can go by hand once you've checked it. IRP never removes a folder holding entries."
+
+# Folder names that mean a cloud-synced folder, where listing a folder can
+# start downloads. Matched case-insensitively against the start of each part.
+_CLOUD_PREFIXES = ("dropbox", "onedrive", "proton drive", "protondrive", "google drive",
+                   "googledrive", "icloud", "mobile documents", "cloudstorage")
+
+
+def _cloud_synced(path: Path) -> bool:
+    parts = path.parts
+    # Windows drives under WSL (/mnt/c/...)
+    if len(parts) >= 3 and parts[0] == "/" and parts[1] == "mnt" and len(parts[2]) == 1:
+        return True
+    return any(part.lower().startswith(_CLOUD_PREFIXES) for part in parts)
+
+
+def _home_folder() -> Path | None:
+    try:
+        return Path.home().resolve()
+    except (RuntimeError, KeyError, OSError):
+        return None
+
+
+def _entry_count(ledger: Path) -> int:
+    try:
+        with ledger.open("rb") as fh:
+            return sum(1 for line in fh if line.strip())
+    except OSError:
+        return 0
+
+
+# git sets these for hooks, `!` aliases and `rebase --exec`. Left in place,
+# git would treat the folder it runs in as the top of the worktree, so it's
+# asked to find the repo from that folder instead.
+_GIT_LOCATION_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX")
+
+
+def _git_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in _GIT_LOCATION_VARS}
+
+
+def _tracked_ledgers(git_top: Path) -> list[Path] | None:
+    """Folders holding a ledger git tracks, at any depth. Reads only git's index."""
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "-z", "--", ":(glob)**/.irp/ledger.jsonl"],
+            cwd=str(git_top), capture_output=True, timeout=20, env=_git_env(),
+        )
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    if result.returncode != 0:
+        return None
+    found = []
+    for raw in result.stdout.split(b"\0"):
+        if raw:
+            ledger = git_top / os.fsdecode(raw)
+            found.append(ledger.parent.parent)
+    return found
+
+
+def ledger_tracked_by_git(project_root: Path) -> bool | None:
+    """True when git tracks the project's ledger, False when it doesn't, None
+    when git can't say (not a repo, or git missing). Reads only git's index."""
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", ".irp/ledger.jsonl"],
+            cwd=str(project_root), capture_output=True, timeout=20, env=_git_env(),
+        )
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    if result.returncode == 0:
+        return True
+    return False if result.returncode == 1 else None
+
+
+def _join(parts: list[str]) -> str:
+    if len(parts) <= 1:
+        return "".join(parts)
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def scan_strays(here: Path, project_root: Path | None) -> dict:
+    """Find stray .irp folders in the bounded places. Creates and removes nothing.
+
+    Returns {"strays": [...], "looked": "...", "cloud_note": str or None}. Each
+    stray is {"path", "kind": "empty" or "entries", "entries"}. The project's own
+    .irp/ and folders that aren't IRP's are never listed.
+    """
+    here = Path(os.path.abspath(here)).resolve()
+    home = _home_folder()
+    candidates: list[Path] = []
+
+    # Each folder from here up to the project folder, or the git top folder.
+    git_top = None
+    last = None
+    folder = here
+    while not (home is not None and folder == home):
+        candidates.append(folder)
+        last = folder
+        if project_root is not None and folder == project_root:
+            break
+        if os.path.lexists(folder / ".git"):
+            git_top = folder
+            break
+        if folder.parent == folder:
+            break
+        folder = folder.parent
+    if git_top is None:
+        for above in (folder, *folder.parents):
+            if home is not None and above == home:
+                break
+            if os.path.lexists(above / ".git"):
+                git_top = above
+                break
+    if git_top is not None and git_top not in candidates:
+        candidates.append(git_top)
+
+    looked: list[str] = []
+    if last is not None:
+        looked.append(f"from here up to {last}")
+
+    # One level below the project folder (or the git top folder with no project).
+    base = project_root if project_root is not None else git_top
+    cloud_note = None
+    if base is not None:
+        if _cloud_synced(base):
+            cloud_note = (f"Didn't look in the folders below {base}: it's in a cloud-synced folder, "
+                          "where listing a folder can start downloads.")
+        else:
+            try:
+                with os.scandir(base) as entries:
+                    subfolders = sorted(Path(e.path) for e in entries
+                                        if e.name not in (".git", ".irp") and e.is_dir(follow_symlinks=False))
+            except OSError:
+                subfolders = []
+            candidates.extend(sub for sub in subfolders if os.path.lexists(sub / ".irp"))
+            looked.append(f"one level below {base}")
+
+    # Ledgers git tracks, at any depth. Like the walk up, this never reaches
+    # the home folder, which can be a git repo of its own.
+    index_top = git_top
+    if project_root is not None:
+        index_top = None
+        for above in (project_root, *project_root.parents):
+            if home is not None and above == home:
+                break
+            if os.path.lexists(above / ".git"):
+                index_top = above
+                break
+    if index_top is not None:
+        tracked = _tracked_ledgers(index_top)
+        if tracked is not None:
+            candidates.extend(tracked)
+            looked.append("in git's list of tracked files")
+
+    own = project_root / ".irp" if project_root is not None else None
+    strays = []
+    seen = set()
+    for folder in candidates:
+        irp_dir = folder / ".irp"
+        if irp_dir in seen or irp_dir == own:
+            continue
+        seen.add(irp_dir)
+        if not irp_dir.is_dir():
+            continue
+        kind = classify_irp_folder(irp_dir)
+        if kind == "empty_stray":
+            strays.append({"path": str(irp_dir), "kind": "empty", "entries": 0})
+        elif kind == "project":
+            strays.append({"path": str(irp_dir), "kind": "entries",
+                           "entries": _entry_count(irp_dir / "ledger.jsonl")})
+    strays.sort(key=lambda s: s["path"])
+    return {
+        "strays": strays,
+        "looked": f"Looked {_join(looked)}." if looked else "",
+        "cloud_note": cloud_note,
+    }
+
+
+def _stray_lines(report: dict) -> list[str]:
+    strays = report["strays"]
+    lines = []
+    if strays:
+        lines.append(f"  {STRAY_HEADER}")
+        width = max(len(s["path"]) for s in strays)
+        for s in strays:
+            if s["kind"] == "empty":
+                what = "empty, holds nothing"
+            else:
+                n = s["entries"]
+                what = f"holds {n} ledger {'entry' if n == 1 else 'entries'}, kept"
+            lines.append(f"    {s['path'].ljust(width)}   {what}")
+    else:
+        lines.append("  Stray .irp folders: none found")
+    for extra in (report["cloud_note"], report["looked"]):
+        if extra:
+            lines.append(f"    {extra}")
+    if strays:
+        lines.append(f"    {STRAY_FOOTER}")
+    return lines
+
 def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
     checks: list[dict] = []
     warnings: list[str] = []
@@ -114,13 +326,19 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
         checks.append(_check("irp-capture", False, "package not found — run: pip install irp-capture"))
 
     # ── .irp/ directory ───────────────────────────────────────────────────────
-    irp_path = project_root / ".irp"
-    irp_exists = irp_path.is_dir()
-    checks.append(_check(
-        ".irp/ directory",
-        irp_exists,
-        str(irp_path) if irp_exists else "not found — run: irp inherit \"Project: <name>\""
-    ))
+    # From the CLI, irp_dir is None when no project was found and
+    # args.irp_project_missing says where it looked.
+    missing = getattr(args, "irp_project_missing", None)
+    irp_path = Path(irp_dir) if irp_dir is not None else project_root / ".irp"
+    irp_exists = irp_dir is not None and irp_path.is_dir()
+    if irp_exists:
+        project_detail = str(irp_path)
+    elif missing is not None:
+        project_detail = (f"no IRP project found from {missing.searched_from} "
+                          f"(looked up to {missing.stopped_at}). Start one with: {missing.hint}")
+    else:
+        project_detail = f"not found. Start one with: irp init {project_root}"
+    checks.append(_check(".irp/ directory", irp_exists, project_detail))
 
     # ── ledger.jsonl ──────────────────────────────────────────────────────────
     entry_count = 0
@@ -188,6 +406,26 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
     ledger_notes = _ledger_notes(unconfirmed_ids, shared_ids, pending_reconstructions, current_stale)
     if fixed:
         ledger_notes.append("    ✓ current.json rebuilt from the ledger (unconfirmed guesses removed)")
+
+    # A ledger inside a linked worktree goes when the worktree is removed,
+    # unless git tracks it.
+    project = getattr(args, "irp_project", None)
+    worktree_of = getattr(project, "worktree_of", None)
+    at_risk = bool(irp_exists and worktree_of is not None
+                   and ledger_tracked_by_git(Path(project.root)) is not True)
+    if at_risk:
+        ledger_notes += [
+            f"    ! This ledger is inside a linked worktree of {worktree_of} and git doesn't track it, "
+            "so it goes when the worktree is removed.",
+            "        Back it up before you remove the worktree.",
+        ]
+        if project.main_checkout_projects:
+            ledger_notes.append(f"        The main checkout's project is at {project.main_checkout_projects[0]}.")
+
+    # ── stray .irp folders (report only, never removed) ───────────────────────
+    scan_root = Path(project.root) if project is not None else (
+        Path(project_root).resolve() if irp_exists else None)
+    strays = scan_strays(Path(getattr(args, "irp_cwd", None) or project_root), scan_root)
 
     # ── Claude Code skill ─────────────────────────────────────────────────────
     skill = project_root / "SKILL.md"
@@ -261,6 +499,8 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
             lines.append(f"    {mark} {c['label']}{detail}")
         if section_name == "Ledger":
             lines.extend(ledger_notes)
+            lines.append("")
+            lines.extend(_stray_lines(strays))
         lines.append("")
 
     if all_ok:
@@ -282,5 +522,8 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
         "current_stale": current_stale,
         "fixed": fixed,
         "reconstructions_pending": pending_reconstructions,
+        "strays": strays["strays"],
+        "strays_looked": strays["looked"],
+        "worktree_ledger_at_risk": at_risk,
         "text": "\n".join(lines),
     }

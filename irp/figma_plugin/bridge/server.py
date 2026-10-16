@@ -19,18 +19,25 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 # Parse --project-root argument
 parser = argparse.ArgumentParser()
-parser.add_argument("--project-root", default=os.getcwd(),
-                    help="Path to the project root containing .irp/ (default: cwd)")
+parser.add_argument("--project-root", default=None,
+                    help="The IRP project to write to (default: found from the current folder)")
 args_global, _ = parser.parse_known_args()
-PROJECT_ROOT = os.path.abspath(args_global.project_root)
-print(f"[bridge] Project root: {PROJECT_ROOT}")
+# Named with --project-root: that folder only. Otherwise found from here.
+_NAMED = args_global.project_root is not None
+PROJECT_ROOT = os.path.abspath(args_global.project_root if _NAMED else os.getcwd())
+
+
+def _find_project():
+    """The project, found on each capture. Raises ProjectNotFound; creates nothing."""
+    from irp.core.store import find_project
+
+    if _NAMED:
+        return find_project(project=PROJECT_ROOT)
+    return find_project(start=PROJECT_ROOT)
+
 
 # Figma PAT for comment fetching (optional — auto-populate feature)
 FIGMA_PAT = os.environ.get("FIGMA_PAT", "")
-if FIGMA_PAT:
-    print(f"[bridge] Figma PAT loaded — comment auto-populate enabled")
-else:
-    print(f"[bridge] No FIGMA_PAT set — comment auto-populate disabled (manual entry only)")
 
 PORT = 3002
 
@@ -156,14 +163,22 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         try:
             from datetime import date
-            from pathlib import Path
             from irp.core.store import (
-                ensure_irp_dir, read_ledger, next_irp_id,
+                ProjectNotFound, read_ledger, next_irp_id,
                 append_ledger_entry, rebuild_current, write_current
             )
 
-            project_root = Path(PROJECT_ROOT)
-            irp_dir = ensure_irp_dir(project_root)
+            try:
+                irp_dir = _find_project().irp_dir
+            except ProjectNotFound as exc:
+                message = exc.write_message("capture")
+                print(f"[bridge] not captured: {message.splitlines()[0]}")
+                self.send_response(409)
+                self._cors_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": message}).encode())
+                return
             # read_ledger is unfiltered on purpose: ids must see every line,
             # including legacy bootstrap guesses. rebuild_current below leaves
             # those guesses out of current.json.
@@ -204,6 +219,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
 if __name__ == "__main__":
+    from irp.core.store import ProjectNotFound
+
+    try:
+        PROJECT_ROOT = str(_find_project().root)
+    except ProjectNotFound as exc:
+        print(f"[bridge] No IRP project at {exc.searched_from}, so the bridge didn't start. "
+              f"Start one with: {exc.hint}", file=sys.stderr)
+        sys.exit(1)
+    _NAMED = True
+    print(f"[bridge] Project root: {PROJECT_ROOT}")
+    if FIGMA_PAT:
+        print("[bridge] Figma PAT loaded: comment auto-populate enabled")
+    else:
+        print("[bridge] No FIGMA_PAT set: comment auto-populate disabled (manual entry only)")
     server = HTTPServer(("localhost", PORT), BridgeHandler)
     print(f"[bridge] IRP Figma bridge running on http://localhost:{PORT}")
     print(f"[bridge] Waiting for captures from Figma plugin…")

@@ -15,8 +15,8 @@ class LedgerWriter:
         Args:
             ledger_path: Path to ledger.jsonl file (defaults to config)
         """
+        # The project must already exist: only `irp init` creates .irp/.
         self.ledger_path = ledger_path or IRP_LEDGER_PATH
-        self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
 
     def write_decision(
         self,

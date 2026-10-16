@@ -95,7 +95,8 @@ def run_command(project_root: Path, irp_dir: Path, args) -> dict:
 
 ### Store Module (store.py)
 Key functions:
-- `ensure_irp_dir()` — creates `.irp/` with ledger + current if missing
+- `find_project()`: finds the project from the current folder, walking up to the top of the git repo. Only reads. Raises `ProjectNotFound` when there's none
+- `init_project()`: starts a project (`irp init`), the only code that creates `.irp/`
 - `read_ledger()` — parse JSONL, skip malformed lines
 - `read_current()` — read derived state
 - `write_current()` — atomic write

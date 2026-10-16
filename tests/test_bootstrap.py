@@ -30,7 +30,8 @@ sys.path.insert(0, str(REPO))
 import irp  # noqa: E402,F401
 
 import store  # noqa: E402
-from store import ensure_irp_dir, read_ledger  # noqa: E402
+from store import read_ledger  # noqa: E402
+from conftest import make_project  # noqa: E402
 import commands.bootstrap as bootstrap_mod  # noqa: E402
 from commands.bootstrap import run_bootstrap  # noqa: E402
 
@@ -88,7 +89,7 @@ DOC_LINE_3 = "We decided to publish every release candidate to a staging index f
 
 
 def _bootstrap_docs(tmp_path, lines, **kwargs):
-    irp_dir = ensure_irp_dir(tmp_path)
+    irp_dir = make_project(tmp_path)
     _write_notes(tmp_path, lines)
     result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs", **kwargs))
     return irp_dir, result
@@ -102,20 +103,20 @@ def _bootstrap_docs(tmp_path, lines, **kwargs):
 class TestGitSource:
     def test_decision_commit_becomes_candidate(self, tmp_path):
         _init_repo_with_commits(tmp_path, ["we decided to standardize on SQLite for local-first storage"])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="git", dry_run=False))
         assert result["candidates_written"] == 1
         assert _recs(irp_dir)[0]["origin_mode"] == "bootstrap_git"
 
     def test_bootstrapped_flag_always_true(self, tmp_path):
         _init_repo_with_commits(tmp_path, ["we decided to adopt PostgreSQL for the backend"])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="git"))
         assert _recs(irp_dir)[0]["bootstrapped"] is True
 
     def test_confidence_is_always_low(self, tmp_path):
         _init_repo_with_commits(tmp_path, ["we decided to migrate to cloud storage"])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="git"))
         assert _recs(irp_dir)[0]["confidence"] == "low"
 
@@ -124,7 +125,7 @@ class TestGitSource:
             tmp_path, ["we decided to adopt PostgreSQL for the backend"],
             when="2024-03-05T10:00:00+0000",
         )
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="git"))
         rec = _recs(irp_dir)[0]
         assert rec["decided_at_estimate"] == "2024-03-05"
@@ -133,13 +134,13 @@ class TestGitSource:
 
     def test_noise_commits_are_skipped(self, tmp_path):
         _init_repo_with_commits(tmp_path, ["chore: bump deps", "fixup: typo"])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="git"))
         assert result["status"] == "empty"
 
     def test_commits_without_decision_language_are_skipped(self, tmp_path):
         _init_repo_with_commits(tmp_path, ["update the login page layout"])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="git"))
         assert result["status"] == "empty"
 
@@ -158,7 +159,7 @@ class TestDocsSource:
         assert "timestamp" not in rec
 
     def test_headings_and_short_lines_are_skipped(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         (tmp_path / "NOTES.md").write_text(
             "# We decided to use it\n\nWe decided.\n", encoding="utf-8"
         )
@@ -166,7 +167,7 @@ class TestDocsSource:
         assert result["status"] == "empty"
 
     def test_irp_internal_files_are_not_scanned(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         (irp_dir / "internal.md").write_text(
             "we decided to use internal notes only for this ledger entry text\n", encoding="utf-8"
         )
@@ -174,7 +175,7 @@ class TestDocsSource:
         assert result["status"] == "empty"
 
     def test_no_markdown_files_reports_empty(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs"))
         assert result["status"] == "empty"
 
@@ -189,7 +190,7 @@ class TestWriteModeLeavesLedgerAlone:
     """(a) write mode appends REC lines and nothing else."""
 
     def test_ledger_and_current_are_untouched(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         ledger_before = (irp_dir / "ledger.jsonl").read_bytes()
         current_before = (irp_dir / "current.json").read_bytes()
         _write_notes(tmp_path, [DOC_LINE_1, DOC_LINE_2])
@@ -200,7 +201,7 @@ class TestWriteModeLeavesLedgerAlone:
         assert read_ledger(irp_dir) == []
 
     def test_existing_ledger_is_byte_identical_after_a_run(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         entry = {
             "type": "decision", "id": "IRP-2026-01-01-001", "what": "Use Postgres",
             "why": "Joins", "confidence": "high", "timestamp": "2026-01-01", "source": "cli",
@@ -262,7 +263,7 @@ class TestRecIds:
         assert [r["id"] for r in _recs(irp_dir)] == [f"REC-{TODAY}-001", f"REC-{TODAY}-002"]
 
     def test_other_days_do_not_affect_todays_numbering(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         old = {"id": "REC-2020-01-01-009", "what": "An old guess", "status": "unconfirmed"}
         (irp_dir / "reconstructions.jsonl").write_text(json.dumps(old) + "\n", encoding="utf-8")
         _write_notes(tmp_path, [DOC_LINE_1])
@@ -270,7 +271,7 @@ class TestRecIds:
         assert _recs(irp_dir)[-1]["id"] == f"REC-{TODAY}-001"
 
     def test_gaps_in_todays_numbers_do_not_cause_reuse(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         seeded = {"id": f"REC-{TODAY}-007", "what": "Seeded guess", "status": "unconfirmed"}
         (irp_dir / "reconstructions.jsonl").write_text(json.dumps(seeded) + "\n", encoding="utf-8")
         _write_notes(tmp_path, [DOC_LINE_1])
@@ -282,14 +283,14 @@ class TestDeduplication:
     def test_duplicate_what_is_skipped_on_rerun(self, tmp_path, monkeypatch):
         _init_repo_with_commits(tmp_path, ["we decided to adopt PostgreSQL for storage"])
         monkeypatch.chdir(tmp_path)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="git"))
         result2 = run_bootstrap(tmp_path, irp_dir, _Args(from_source="git"))
         assert result2["status"] == "empty"
         assert len(_recs(irp_dir)) == 1
 
     def test_skips_what_already_in_the_ledger(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         entry = {
             "type": "decision", "id": "IRP-2026-01-01-001", "what": DOC_LINE_1.upper(),
             "why": "Because", "confidence": "high", "timestamp": "2026-01-01", "source": "cli",
@@ -302,7 +303,7 @@ class TestDeduplication:
 
     def test_skips_what_already_in_reconstructions(self, tmp_path):
         """(c) A guess that was already recorded is not recorded twice."""
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         existing = {"id": f"REC-{TODAY}-001", "what": DOC_LINE_1.lower(), "status": "unconfirmed"}
         (irp_dir / "reconstructions.jsonl").write_text(json.dumps(existing) + "\n", encoding="utf-8")
         _write_notes(tmp_path, [DOC_LINE_1, DOC_LINE_2])
@@ -325,7 +326,7 @@ class TestLimit:
         messages = [f"we decided to adopt tool number {i} for the pipeline" for i in range(5)]
         _init_repo_with_commits(tmp_path, messages)
         monkeypatch.chdir(tmp_path)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="git", limit=2))
         assert result["candidates_written"] == 2
         assert len(_recs(irp_dir)) == 2
@@ -336,7 +337,7 @@ class TestDryRun:
     """(d) --dry-run previews with provisional REC ids and writes nothing."""
 
     def test_dry_run_writes_nothing(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         _write_notes(tmp_path, [DOC_LINE_1, DOC_LINE_2])
         ledger_before = (irp_dir / "ledger.jsonl").read_bytes()
         current_before = (irp_dir / "current.json").read_bytes()
@@ -352,7 +353,7 @@ class TestDryRun:
         """main() creates .irp/ and --write-report writes a report, so 'nothing was
         written' would be false. Say what is true."""
         _write_notes(tmp_path, [DOC_LINE_1])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs", dry_run=True))
         text = result["text"]
         assert "Nothing was written" not in text
@@ -360,7 +361,7 @@ class TestDryRun:
 
     def test_dry_run_with_a_report_says_where_the_report_went(self, tmp_path):
         _write_notes(tmp_path, [DOC_LINE_1])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(
             tmp_path, irp_dir, _Args(from_source="docs", dry_run=True, write_report=True))
         assert "Report written: .irp/bootstrap_reports/" in result["text"]
@@ -377,7 +378,7 @@ class TestDryRun:
     def test_dry_run_assigns_provisional_rec_ids(self, tmp_path, monkeypatch):
         _init_repo_with_commits(tmp_path, ["we decided to adopt PostgreSQL for storage"])
         monkeypatch.chdir(tmp_path)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="git", dry_run=True))
         assert result["status"] == "dry_run"
         assert result["entries"][0]["id"] == f"REC-{TODAY}-001"
@@ -474,7 +475,7 @@ class TestAccept:
         assert "not found" in result["text"].lower()
 
     def test_accept_with_no_reconstructions_file_is_a_clean_report(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(accept=["REC-1999-01-01-001"]))
         assert result["accepted"] == []
         assert read_ledger(irp_dir) == []
@@ -565,7 +566,7 @@ class TestReport:
     def test_write_report_creates_markdown_file(self, tmp_path, monkeypatch):
         _init_repo_with_commits(tmp_path, ["we decided to adopt PostgreSQL for storage"])
         monkeypatch.chdir(tmp_path)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="git", write_report=True))
         report_path = Path(result["report"])
         assert report_path.exists()
@@ -617,7 +618,7 @@ class TestRecIdReuse:
     def test_same_id_but_different_content_is_not_a_landed_accept(self, tmp_path):
         """Another clone (or a deleted file) can hand out the same REC id for a
         different guess. The old ledger entry must not be adopted for it."""
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         rec_id = f"REC-{TODAY}-001"
         old_entry = {
             "type": "decision", "id": f"IRP-{TODAY}-001", "what": "The old guess text",
@@ -654,7 +655,7 @@ def needs_flock():
 
 class TestLockingAndDuplicates:
     def test_concurrent_runs_never_issue_the_same_rec_id(self, tmp_path, monkeypatch, needs_flock):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         _write_notes(tmp_path, [DOC_LINE_1, DOC_LINE_2, DOC_LINE_3])
         real = store.next_rec_id
 
@@ -703,7 +704,7 @@ class TestLockingAndDuplicates:
         assert done.is_set()
 
     def test_bootstrap_write_waits_for_the_lock(self, tmp_path, needs_flock):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         _write_notes(tmp_path, [DOC_LINE_1])
         self._blocked_while_locked(
             irp_dir, lambda: run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs")))
@@ -724,13 +725,13 @@ class TestLockingAndDuplicates:
         assert _recs(irp_dir)[0]["status"] == "x"
 
     def test_the_lock_is_reentrant_within_one_thread(self, tmp_path, needs_flock):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         with store.irp_lock(irp_dir):
             with store.irp_lock(irp_dir):
                 pass
 
     def test_dry_run_does_not_take_or_create_the_lock(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         _write_notes(tmp_path, [DOC_LINE_1])
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs", dry_run=True))
         assert not (irp_dir / ".lock").exists()
@@ -753,7 +754,7 @@ class TestSourceRefIsRelative:
     """A home folder and username must not be copied into a shared ledger."""
 
     def test_doc_in_a_subfolder_is_stored_relative_to_the_project(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         (tmp_path / "docs").mkdir()
         (tmp_path / "docs" / "adr.md").write_text(DOC_LINE_1 + "\n", encoding="utf-8")
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs"))
@@ -767,7 +768,7 @@ class TestSourceRefIsRelative:
         other = tmp_path / "elsewhere"
         other.mkdir()
         (other / "notes.md").write_text(DOC_LINE_1 + "\n", encoding="utf-8")
-        irp_dir = ensure_irp_dir(project)
+        irp_dir = make_project(project)
         run_bootstrap(project, irp_dir, _Args(from_source="docs", path=str(other)))
         rec = _recs(irp_dir)[0]
         assert rec["source_ref"] == "notes.md"
@@ -785,7 +786,7 @@ class TestSourceRefIsRelative:
         return rec["id"]
 
     def test_accept_relativizes_a_legacy_absolute_path_under_the_project(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         rec_id = self._seed(irp_dir, str(tmp_path / "docs" / "adr.md"))
         run_bootstrap(tmp_path, irp_dir, _Args(accept=[rec_id]))
         entry = read_ledger(irp_dir)[0]
@@ -793,7 +794,7 @@ class TestSourceRefIsRelative:
         assert str(tmp_path) not in json.dumps(entry)
 
     def test_accept_keeps_only_the_file_name_for_an_absolute_path_outside_the_project(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         rec_id = self._seed(irp_dir, "/Users/someone/private/notes.md")
         run_bootstrap(tmp_path, irp_dir, _Args(accept=[rec_id]))
         entry = read_ledger(irp_dir)[0]
@@ -801,7 +802,7 @@ class TestSourceRefIsRelative:
         assert "someone" not in json.dumps(entry)
 
     def test_accept_leaves_a_commit_hash_alone(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         rec_id = self._seed(irp_dir, "a36f516891806c1188a5e52187d0180b74cc55f0")
         run_bootstrap(tmp_path, irp_dir, _Args(accept=[rec_id]))
         assert read_ledger(irp_dir)[0]["source_ref"] == "a36f516891806c1188a5e52187d0180b74cc55f0"
@@ -814,6 +815,7 @@ def _cli(args, cwd):
 
 class TestAcceptExitCode:
     def test_nothing_accepted_with_problems_exits_1(self, tmp_path):
+        make_project(tmp_path)
         out = _cli(["bootstrap", "--accept", "REC-1999-01-01-001"], tmp_path)
         assert out.returncode == 1
         assert "not found" in out.stdout.lower()
@@ -841,6 +843,7 @@ class TestAcceptExitCode:
         assert "not found" in out.stdout.lower()
 
     def test_the_scan_still_exits_0(self, tmp_path):
+        make_project(tmp_path)
         _write_notes(tmp_path, [DOC_LINE_1])
         assert _cli(["bootstrap", "--from", "docs"], tmp_path).returncode == 0
 
@@ -857,14 +860,24 @@ class TestFileModeIsKept:
 
 # ── .irp/.gitignore keeps the lock out of projects that commit .irp/ ─────────
 
+def _bootstrap_docs_without_irp_gitignore(tmp_path, lines, **kwargs):
+    """_bootstrap_docs in a project with no .irp/.gitignore, as projects started
+    before `irp init` wrote one are."""
+    irp_dir = make_project(tmp_path)
+    (irp_dir / ".gitignore").unlink()
+    _write_notes(tmp_path, lines)
+    result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs", **kwargs))
+    return irp_dir, result
+
+
 class TestLockIgnoredInCommittedIrp:
     def test_first_bootstrap_creates_irp_gitignore(self, tmp_path):
-        irp_dir, _ = _bootstrap_docs(tmp_path, [DOC_LINE_1])
+        irp_dir, _ = _bootstrap_docs_without_irp_gitignore(tmp_path, [DOC_LINE_1])
         assert (irp_dir / ".lock").exists()
         assert (irp_dir / ".gitignore").read_text(encoding="utf-8") == ".lock\n"
 
     def test_existing_irp_gitignore_is_kept_and_gains_lock_once(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         (irp_dir / ".gitignore").write_text("bootstrap_reports/", encoding="utf-8")  # no final newline
         _write_notes(tmp_path, [DOC_LINE_1])
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs"))
@@ -873,14 +886,14 @@ class TestLockIgnoredInCommittedIrp:
         assert (irp_dir / ".gitignore").read_text(encoding="utf-8") == "bootstrap_reports/\n.lock\n"
 
     def test_a_gitignore_that_already_ignores_the_lock_is_untouched(self, tmp_path):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         (irp_dir / ".gitignore").write_text("# mine\n.lock\n", encoding="utf-8")
         _write_notes(tmp_path, [DOC_LINE_1])
         run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs"))
         assert (irp_dir / ".gitignore").read_text(encoding="utf-8") == "# mine\n.lock\n"
 
     def test_dry_run_creates_neither(self, tmp_path):
-        irp_dir, _ = _bootstrap_docs(tmp_path, [DOC_LINE_1], dry_run=True)
+        irp_dir, _ = _bootstrap_docs_without_irp_gitignore(tmp_path, [DOC_LINE_1], dry_run=True)
         assert not (irp_dir / ".lock").exists() and not (irp_dir / ".gitignore").exists()
 
     def test_git_ignores_the_lock_but_not_the_ledger(self, tmp_path):
@@ -939,7 +952,7 @@ class TestLockOnMountsWithoutFlock:
             OSError(errno.ENOTSUP, "no")))
         monkeypatch.setattr(store.os, "open", spy_open)
         monkeypatch.setattr(store.os, "close", spy_close)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         with store.irp_lock(irp_dir):
             pass
         assert opened and set(opened) <= set(closed)
@@ -951,7 +964,7 @@ class TestLockOnMountsWithoutFlock:
             raise OSError(errno.EIO, "disk on fire")
 
         monkeypatch.setattr(store.fcntl, "flock", fake_flock)
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         with pytest.raises(OSError):
             with store.irp_lock(irp_dir):
                 pass
@@ -962,7 +975,7 @@ class TestBlankAccept:
 
     @pytest.mark.parametrize("value", [[""], [" ", ""], [["", " "]], []])
     def test_blank_values_are_a_problem_not_a_scan(self, tmp_path, value):
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         _write_notes(tmp_path, [DOC_LINE_1])
         result = run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs", accept=value))
         assert result["status"] == "nothing_accepted"
@@ -973,10 +986,11 @@ class TestBlankAccept:
 
     def test_not_passing_accept_still_scans(self, tmp_path):
         _write_notes(tmp_path, [DOC_LINE_1])
-        irp_dir = ensure_irp_dir(tmp_path)
+        irp_dir = make_project(tmp_path)
         assert run_bootstrap(tmp_path, irp_dir, _Args(from_source="docs"))["status"] == "written"
 
     def test_cli_accept_with_an_empty_string_exits_1_and_records_nothing(self, tmp_path):
+        make_project(tmp_path)
         _write_notes(tmp_path, [DOC_LINE_1])
         out = _cli(["bootstrap", "--accept", ""], tmp_path)
         assert out.returncode == 1

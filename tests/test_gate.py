@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from conftest import make_project
+
 IRP_PY = str(Path(__file__).parent.parent / "irp" / "core" / "irp.py")
 
 # ── shared fixtures ────────────────────────────────────────────────────────────
@@ -252,12 +254,7 @@ class TestComposability:
         )
 
     def test_empty_ledger_returns_clear(self, tmp_path):
-        irp_dir = tmp_path / ".irp"
-        irp_dir.mkdir()
-        (irp_dir / "ledger.jsonl").write_text("", encoding="utf-8")
-        (irp_dir / "current.json").write_text(
-            json.dumps({"version": 1, "active": []}), encoding="utf-8"
-        )
+        make_project(tmp_path)
         code, data = _run(["gate", "anything at all"], tmp_path)
         assert code == 0
         assert data["verdict"] == "clear"

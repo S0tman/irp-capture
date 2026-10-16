@@ -35,7 +35,7 @@ Open **Cursor → Settings → MCP** (or edit `~/.cursor/mcp.json` directly):
 }
 ```
 
-If your project root is not the directory you open in Cursor, set it explicitly:
+Without `IRP_PROJECT_ROOT` the server finds the project from the folder Cursor starts it in, walking up to the top of the git repo. Run `irp init` in the project first if it has no ledger yet. If your project isn't inside the folder you open in Cursor, set it explicitly:
 
 ```json
 {

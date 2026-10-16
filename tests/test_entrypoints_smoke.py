@@ -24,6 +24,8 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 import irp  # noqa: E402,F401
 
+from conftest import make_project  # noqa: E402
+
 
 class TestMcpServerSmoke:
     def test_imports_and_exposes_tools(self):
@@ -41,11 +43,24 @@ class TestMcpServerSmoke:
         pytest.importorskip("mcp", reason="mcp not installed (irp-capture[mcp] extra)")
         import irp.mcp.server as mcp_server
 
+        make_project(tmp_path)
         monkeypatch.setenv("IRP_PROJECT_ROOT", str(tmp_path))
         project_root, irp_dir = mcp_server._resolve_paths()
         assert project_root == tmp_path.resolve()
         assert irp_dir == tmp_path.resolve() / ".irp"
         assert irp_dir.is_dir()
+
+    def test_resolve_paths_with_no_project_raises_and_creates_nothing(self, tmp_path, monkeypatch):
+        pytest.importorskip("mcp", reason="mcp not installed (irp-capture[mcp] extra)")
+        import irp.mcp.server as mcp_server
+        from irp.core.store import ProjectNotFound
+
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        monkeypatch.setenv("IRP_PROJECT_ROOT", str(empty))
+        with pytest.raises(ProjectNotFound):
+            mcp_server._resolve_paths()
+        assert list(empty.iterdir()) == []
 
 
 class TestApiServerSmoke:
@@ -54,8 +69,9 @@ class TestApiServerSmoke:
         pytest.importorskip("uvicorn", reason="uvicorn not installed (irp-capture[api] extra)")
 
         # api/server.py parses --project-root from real sys.argv at import
-        # time; pin it at a throwaway directory so importing the module in a
+        # time; pin it at a throwaway project so importing the module in a
         # test run never touches (or creates .irp/ under) the real repo.
+        make_project(tmp_path)
         monkeypatch.setattr(sys, "argv", ["irp-api", "--project-root", str(tmp_path)])
 
         import irp.api.server as api_server

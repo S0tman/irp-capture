@@ -17,7 +17,8 @@ sys.path.insert(0, str(ROOT / "irp" / "core"))
 sys.path.insert(0, str(ROOT))
 
 from irp.core.commands.inherit import INHERIT_LIMIT, run_inherit  # noqa: E402
-from irp.core.store import append_ledger_entry, ensure_irp_dir  # noqa: E402
+from irp.core.store import append_ledger_entry  # noqa: E402
+from conftest import make_project  # noqa: E402
 
 
 def _decision(n: int, what: str | None = None, **extra) -> dict:
@@ -26,7 +27,7 @@ def _decision(n: int, what: str | None = None, **extra) -> dict:
 
 
 def _run(tmp_path, entries):
-    irp_dir = ensure_irp_dir(tmp_path)
+    irp_dir = make_project(tmp_path)
     for e in entries:
         append_ledger_entry(irp_dir, e)
     return run_inherit(project_root=tmp_path, irp_dir=irp_dir, args=SimpleNamespace(json=True))
