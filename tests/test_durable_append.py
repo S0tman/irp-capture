@@ -348,6 +348,7 @@ class TestWritersRefuse:
         assert store.read_reconstructions(irp_dir) == []
 
     def test_discord_writer_syncs_and_refuses(self, irp_dir, spy_fsync):
+        pytest.importorskip("dotenv")
         from irp.discord_sensor.ledger_writer import LedgerWriter
 
         w = LedgerWriter(irp_dir / LEDGER)
