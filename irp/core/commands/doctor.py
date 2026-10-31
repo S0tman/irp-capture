@@ -436,6 +436,11 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
     for r in fixed_tails:
         if r.get("status") == "quarantined":
             ledger_notes.append(f"    ✓ {r['file']}: {r['bytes']} half-written bytes moved to .irp/{r['side_file']}")
+            if r.get("may_hold_record"):
+                ledger_notes += [
+                    "      The side file may hold a whole record (an older version wrote a full line behind the half one).",
+                    "      Open it and, if so, re-capture that decision by hand; it is not restored for you.",
+                ]
         elif r.get("status") == "newline-added":
             ledger_notes.append(f"    ✓ {r['file']}: last line was whole, only its line break was added")
     if fixed:
@@ -513,7 +518,7 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
     # ── Summary ───────────────────────────────────────────────────────────────
     core_checks = checks[:6]   # Python, irp-capture, .irp/, ledger, current, Claude skill
     core_failed = [c for c in core_checks if not c["ok"]]
-    all_ok = len(core_failed) == 0
+    all_ok = len(core_failed) == 0 and not torn_files
 
     # ── Render text output ────────────────────────────────────────────────────
     lines = ["", "IRP Doctor", ""]
@@ -540,9 +545,12 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
     if all_ok:
         lines.append("  All core checks passed.")
     else:
-        lines.append(f"  {len(core_failed)} core check(s) failed:")
-        for c in core_failed:
-            lines.append(f"    → {c['label']}: {c['detail']}")
+        if core_failed:
+            lines.append(f"  {len(core_failed)} core check(s) failed:")
+            for c in core_failed:
+                lines.append(f"    → {c['label']}: {c['detail']}")
+        for t in torn_files:
+            lines.append(f"  {t['file']} ends in a half-written line: run irp doctor --fix-tail")
 
     lines.append("")
 

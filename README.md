@@ -462,18 +462,28 @@ key is now `tag`.
 
 **Upgrading from 0.10.0 (0.10.1).** Every write to `ledger.jsonl`,
 `craft.jsonl` and `reconstructions.jsonl` is now flushed to disk before the
-command returns (the folder too, when the file is first made), and the line goes
-down in a single write, so two captures at once can't mix their lines. Before
-adding anything, IRP checks the end of the file. If a crash or power cut left a
-half-written last line, `irp capture` and the other writers stop with a plain
-message and add nothing, and every reader (`why`, `check`, `inherit`) keeps
-working and skips that line. `irp doctor` reports it. To repair, run
+command returns (the folder too, when the file is first made), and each line
+goes down in one write while IRP holds `.irp/.lock`. That lock keeps two
+captures from mixing their lines. On a local disk the single write protects
+lines even without the lock. On a network, 9p or FUSE mount, or where the
+system refuses file locks, IRP can't promise that, and a mount can also report
+a flush it did not do. Before adding anything, IRP checks the end of the file.
+If a crash or power cut left a half-written last line, `irp capture` and the
+other writers stop with a plain message and add nothing. Readers (`why`,
+`check`, `inherit`) promise one thing: they skip a half line. The exception is
+the integrity snapshot, which refuses a ledger with a bad line. `irp doctor`
+reports the problem and no longer says "ok" while one is open. To repair, run
 `irp doctor --fix-tail`: it copies the half line to
-`.irp/ledger.torn-<UTC time>.jsonl`, makes sure that copy is on disk, and only
-then cuts the ledger back to its last complete line. No byte is deleted. If you
-run a script that appends to `ledger.jsonl` itself, the same rule applies to it:
-end every line with a line break. Flushing waits for the disk, so a capture can
-take a few milliseconds longer; how much depends on the disk.
+`.irp/ledger.torn-<UTC time>.jsonl` (a side file, listed in `.irp/.gitignore`
+so it is not committed by accident), makes sure that copy is on disk, and only
+then cuts the ledger back to its last complete line. No byte is deleted. If an
+older version wrote a whole line behind a half one, the side file can hold a
+whole record: doctor says so, and you re-capture it by hand. Two small side
+effects: IRP now adds a `.lock` line to `.irp/.gitignore` (creating the file if
+needed), and `current.json` is replaced through a temporary file. If you run a
+script that appends to `ledger.jsonl` itself, end every line with a line break.
+Flushing waits for the disk, so a capture can take a few milliseconds longer;
+how much depends on the disk.
 
 ---
 

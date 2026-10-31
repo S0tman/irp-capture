@@ -383,11 +383,22 @@
         }
         setTimeout(() => { status.textContent = ""; status.className = "status"; }, 3000);
       } else {
-        throw new Error(`Bridge returned ${res.status}`);
+        // The bridge answered but refused (for example 409: the ledger ends in a half-written line).
+        // Show its own words; "not reachable" is only for a bridge that did not answer.
+        let bridgeMessage = `Bridge returned ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body && typeof body.error === "string" && body.error) bridgeMessage = body.error;
+        } catch (_) { /* body was not JSON: keep the status text */ }
+        const refused = new Error(bridgeMessage);
+        refused.name = "BridgeRefused";
+        throw refused;
       }
     } catch (e) {
-      parent.postMessage({ pluginMessage: { type: "error" } }, "*");
-      status.textContent = "Bridge not reachable";
+      const refused = e && e.name === "BridgeRefused";
+      const text = refused ? e.message : "Bridge not reachable";
+      parent.postMessage({ pluginMessage: { type: "error", message: refused ? text : null } }, "*");
+      status.textContent = text;
       status.className = "status err";
     }
   });

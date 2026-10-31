@@ -844,7 +844,7 @@ class TestNoBypass:
                 for fn in ast.walk(tree):
                     if isinstance(fn, ast.FunctionDef) and fn.lineno <= node.lineno <= (fn.end_lineno or fn.lineno):
                         enclosing = fn.name
-                if (rel, enclosing) not in {("irp/core/store.py", "_ensure_lock_ignored"),
+                if (rel, enclosing) not in {("irp/core/store.py", "_ensure_ignored"),
                                             ("irp/core/store.py", "durable_append"),
                                             ("irp/core/store.py", "fix_torn_tail")}:
                     offenders.append(f"{rel}:{node.lineno} in {enclosing}")

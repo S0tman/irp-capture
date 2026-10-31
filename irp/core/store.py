@@ -495,9 +495,29 @@ def read_current(irp_dir: Path) -> dict[str, Any]:
 
 
 def write_current(irp_dir: Path, data: dict[str, Any]) -> None:
-    (irp_dir / "current.json").write_text(
-        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    """Replace current.json whole: temp file in the same folder, fsync, os.replace, folder fsync.
+    A crash leaves either the old file or the new one, never half of each."""
+    irp_dir = Path(irp_dir)
+    text = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+    tmp = irp_dir / f"current.json.tmp-{os.getpid()}-{time.monotonic_ns()}"
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o666)
+    try:
+        try:
+            view = memoryview(text)
+            done = 0
+            while done < len(text):
+                done += os.write(fd, view[done:])
+            _sync_fd(fd)
+        finally:
+            os.close(fd)
+        os.replace(tmp, irp_dir / "current.json")
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    _sync_dir(irp_dir)
 
 
 def append_ledger_entry(irp_dir: Path, entry: dict[str, Any]) -> None:
@@ -674,22 +694,41 @@ _FLOCK_UNSUPPORTED = {
 }
 
 
-def _ensure_lock_ignored(irp_dir: Path) -> None:
-    """Keep .irp/.lock out of projects that commit .irp/: make sure .irp/.gitignore lists it. Other lines in an
-    existing .irp/.gitignore are left exactly as they are; .lock is added once. Failure to write is ignored (a
-    read-only folder can't hold a lock either)."""
+def _may_hold_record(torn: bytes) -> bool:
+    """True when some '{' inside the torn bytes starts a complete JSON object up to the end: the legacy damage
+    where a whole line was written behind a half line. Such a record is NOT restored automatically (cutting at
+    a guessed brace could split a half line's own text); it stays in the side file for a person to read."""
+    body = torn.strip()
+    start = body.find(b"{", 1)
+    tries = 0
+    while start != -1 and tries < 256:
+        if _is_json_object(body[start:]):
+            return True
+        start = body.find(b"{", start + 1)
+        tries += 1
+    return False
+
+
+def _ensure_ignored(irp_dir: Path, pattern: str) -> None:
+    """Add `pattern` to .irp/.gitignore if no line already says it. Other lines are left as they are."""
     path = irp_dir / ".gitignore"
     try:
         if path.exists():
             text = path.read_text(encoding="utf-8")
-            if any(line.strip() in (".lock", "/.lock") for line in text.splitlines()):
+            if any(line.strip() in (pattern, "/" + pattern) for line in text.splitlines()):
                 return
             with path.open("a", encoding="utf-8") as fh:
-                fh.write(("" if text.endswith("\n") or not text else "\n") + ".lock\n")
+                fh.write(("" if text.endswith("\n") or not text else "\n") + pattern + "\n")
         else:
-            path.write_text(".lock\n", encoding="utf-8")
+            path.write_text(pattern + "\n", encoding="utf-8")
     except OSError:
         pass
+
+
+def _ensure_lock_ignored(irp_dir: Path) -> None:
+    """Keep .irp/.lock out of projects that commit .irp/. Failure to write is ignored (a read-only folder can't
+    hold a lock either)."""
+    _ensure_ignored(irp_dir, ".lock")
 
 
 @contextmanager
@@ -751,10 +790,14 @@ def irp_lock(irp_dir: Path) -> Iterator[None]:
 # behind it, which broke every later read of that line and stopped checkpoints
 # until someone repaired the file by hand. Now:
 #
-# - each append is ONE os.write on an O_APPEND descriptor (so two writers cannot
-#   interleave, even where flock is missing), under the advisory lock where there
-#   is one, followed by fsync (F_FULLFSYNC on macOS), and by an fsync of the
-#   folder when the file was just created;
+# - each append is ONE os.write on an O_APPEND descriptor, under the advisory lock
+#   where the filesystem has one, followed by fsync (F_FULLFSYNC on macOS), and by
+#   an fsync of the folder when the file was just created. What this guarantees:
+#   with the lock, writers take turns. On a local filesystem the single O_APPEND
+#   write also keeps lines apart without the lock. On 9p, network or FUSE mounts,
+#   or where flock is refused, nothing here promises that two writers at once
+#   cannot interleave, and a mount can ignore fsync; the torn-tail check is the
+#   safety net, not a guarantee;
 # - before writing, the file's tail is checked. A last line with no newline, or
 #   one that is not a JSON object, means an earlier crash: the writer refuses
 #   (TornTailError) and changes nothing;
@@ -812,7 +855,8 @@ def torn_tail(path: Path) -> "TornTail | None":
     """None when the file is absent, empty, or ends in a complete JSON line; else what is wrong with its end.
 
     Reads backwards from the end, so the cost follows the length of the last line, not of the file.
-    A bad line in the middle is not a torn tail (readers skip it), and trailing blank lines are fine.
+    A bad line in the middle is not a torn tail (readers skip it), and trailing blank lines or
+    spaces are fine.
     """
     try:
         f = open(path, "rb")
@@ -836,10 +880,12 @@ def torn_tail(path: Path) -> "TornTail | None":
             cut = body.rfind(b"\n")
             if cut != -1 or pos == 0:
                 break
-        if not ends_with_newline:
+        last_break = data.rfind(b"\n")
+        blank_tail = not data[last_break + 1:].strip(b" \t\r")
+        if not ends_with_newline and not blank_tail:
             # Everything after the last line break is unfinished (fix_torn_tail adds just the
             # newline when that text turns out to be a whole JSON object).
-            return TornTail("unterminated", pos + data.rfind(b"\n") + 1, size)
+            return TornTail("unterminated", pos + last_break + 1, size)
         if not body:
             return None
         line_start = pos + cut + 1  # cut == -1 at pos 0 gives 0
@@ -868,6 +914,13 @@ def _sync_dir(directory: Path) -> None:
     except OSError:
         return
     try:
+        full = getattr(fcntl, "F_FULLFSYNC", None) if fcntl is not None else None
+        if full is not None:
+            try:
+                fcntl.fcntl(fd, full)
+                return
+            except OSError:
+                pass  # not supported on this folder: plain fsync below
         try:
             os.fsync(fd)
         except OSError as exc:
@@ -979,7 +1032,9 @@ def fix_torn_tail(irp_dir: Path, name: str = "ledger.jsonl") -> dict[str, Any]:
             _sync_fd(fd)
         finally:
             os.close(fd)
-        return {"file": name, "status": "quarantined", "bytes": len(torn), "side_file": side.name}
+        _ensure_ignored(Path(irp_dir), "*.torn-*.jsonl")
+        return {"file": name, "status": "quarantined", "bytes": len(torn), "side_file": side.name,
+                "may_hold_record": _may_hold_record(torn)}
 
 
 # ── reconstructions ───────────────────────────────────────────────────────────
