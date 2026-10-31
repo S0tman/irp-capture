@@ -6,7 +6,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from irp.core.store import append_ledger_entry, confirmed_only, next_irp_id, read_ledger, rebuild_current, write_current
+from irp.core.store import (
+    TornTailError, append_ledger_entry, confirmed_only, irp_lock, next_irp_id, read_ledger, rebuild_current,
+    torn_tail, write_current,
+)
 from irp.integrations import dispatch as _dispatch
 
 _MILESTONES = {
@@ -78,7 +81,10 @@ def read_candidate_interactive() -> dict[str, Any]:
     }
 
 def run_capture(project_root: Path, irp_dir: Path, args) -> dict:
-    ledger = read_ledger(irp_dir)
+    # Refuse before asking anything: a half-written last line (a crash left it) means nothing can be added.
+    tail = torn_tail(irp_dir / "ledger.jsonl")
+    if tail is not None:
+        raise TornTailError(irp_dir / "ledger.jsonl", tail)
 
     candidate = read_candidate_from_stdin() if args.stdin else read_candidate_interactive()
 
@@ -88,7 +94,7 @@ def run_capture(project_root: Path, irp_dir: Path, args) -> dict:
     candidate.setdefault("source", "interactive" if not args.stdin else "stdin")
     candidate.setdefault("tags", [])
 
-    candidate["id"] = next_irp_id(ledger)
+    candidate["id"] = next_irp_id(read_ledger(irp_dir))
 
     preview = json.dumps(candidate, indent=2, ensure_ascii=False)
 
@@ -110,7 +116,11 @@ def run_capture(project_root: Path, irp_dir: Path, args) -> dict:
             "text": "\n".join(header + ["Capture skipped."]),
         }
 
-    append_ledger_entry(irp_dir, candidate)
+    # Take the id again under the lock, from reading the ledger to appending, so two captures at
+    # once cannot end up with the same id. (The lock is not held while a person is at the prompt.)
+    with irp_lock(irp_dir):
+        candidate["id"] = next_irp_id(read_ledger(irp_dir))
+        append_ledger_entry(irp_dir, candidate)
 
     updated_ledger = read_ledger(irp_dir)
     current = rebuild_current(updated_ledger)

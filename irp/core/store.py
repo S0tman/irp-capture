@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
@@ -500,8 +501,11 @@ def write_current(irp_dir: Path, data: dict[str, Any]) -> None:
 
 
 def append_ledger_entry(irp_dir: Path, entry: dict[str, Any]) -> None:
-    with (irp_dir / "ledger.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    """Append one decision line to .irp/ledger.jsonl, flushed to disk.
+
+    Refuses (TornTailError) when the file ends in a half-written line.
+    """
+    durable_append(irp_dir / "ledger.jsonl", json.dumps(entry, ensure_ascii=False))
 
 
 def next_irp_id(ledger: list[dict[str, Any]]) -> str:
@@ -642,7 +646,7 @@ def read_ledger(irp_dir: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if line:
             try:
@@ -739,6 +743,245 @@ def irp_lock(irp_dir: Path) -> Iterator[None]:
             os.close(fd)
 
 
+
+# ── durable appends ───────────────────────────────────────────────────────────
+#
+# An append used to be open("a") plus write, with no flush to disk. A hard reset
+# could leave half a line at the end of the file, and the next capture then wrote
+# behind it, which broke every later read of that line and stopped checkpoints
+# until someone repaired the file by hand. Now:
+#
+# - each append is ONE os.write on an O_APPEND descriptor (so two writers cannot
+#   interleave, even where flock is missing), under the advisory lock where there
+#   is one, followed by fsync (F_FULLFSYNC on macOS), and by an fsync of the
+#   folder when the file was just created;
+# - before writing, the file's tail is checked. A last line with no newline, or
+#   one that is not a JSON object, means an earlier crash: the writer refuses
+#   (TornTailError) and changes nothing;
+# - if a write fails part-way, the file is cut back to its old length;
+# - `irp doctor --fix-tail` (fix_torn_tail) copies the torn bytes to a side file,
+#   flushes that, and only then truncates. No byte is ever deleted.
+
+
+class TornTailError(OSError):
+    """The file ends in a half-written line. Nothing was added."""
+
+    def __init__(self, path: Path, tail: "TornTail"):
+        self.path = Path(path)
+        self.tail = tail
+        name = self.path.name
+        super().__init__(
+            f"{name} ends in a half-written line ({tail.describe()}), probably left by a crash or power cut. "
+            f"Nothing was added. Move the half line aside with: irp doctor --fix-tail "
+            f"(it keeps the bytes in a side file), then try again."
+        )
+
+
+class DurabilityError(OSError):
+    """The write went through but the disk did not confirm it."""
+
+
+class TornTail:
+    """What torn_tail found: `kind` is 'unterminated' or 'invalid', `offset` is where the torn bytes start."""
+
+    __slots__ = ("kind", "offset", "size")
+
+    def __init__(self, kind: str, offset: int, size: int):
+        self.kind, self.offset, self.size = kind, offset, size
+
+    @property
+    def bytes(self) -> int:
+        return self.size - self.offset
+
+    def describe(self) -> str:
+        what = "no line break at the end" if self.kind == "unterminated" else "the last line is not valid JSON"
+        return f"{what}, {self.bytes} bytes"
+
+
+_TAIL_CHUNK = 65536
+
+
+def _is_json_object(raw: bytes) -> bool:
+    try:
+        return isinstance(json.loads(raw.decode("utf-8")), dict)
+    except (UnicodeDecodeError, ValueError):
+        return False
+
+
+def torn_tail(path: Path) -> "TornTail | None":
+    """None when the file is absent, empty, or ends in a complete JSON line; else what is wrong with its end.
+
+    Reads backwards from the end, so the cost follows the length of the last line, not of the file.
+    A bad line in the middle is not a torn tail (readers skip it), and trailing blank lines are fine.
+    """
+    try:
+        f = open(path, "rb")
+    except FileNotFoundError:
+        return None
+    with f:
+        size = os.fstat(f.fileno()).st_size
+        if size == 0:
+            return None
+        f.seek(size - 1)
+        ends_with_newline = f.read(1) == b"\n"
+        # Find the last non-blank line: read back until a line break precedes it.
+        data = b""
+        pos = size
+        while True:
+            step = min(_TAIL_CHUNK, pos)
+            pos -= step
+            f.seek(pos)
+            data = f.read(step) + data
+            body = data.rstrip(b" \t\r\n")
+            cut = body.rfind(b"\n")
+            if cut != -1 or pos == 0:
+                break
+        if not ends_with_newline:
+            # Everything after the last line break is unfinished (fix_torn_tail adds just the
+            # newline when that text turns out to be a whole JSON object).
+            return TornTail("unterminated", pos + data.rfind(b"\n") + 1, size)
+        if not body:
+            return None
+        line_start = pos + cut + 1  # cut == -1 at pos 0 gives 0
+        last = body[cut + 1:]
+        if _is_json_object(last):
+            return None
+        return TornTail("invalid", line_start, size)
+
+
+def _sync_fd(fd: int) -> None:
+    """Push a file's data to the disk. F_FULLFSYNC where the platform has it (macOS fsync alone can stay in the drive cache)."""
+    full = getattr(fcntl, "F_FULLFSYNC", None) if fcntl is not None else None
+    if full is not None:
+        try:
+            fcntl.fcntl(fd, full)
+            return
+        except OSError:
+            pass  # this filesystem does not support it: fall through to plain fsync
+    os.fsync(fd)
+
+
+def _sync_dir(directory: Path) -> None:
+    """fsync a folder so a new or renamed file's entry survives a reset. Skipped where folders cannot be opened (Windows)."""
+    try:
+        fd = os.open(str(directory), os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        try:
+            os.fsync(fd)
+        except OSError as exc:
+            if exc.errno not in (errno.EINVAL, errno.ENOTSUP, errno.EBADF, errno.EISDIR, errno.EACCES):
+                raise
+    finally:
+        os.close(fd)
+
+
+def durable_append(path: Path, line: str) -> None:
+    """Append `line` (no newline) to a .jsonl file, flushed to disk, refusing after a torn tail."""
+    path = Path(path)
+    data = line.encode("utf-8") + b"\n"
+    with irp_lock(path.parent):
+        tail = torn_tail(path)
+        if tail is not None:
+            raise TornTailError(path, tail)
+        created = not os.path.lexists(path)
+        flags = os.O_RDWR | os.O_APPEND | os.O_CREAT | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
+        fd = os.open(str(path), flags, 0o666)
+        try:
+            start = os.fstat(fd).st_size
+            written = 0
+            try:
+                while written < len(data):
+                    try:
+                        written += os.write(fd, data[written:])
+                    except InterruptedError:
+                        continue
+            except BaseException:
+                _roll_back(fd, start, data)
+                raise
+            try:
+                _sync_fd(fd)
+                if created:
+                    _sync_dir(path.parent)
+            except OSError as exc:
+                raise DurabilityError(
+                    f"The entry was written to {path.name} but the disk did not confirm it ({exc}). "
+                    f"Check the file before trying again, or the entry may appear twice."
+                ) from exc
+        finally:
+            os.close(fd)
+
+
+def _roll_back(fd: int, start: int, data: bytes) -> None:
+    """Cut a failed append back to its old length, but only if what sits after `start` is a prefix of our own
+    bytes (so a writer that got in after us, without the lock, is never cut)."""
+    try:
+        grown = os.fstat(fd).st_size - start
+        if 0 < grown <= len(data):
+            if os.pread(fd, grown, start) == data[:grown]:
+                os.ftruncate(fd, start)
+    except (OSError, AttributeError):
+        pass  # the torn-tail check will catch whatever is left
+
+
+def _utc_stamp() -> str:
+    return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+
+
+def fix_torn_tail(irp_dir: Path, name: str = "ledger.jsonl") -> dict[str, Any]:
+    """Repair a torn tail without deleting a byte.
+
+    Whole JSON with only the newline missing: add the newline. Anything else: copy the torn bytes to
+    `<stem>.torn-<UTC time>.jsonl` (never over an existing file), flush it and its folder, then truncate
+    the file back to the last complete line. Returns what was done.
+    """
+    path = Path(irp_dir) / name
+    with irp_lock(Path(irp_dir)):
+        tail = torn_tail(path)
+        if tail is None:
+            return {"file": name, "status": "clean"}
+        with open(path, "rb") as f:
+            f.seek(tail.offset)
+            torn = f.read()
+        if tail.kind == "unterminated" and _is_json_object(torn):
+            fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | getattr(os, "O_BINARY", 0))
+            try:
+                os.write(fd, b"\n")
+                _sync_fd(fd)
+            finally:
+                os.close(fd)
+            return {"file": name, "status": "newline-added", "bytes": 0}
+        stem = name[:-len(".jsonl")] if name.endswith(".jsonl") else name
+        stamp = _utc_stamp()
+        side = Path(irp_dir) / f"{stem}.torn-{stamp}.jsonl"
+        n = 1
+        while True:
+            try:
+                sfd = os.open(str(side), os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
+                break
+            except FileExistsError:
+                n += 1
+                side = Path(irp_dir) / f"{stem}.torn-{stamp}-{n}.jsonl"
+        try:
+            view = memoryview(torn)
+            done = 0
+            while done < len(torn):
+                done += os.write(sfd, view[done:])
+            _sync_fd(sfd)
+        finally:
+            os.close(sfd)
+        _sync_dir(Path(irp_dir))
+        # The bytes are safe in the side file. Only now shrink the original.
+        fd = os.open(str(path), os.O_WRONLY | getattr(os, "O_BINARY", 0))
+        try:
+            os.ftruncate(fd, tail.offset)
+            _sync_fd(fd)
+        finally:
+            os.close(fd)
+        return {"file": name, "status": "quarantined", "bytes": len(torn), "side_file": side.name}
+
+
 # ── reconstructions ───────────────────────────────────────────────────────────
 #
 # .irp/reconstructions.jsonl holds what `irp bootstrap` guessed from git history
@@ -754,7 +997,7 @@ def read_reconstructions(irp_dir: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if line:
             try:
@@ -767,9 +1010,7 @@ def read_reconstructions(irp_dir: Path) -> list[dict[str, Any]]:
 
 
 def append_reconstruction(irp_dir: Path, entry: dict[str, Any]) -> None:
-    with irp_lock(irp_dir):
-        with (irp_dir / RECONSTRUCTIONS_FILE).open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    durable_append(irp_dir / RECONSTRUCTIONS_FILE, json.dumps(entry, ensure_ascii=False))
 
 
 def next_rec_id(rows: list[dict[str, Any]], ledger: list[dict[str, Any]] | None = None) -> str:
@@ -811,7 +1052,7 @@ def _update_reconstruction_locked(irp_dir: Path, rec_id: str, changes: dict[str,
         return False
     out: list[str] = []
     found = False
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    for raw in path.read_text(encoding="utf-8", errors="surrogateescape").splitlines():
         try:
             row = json.loads(raw)
         except json.JSONDecodeError:
@@ -828,7 +1069,7 @@ def _update_reconstruction_locked(irp_dir: Path, rec_id: str, changes: dict[str,
 
     fd, tmp_name = tempfile.mkstemp(dir=str(irp_dir), prefix=".reconstructions-", suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        with os.fdopen(fd, "w", encoding="utf-8", errors="surrogateescape") as f:
             f.write("\n".join(out) + "\n")
             f.flush()
             os.fsync(f.fileno())
@@ -838,6 +1079,7 @@ def _update_reconstruction_locked(irp_dir: Path, rec_id: str, changes: dict[str,
         except OSError:
             pass
         os.replace(tmp_name, path)
+        _sync_dir(irp_dir)
     except BaseException:
         try:
             os.unlink(tmp_name)
@@ -883,7 +1125,7 @@ def read_craft(irp_dir: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
     rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         line = line.strip()
         if line:
             try:
@@ -895,8 +1137,7 @@ def read_craft(irp_dir: Path) -> list[dict[str, Any]]:
 
 def append_craft_entry(irp_dir: Path, entry: dict[str, Any]) -> None:
     """Append a single entry to .irp/craft.jsonl."""
-    with (irp_dir / "craft.jsonl").open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    durable_append(irp_dir / "craft.jsonl", json.dumps(entry, ensure_ascii=False))
 
 
 def next_craft_id(craft_entries: list[dict[str, Any]]) -> str:

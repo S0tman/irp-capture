@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
+from irp.core.store import durable_append
 from .config import IRP_LEDGER_PATH
 from .utils import generate_irp_id, get_timestamp
 
@@ -64,8 +65,7 @@ class LedgerWriter:
 
         # Append to ledger
         try:
-            with open(self.ledger_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            durable_append(Path(self.ledger_path), json.dumps(entry, ensure_ascii=False))
             return irp_id
         except IOError as e:
             raise IOError(f"Failed to write to ledger: {e}")

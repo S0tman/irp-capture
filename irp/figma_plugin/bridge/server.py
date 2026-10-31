@@ -165,7 +165,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             from datetime import date
             from irp.core.store import (
                 ProjectNotFound, read_ledger, next_irp_id,
-                append_ledger_entry, rebuild_current, write_current
+                append_ledger_entry, rebuild_current, write_current, TornTailError, irp_lock
             )
 
             try:
@@ -182,21 +182,31 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # read_ledger is unfiltered on purpose: ids must see every line,
             # including legacy bootstrap guesses. rebuild_current below leaves
             # those guesses out of current.json.
-            ledger = read_ledger(irp_dir)
+            try:
+                with irp_lock(irp_dir):
+                    ledger = read_ledger(irp_dir)
 
-            entry = {
-                "type": "decision",
-                "id": next_irp_id(ledger),
-                "what": decision,
-                "why": why or "",
-                "confidence": "medium",
-                "timestamp": date.today().isoformat(),
-                "source": "figma",
-                "tags": [],
-                "context": context,
-            }
+                    entry = {
+                        "type": "decision",
+                        "id": next_irp_id(ledger),
+                        "what": decision,
+                        "why": why or "",
+                        "confidence": "medium",
+                        "timestamp": date.today().isoformat(),
+                        "source": "figma",
+                        "tags": [],
+                        "context": context,
+                    }
 
-            append_ledger_entry(irp_dir, entry)
+                    append_ledger_entry(irp_dir, entry)
+            except TornTailError as exc:
+                print(f"[bridge] not captured: {exc}")
+                self.send_response(409)
+                self._cors_headers()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(exc)}).encode())
+                return
             updated_ledger = read_ledger(irp_dir)
             write_current(irp_dir, rebuild_current(updated_ledger))
 

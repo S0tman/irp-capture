@@ -16,14 +16,18 @@ except ImportError:
 from irp.core.resolver import build_retirement_set, build_supersession_map
 from irp.core.store import (
     classify_irp_folder,
+    fix_torn_tail,
     is_unconfirmed,
     read_current,
     read_ledger,
     read_reconstructions,
     rebuild_current,
     shared_unconfirmed_ids,
+    torn_tail,
     write_current,
 )
+
+_TAIL_FILES = ("ledger.jsonl", "craft.jsonl", "reconstructions.jsonl")
 
 _ACCEPT_HINT = "irp bootstrap --accept REC-..."
 
@@ -342,18 +346,37 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
 
     # ── ledger.jsonl ──────────────────────────────────────────────────────────
     entry_count = 0
+    # A half-written last line (a crash left it): report it, and with --fix-tail move it aside.
+    torn_files: list = []
+    fixed_tails: list = []
+    if irp_exists:
+        for name in _TAIL_FILES:
+            tail = torn_tail(irp_path / name)
+            if tail is not None and getattr(args, "fix_tail", False):
+                fixed_tails.append(fix_torn_tail(irp_path, name))
+                tail = torn_tail(irp_path / name)
+            if tail is not None:
+                torn_files.append({"file": name, "kind": tail.kind, "bytes": tail.bytes})
+    ledger_torn = next((t for t in torn_files if t["file"] == "ledger.jsonl"), None)
     if irp_exists:
         ledger = irp_path / "ledger.jsonl"
         if ledger.exists():
             try:
-                lines = [l for l in ledger.read_text().splitlines() if l.strip()]
+                raw = ledger.read_bytes()
+                if ledger_torn is not None:
+                    raw = raw[: len(raw) - ledger_torn["bytes"]]
+                lines = [l for l in raw.decode("utf-8").splitlines() if l.strip()]
                 valid = 0
                 for line in lines:
                     json.loads(line)
                     valid += 1
                 entry_count = valid
-                checks.append(_check("ledger.jsonl", True, f"{valid} {'entry' if valid == 1 else 'entries'}"))
-            except (json.JSONDecodeError, OSError) as e:
+                label = f"{valid} {'entry' if valid == 1 else 'entries'}"
+                if ledger_torn is not None:
+                    checks.append(_check("ledger.jsonl", False, f"{label}, then a half-written last line (see below)"))
+                else:
+                    checks.append(_check("ledger.jsonl", True, label))
+            except (json.JSONDecodeError, UnicodeDecodeError, OSError) as e:
                 checks.append(_check("ledger.jsonl", False, f"corrupt — {e}"))
         else:
             checks.append(_check("ledger.jsonl", False, "no entries yet — capture your first decision with: irp capture"))
@@ -404,6 +427,17 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
                 fixed.append("current.json")
                 current_stale = False
     ledger_notes = _ledger_notes(unconfirmed_ids, shared_ids, pending_reconstructions, current_stale)
+    for t in torn_files:
+        ledger_notes += [
+            f"    ! {t['file']} ends in a half-written line ({t['bytes']} bytes), probably left by a crash or power cut.",
+            "        Nothing can be added to it until that is dealt with, and every reader skips the half line.",
+            "        Move the half line to a side file (nothing is deleted) with: irp doctor --fix-tail",
+        ]
+    for r in fixed_tails:
+        if r.get("status") == "quarantined":
+            ledger_notes.append(f"    ✓ {r['file']}: {r['bytes']} half-written bytes moved to .irp/{r['side_file']}")
+        elif r.get("status") == "newline-added":
+            ledger_notes.append(f"    ✓ {r['file']}: last line was whole, only its line break was added")
     if fixed:
         ledger_notes.append("    ✓ current.json rebuilt from the ledger (unconfirmed guesses removed)")
 
@@ -516,6 +550,8 @@ def run_doctor(project_root: Path, irp_dir: Path, args) -> dict:
         "status": "ok" if all_ok else "issues_found",
         "checks": checks,
         "entry_count": entry_count,
+        "torn_tails": torn_files,
+        "fixed_tails": fixed_tails,
         "unconfirmed_count": unconfirmed_count,
         "unconfirmed_ids": unconfirmed_ids,
         "shared_ids": shared_ids,
