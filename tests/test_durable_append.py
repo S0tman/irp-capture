@@ -537,6 +537,30 @@ class TestDoctor:
         assert len(side) == 1 and side[0].read_bytes() == TORN_HALF.encode()
         assert (irp_dir / LEDGER).read_bytes() == raw  # nothing lost, still refusing
 
+    def test_side_file_and_folder_are_synced_before_the_ledger_shrinks(self, irp_dir, monkeypatch):
+        events = []
+        real_fsync, real_trunc = os.fsync, os.ftruncate
+
+        def fsync(fd):
+            st = os.fstat(fd)
+            events.append(("sync-dir" if stat.S_ISDIR(st.st_mode) else "sync-file", st.st_ino))
+            return real_fsync(fd)
+
+        def ftruncate(fd, n):
+            events.append(("truncate", os.fstat(fd).st_ino))
+            return real_trunc(fd, n)
+
+        _write_torn(irp_dir)
+        monkeypatch.setattr(os, "fsync", fsync)
+        monkeypatch.setattr(os, "ftruncate", ftruncate)
+        store.fix_torn_tail(irp_dir, LEDGER)
+        side_ino = next(irp_dir.glob("ledger.torn-*.jsonl")).stat().st_ino
+        t = events.index(("truncate", (irp_dir / LEDGER).stat().st_ino))
+        before = events[:t]
+        assert ("sync-file", side_ino) in before
+        assert ("sync-dir", irp_dir.stat().st_ino) in before
+        assert ("sync-file", (irp_dir / LEDGER).stat().st_ino) in events[t:]  # and the shrink itself is flushed
+
     def test_side_file_is_not_overwritten_and_is_private(self, irp_dir, monkeypatch):
         monkeypatch.setattr(store, "_utc_stamp", lambda: "20260102T030405Z")
         (irp_dir / "ledger.torn-20260102T030405Z.jsonl").write_bytes(b"older")
@@ -575,6 +599,29 @@ class TestConcurrency:
         assert len(ids) == 240 and len(set(ids)) == 240
         for k in range(6):  # each writer's own order is kept
             assert [i for i in ids if i.startswith(f"P{k}-")] == [f"P{k}-{j}" for j in range(40)]
+
+    def test_check_and_write_both_happen_under_the_lock(self, irp_dir, monkeypatch):
+        import contextlib
+
+        depth = {"n": 0}
+        real_lock = store.irp_lock
+
+        @contextlib.contextmanager
+        def counting(d):
+            with real_lock(d):
+                depth["n"] += 1
+                try:
+                    yield
+                finally:
+                    depth["n"] -= 1
+
+        seen = {}
+        real_tail, real_write = store.torn_tail, os.write
+        monkeypatch.setattr(store, "irp_lock", counting)
+        monkeypatch.setattr(store, "torn_tail", lambda p: seen.setdefault("tail", depth["n"]) and real_tail(p))
+        monkeypatch.setattr(os, "write", lambda fd, data: seen.setdefault("write", depth["n"]) and real_write(fd, data))
+        store.append_ledger_entry(irp_dir, _entry(2))
+        assert seen == {"tail": 1, "write": 1}
 
     def test_one_write_call_per_line_so_it_holds_without_the_lock(self, irp_dir, monkeypatch):
         import contextlib
