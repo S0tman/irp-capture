@@ -60,6 +60,8 @@ class TestDoctorStatus:
 class TestWriteCurrentDurable:
     def test_replace_and_syncs(self, irp_dir, monkeypatch):
         calls = []
+        # portable: on macOS F_FULLFSYNC would otherwise replace plain fsync
+        monkeypatch.setattr(store, "fcntl", None)
         real_replace, real_fsync = os.replace, os.fsync
         monkeypatch.setattr(os, "replace", lambda a, b: (calls.append("replace"), real_replace(a, b))[1])
         monkeypatch.setattr(os, "fsync", lambda fd: (calls.append("fsync"), real_fsync(fd))[1])
