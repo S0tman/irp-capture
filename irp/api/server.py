@@ -47,7 +47,9 @@ from irp.core.store import (
     find_project,
     read_active,
     read_ledger,
+    TornTailError,
     append_ledger_entry,
+    irp_lock,
     next_irp_id,
     rebuild_current,
     write_current,
@@ -167,22 +169,26 @@ def capture(req: CaptureRequest):
         raise HTTPException(status_code=400, detail="'what' field is required")
 
     irp_dir = get_project("capture", write=True).irp_dir
-    ledger = read_ledger(irp_dir)
+    try:
+        with irp_lock(irp_dir):
+            ledger = read_ledger(irp_dir)
 
-    entry: dict[str, Any] = {
-        "type": "decision",
-        "id": next_irp_id(ledger),
-        "what": req.what.strip(),
-        "why": req.why.strip(),
-        "confidence": req.confidence,
-        "timestamp": date.today().isoformat(),
-        "source": req.source,
-        "tags": req.tags,
-    }
-    if req.context:
-        entry["context"] = req.context
+            entry: dict[str, Any] = {
+                "type": "decision",
+                "id": next_irp_id(ledger),
+                "what": req.what.strip(),
+                "why": req.why.strip(),
+                "confidence": req.confidence,
+                "timestamp": date.today().isoformat(),
+                "source": req.source,
+                "tags": req.tags,
+            }
+            if req.context:
+                entry["context"] = req.context
 
-    append_ledger_entry(irp_dir, entry)
+            append_ledger_entry(irp_dir, entry)
+    except TornTailError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     updated = read_ledger(irp_dir)
     write_current(irp_dir, rebuild_current(updated))
 

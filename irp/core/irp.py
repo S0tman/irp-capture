@@ -376,6 +376,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Rebuild current.json from the ledger if it still lists unconfirmed bootstrap guesses",
     )
+    p_doctor.add_argument(
+        "--fix-tail",
+        action="store_true",
+        help="Move a half-written last line out of a .jsonl file into a side file (.irp/<name>.torn-<UTC time>.jsonl); no bytes are deleted",
+    )
     p_doctor.add_argument("--json", action="store_true")
 
     # ── docs ─────────────────────────────────────────────────────────────────

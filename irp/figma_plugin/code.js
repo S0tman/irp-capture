@@ -26,6 +26,6 @@ figma.ui.onmessage = async (msg) => {
   }
 
   if (msg.type === "error") {
-    figma.notify("IRP bridge not reachable — is the bridge running?", { error: true });
+    figma.notify(msg.message ? String(msg.message).slice(0, 200) : "IRP bridge not reachable — is the bridge running?", { error: true });
   }
 };
